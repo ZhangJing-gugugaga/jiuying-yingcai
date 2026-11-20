@@ -1,0 +1,3 @@
+/* Shared visual system is defined in app.wxss. */
+.verification-status{margin-top:16rpx}
+.verification-position{margin:24rpx 0}

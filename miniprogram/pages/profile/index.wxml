@@ -1,0 +1,42 @@
+<view class="page tab-page">
+  <view class="title">我的</view>
+  <view wx:if="{{loading}}" class="loading">正在加载，请稍候…</view>
+  <view wx:if="{{error}}" class="error">{{error}}<button class="link top-gap" bindtap="refresh">重试</button></view>
+  <view wx:if="{{isPublic || hasAccount}}" class="card row">
+    <view class="avatar">九</view>
+    <view class="grow">
+      <view class="card-title">{{isPublic ? '访客' : managerName || '加盟商账号'}}</view>
+      <view wx:if="{{isPublic}}" class="muted">登录后可管理网点和经营数据。</view>
+      <view wx:if="{{organizationName && !isPublic}}" class="muted">{{organizationName}}</view>
+      <view wx:if="{{outletCount !== null && !isPublic}}" class="muted">管理 {{outletCount}} 家网点</view>
+    </view>
+    <button wx:if="{{isPublic}}" class="outline small profile-login" data-page="login" bindtap="nav">加盟商登录</button>
+  </view>
+  <view wx:if="{{!isPublic && hasAccount && detailsUnavailable}}" class="row between profile-retry">
+    <text class="muted">部分账号资料暂时无法显示。</text>
+    <button class="link" bindtap="refresh">刷新资料</button>
+  </view>
+  <view class="card">
+    <view class="card-title">账号与帮助</view>
+    <button wx:if="{{!isPublic && hasAccount}}" class="profile-link" data-page="security" bindtap="nav">账号安全</button>
+    <button class="profile-link" data-page="discover" data-query="section=brand" bindtap="nav">集团介绍与服务</button>
+    <button class="profile-link" data-page="discover" data-query="section=faq" bindtap="nav">常见问题</button>
+    <button class="profile-link" data-page="support" bindtap="nav">联系总部</button>
+  </view>
+  <view class="card">
+    <button class="profile-favorites-button" bindtap="toggleFavorites" aria-expanded="{{showFavorites}}">{{showFavorites ? '收起收藏的网点' : '收藏的服务网点'}}</button>
+    <block wx:if="{{showFavorites}}">
+      <view class="muted">收藏仅保存在本机。</view>
+      <view wx:if="{{favoritesLoading}}" class="loading">正在加载收藏…</view>
+      <view wx:if="{{favoritesError}}" class="hint">{{favoritesError}} <button class="link" bindtap="loadFavorites">重试</button></view>
+      <button wx:for="{{favoriteRows}}" wx:key="id" class="profile-favorite" data-id="{{item.id}}" bindtap="openFavorite">
+        <view class="grow"><view class="card-title">{{item.name}}</view><view wx:if="{{item.address}}" class="muted">{{item.address}}</view></view>
+      </button>
+      <view wx:if="{{unavailableFavorites}}" class="hint">{{unavailableFavorites}} 家收藏网点已不再显示。<button wx:if="{{!favoritesError}}" class="link" bindtap="clearUnavailableFavorites">移除失效收藏</button></view>
+      <view wx:if="{{!favoritesLoading && !favoritesError && !favoriteRows.length && !unavailableFavorites}}" class="hint">暂无收藏，可在服务网点详情收藏。</view>
+    </block>
+  </view>
+  <button class="link" bindtap="privacy">运营主体与隐私保护指引</button>
+  <view wx:if="{{version}}" class="muted profile-version">版本 {{version}}</view>
+  <button wx:if="{{session && !isPublic}}" class="danger top-gap" bindtap="logout">退出登录</button>
+</view>

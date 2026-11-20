@@ -1,0 +1,22 @@
+<view class="page compact {{service ? 'service-page' : ''}}">
+  <view wx:if="{{loading}}" class="loading">正在加载，请稍候…</view>
+  <view wx:if="{{error}}" class="error">
+    {{error}}
+    <button class="link top-gap" bindtap="refresh">重试</button>
+    <button class="link" data-page="discover" data-query="section=services" bindtap="nav">查看集团业务</button>
+  </view>
+  <block wx:if="{{service}}">
+    <view class="title">{{service.title}}</view>
+    <view wx:if="{{service.summary}}" class="subtitle">{{service.summary}}</view>
+    <view class="card top-gap">
+      <view wx:if="{{coverPath}}" class="service-cover-frame">
+        <image class="service-cover" src="{{coverPath}}" mode="widthFix" lazy-load binderror="coverFailed" aria-label="{{service.title}}封面" />
+      </view>
+      <view class="article">{{service.body || service.text || service.intro}}</view>
+    </view>
+    <view class="service-actions">
+      <button class="primary" data-page="support" bindtap="nav">联系总部咨询</button>
+      <button class="outline" open-type="share">分享</button>
+    </view>
+  </block>
+</view>

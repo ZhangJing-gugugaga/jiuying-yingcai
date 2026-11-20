@@ -1,0 +1,12 @@
+/* Shared visual system is defined in app.wxss. */
+.page.login{padding-top:40rpx}
+.login .brand-mark{width:76rpx;height:76rpx;font-size:38rpx;margin-bottom:25rpx}
+.login .title{font-size:52rpx;letter-spacing:0}
+.login-subtitle{margin-bottom:28rpx}
+.login-entry,.login-methods{display:flex;align-items:center;flex-wrap:wrap;gap:4rpx 14rpx;margin-top:12rpx}
+.login-entry button,.login-methods button{margin:0;min-height:88rpx}
+.login-footer{justify-content:center}
+.login-error{margin:14rpx 0}
+.login .sms-actions{margin-top:0}
+.login .sms-code{flex:1;min-width:0}
+.login .sms-actions button{flex:0 0 auto}

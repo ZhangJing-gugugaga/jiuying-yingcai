@@ -1,0 +1,106 @@
+.training-toolbar .field {
+  margin-bottom: 0;
+}
+
+.training-tabs,
+.training-actions {
+  display: flex;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.training-tabs button {
+  flex: 1;
+  font-size: var(--font-body);
+}
+
+.training-tabs + .field,
+.training-course {
+  margin-top: var(--space-lg);
+}
+
+.training-text {
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.training-separator {
+  margin-top: var(--space-lg);
+  padding-top: var(--space-md);
+  border-top: 1rpx solid var(--border);
+}
+
+.training-meta,
+.training-next {
+  margin-top: var(--space-xs);
+}
+
+.training-note,
+.training-notice {
+  padding: var(--space-md);
+  border-radius: var(--radius-control);
+  color: var(--brand-deep);
+  background: var(--brand-soft);
+  line-height: 1.5;
+}
+
+.training-notice {
+  margin: 0 0 var(--space-md);
+}
+
+.training-attachment {
+  padding: var(--space-sm) 0;
+}
+
+.training-preview {
+  display: block;
+  width: 100%;
+  height: 240rpx;
+  margin: var(--space-md) 0;
+  background-color: var(--surface-muted);
+  border-radius: var(--radius-control);
+}
+
+.training-actions {
+  margin-top: var(--space-md);
+}
+
+.training-section-title {
+  font-size: var(--font-body);
+  font-weight: 650;
+  margin-bottom: var(--space-xs);
+}
+
+.training-note {
+  margin-bottom: var(--space-md);
+  overflow-wrap: anywhere;
+}
+
+.training-note.returned {
+  color: var(--error-text);
+  background: var(--error-bg);
+}
+
+.training-next {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.training-error {
+  color: var(--error-text);
+  background: var(--error-bg);
+  border-radius: var(--radius-control);
+  padding: var(--space-md);
+  margin-top: var(--space-sm);
+}
+
+.training-file-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.training-attachment button {
+  flex-shrink: 0;
+}

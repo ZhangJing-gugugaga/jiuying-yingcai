@@ -1,0 +1,15 @@
+{
+  "description": "九盈英才原生小程序 · 请生成环境包后导入",
+  "miniprogramRoot": "./",
+  "compileType": "miniprogram",
+  "appid": "REPLACE_WITH_REAL_WECHAT_APPID",
+  "projectname": "jiuying-yingcai",
+  "libVersion": "3.7.10",
+  "setting": {
+    "urlCheck": true,
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "minified": true
+  }
+}

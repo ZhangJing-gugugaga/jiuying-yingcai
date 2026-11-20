@@ -1,0 +1,112 @@
+<view class="page tab-page">
+  <view class="home-header row between">
+    <view class="row grow">
+      <view class="home-mark" aria-hidden="true">九</view>
+      <view class="grow">
+        <view class="home-title">九盈英才</view>
+        <view wx:if="{{managerName && !publicView}}" class="home-caption">{{managerName}}{{outletCount !== null ? ' · '+outletCount+' 家网点' : ''}}</view>
+        <view wx:elif="{{publicView}}" class="home-caption">集团与网点服务</view>
+        <view wx:elif="{{displayDate}}" class="home-caption">{{displayDate}}</view>
+      </view>
+    </view>
+    <block wx:if="{{publicView}}">
+      <button wx:if="{{!session || session.role==='public'}}" class="home-login" data-page="login" bindtap="nav">加盟商登录</button>
+      <button wx:elif="{{session}}" class="home-login" bindtap="returnWorkbench">返回工作台</button>
+    </block>
+    <button wx:elif="{{unread}}" class="home-login" data-page="tasks" data-query="section=notices&status=unread" bindtap="nav">未读通知 · {{unread}}</button>
+  </view>
+  <view wx:if="{{loading && !hasLoaded && !publicView && !taskPreviewReady}}" class="card content-skeleton">
+    <text>正在加载工作台…</text>
+    <view class="content-skeleton-body" aria-hidden="true"/>
+  </view>
+  <view wx:elif="{{loading && hasLoaded && !publicView}}" class="loading">正在更新工作台…</view>
+  <view wx:if="{{error}}" class="error">{{error}}<button class="link top-gap" bindtap="refresh">重试</button></view>
+
+  <block wx:if="{{!publicView && (hasLoaded || taskPreviewReady)}}">
+    <view class="section-head">
+      <view class="section-title">待我处理{{openTotal ? ' · '+openTotal : ''}}</view>
+    </view>
+    <view wx:if="{{todoPreview.length}}" class="card home-todo-card">
+      <view wx:for="{{todoPreview}}" wx:key="id" class="list-item row {{item.overdue ? 'home-todo-overdue' : ''}}">
+        <view class="grow">
+          <view class="card-title">{{item.title}}</view>
+          <view wx:if="{{item.detail}}" class="home-caption">{{item.detail}}</view>
+          <view wx:if="{{item.dueText}}" class="home-due">{{item.dueText}}</view>
+        </view>
+        <button class="outline small" data-id="{{item.id}}" bindtap="openTodo" disabled="{{!taskPreviewReady || openingTodo}}">{{item.actionText}}</button>
+      </view>
+      <button wx:if="{{openTotal > todoPreview.length}}" class="link" data-page="tasks" data-query="status=open" bindtap="nav">查看其余 {{openTotal - todoPreview.length}} 项待处理事项</button>
+    </view>
+    <view wx:if="{{todoError}}" class="error">{{todoError}}</view>
+    <view wx:if="{{taskError}}" class="card row between">
+      <text class="muted">部分待办暂未加载。</text>
+      <button class="link" bindtap="refresh">重新加载</button>
+    </view>
+    <view wx:elif="{{!openTotal && taskPreviewReady && !error}}" class="card empty">目前没有需要您处理的事项。</view>
+    <button wx:if="{{openTotal && !todoPreview.length}}" class="link" data-page="tasks" data-query="status=open" bindtap="nav">查看全部待处理事项</button>
+    <button wx:if="{{inProgressTotal}}" class="link home-progress-link" data-page="tasks" data-query="status=in_progress" bindtap="nav">查看处理中事项 · {{inProgressTotal}}</button>
+    <view class="home-tools">
+      <button class="home-tool" data-page="location" bindtap="nav">月度位置核验</button>
+      <button class="home-tool" data-page="fees" bindtap="nav">咨询服务费</button>
+      <button class="home-tool" data-page="tasks" bindtap="nav">我的事项</button>
+    </view>
+
+    <view wx:if="{{period && taskPreviewReady && !error}}" class="hero home-summary">
+      <view class="hero-title">{{latestMetrics.length ? latestSettledMonthText+'经营概况' : '本月经营概况'}}</view>
+      <view wx:if="{{summaryError}}" class="muted top-gap">经营概况暂未加载，可进入看板重试。</view>
+      <block wx:elif="{{hasCurrentSettlement}}">
+        <view wx:if="{{asOf}}" class="muted">数据截至{{asOf}} · 仅汇总已结算数据</view>
+        <view class="metrics"><view wx:for="{{metrics}}" wx:key="label" class="metric"><view class="metric-label">{{item.label}}</view><view class="metric-value">{{item.value}}</view></view></view>
+      </block>
+      <block wx:else>
+        <view class="muted top-gap">本月数据尚未结算</view>
+        <block wx:if="{{latestMetrics.length}}">
+          <view class="muted top-gap">最近已结算月 · 仅汇总已结算数据</view>
+          <view class="metrics"><view wx:for="{{latestMetrics}}" wx:key="label" class="metric"><view class="metric-label">{{item.label}}</view><view class="metric-value">{{item.value}}</view></view></view>
+        </block>
+        <view wx:if="{{!latestSettledMonth && !reviewing}}" class="muted top-gap">当前暂无可查看的经营数据</view>
+        <button wx:if="{{latestSettledMonth}}" class="outline small top-gap" bindtap="openSettled">查看 {{latestSettledMonthText}} 已结算数据</button>
+      </block>
+      <view wx:if="{{reviewing}}" class="muted top-gap">部分网点数据正在审核，暂未纳入正式统计</view>
+      <button wx:if="{{hasCurrentSettlement || !latestSettledMonth}}" class="outline small top-gap" data-page="dashboard" bindtap="nav">查看经营看板</button>
+    </view>
+  </block>
+  <block wx:elif="{{publicView}}">
+    <view class="home-map-card">
+      <view class="home-map-label">{{groupIntro.title || '九盈英才集团与服务'}}</view>
+      <view class="home-map-caption">了解集团五大业务，查找中国及境外服务网点</view>
+      <view class="home-map-actions">
+        <button class="primary small" data-page="outlets" data-query="scope=public&mode=list" bindtap="nav">查找服务网点</button>
+        <button class="outline small" data-page="discover" data-query="section=services" bindtap="nav">集团业务</button>
+      </view>
+    </view>
+    <view class="home-contact-card">
+      <button class="home-contact" data-page="support" bindtap="nav">联系总部</button>
+      <button wx:if="{{headquartersPhone}}" class="outline small home-dial" bindtap="dialHeadquarters" aria-label="拨打总部电话 {{headquartersPhone}}">拨打总部电话</button>
+    </view>
+
+    <view class="section-head">
+      <view class="section-title">五大业务</view>
+    </view>
+    <view wx:if="{{publishedServices.length}}" class="home-services">
+      <button wx:for="{{publishedServices}}" wx:key="id" class="home-service" data-id="{{item.id}}" bindtap="openService">
+        <image wx:if="{{item.coverPath}}" class="home-service-image" src="{{item.coverPath}}" mode="aspectFill" lazy-load data-id="{{item.id}}" binderror="publicCoverFailed" aria-label="{{item.title}}封面" />
+        <view wx:else class="home-service-placeholder" aria-hidden="true">{{item.initial}}</view>
+        <view class="home-service-title">{{item.title}}</view>
+      </button>
+    </view>
+    <view wx:elif="{{loading && !hasLoaded}}" class="card content-skeleton">
+      <text>正在加载业务介绍…</text>
+      <view class="content-skeleton-body" aria-hidden="true"/>
+    </view>
+    <view wx:elif="{{loading}}" class="loading">正在更新业务介绍…</view>
+    <view wx:elif="{{hasLoaded && !error}}" class="home-content-empty">业务介绍准备中。</view>
+
+    <view class="section-title">了解九盈</view>
+    <view class="card home-secondary">
+      <button class="home-contact" data-page="discover" data-query="section=brand" bindtap="nav">集团介绍与服务</button>
+      <button class="home-contact" data-page="discover" data-query="section=cooperation" bindtap="nav">合作咨询</button>
+      <button class="home-contact" data-page="outlets" data-query="scope=public&mode=map" bindtap="nav">全域网点地图</button>
+    </view>
+  </block>
+</view>

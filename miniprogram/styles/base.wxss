@@ -1,0 +1,133 @@
+page {
+  background: var(--background);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: var(--font-body);
+  line-height: 1.5;
+}
+
+view, text, input, textarea, button {
+  box-sizing: border-box;
+}
+
+button::after {
+  border: 0;
+}
+
+button {
+  min-height: 88rpx;
+  min-height: max(88rpx, 44px);
+  font-size: var(--font-body);
+  border-radius: var(--radius-control);
+  background: var(--brand-soft);
+  color: var(--brand);
+  line-height: 1.5;
+  padding: var(--space-lg) var(--space-xl);
+  margin: 0;
+  font-weight: 600;
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+
+button.primary {
+  background: var(--brand);
+  color: var(--surface);
+}
+
+button.outline {
+  border: 1rpx solid var(--border-strong);
+  background: transparent;
+}
+
+button.small {
+  font-size: var(--font-caption);
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-control);
+}
+
+button.link {
+  background: transparent;
+  min-height: 88rpx;
+  min-height: max(88rpx, 44px);
+  padding: var(--space-lg) 0;
+  color: var(--brand-deep);
+  text-align: left;
+  font-size: var(--font-body);
+  font-weight: 600;
+}
+
+button.danger {
+  color: var(--error-text);
+  background: var(--error-bg);
+}
+
+.field {
+  margin: var(--space-lg) 0;
+}
+
+.field label {
+  display: block;
+  font-size: var(--font-caption);
+  color: var(--muted);
+  margin-bottom: var(--space-md);
+}
+
+.field input, .field textarea, .picker {
+  background: var(--background);
+  border: 1rpx solid var(--border);
+  border-radius: var(--radius-control);
+  padding: var(--space-lg) var(--space-lg);
+  width: 100%;
+  font-size: var(--font-body);
+  color: var(--text);
+  min-height: 88rpx;
+  min-height: max(88rpx, 44px);
+}
+
+.field input {
+  height: 88rpx;
+}
+
+.field textarea {
+  height: 160rpx;
+}
+
+.field .unit {
+  font-size: var(--font-caption);
+  color: var(--muted);
+}
+
+input, textarea {
+  font-family: inherit;
+}
+
+button[disabled], button.primary[disabled], button.pill[disabled] {
+  background: var(--neutral-bg);
+  color: var(--neutral-text);
+  border-color: var(--border);
+  opacity: 1;
+}
+
+.button-hover,
+.tap-feedback {
+  opacity: .7;
+}
+
+.picker-control {
+  position: relative;
+  padding-right: calc(var(--space-xl) + var(--space-md));
+}
+
+.picker-control::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: var(--space-md);
+  width: 12rpx;
+  height: 12rpx;
+  border-right: 2rpx solid var(--muted);
+  border-bottom: 2rpx solid var(--muted);
+  transform: translateY(-72%) rotate(45deg);
+  pointer-events: none;
+}

@@ -1,0 +1,6 @@
+<cover-view wx:if="{{selected}}" class="activity-tabs" aria-role="tablist" aria-label="主导航">
+  <cover-view wx:for="{{items}}" wx:key="key" class="activity-tab {{selected===item.key ? 'activity-tab-active' : ''}}" data-key="{{item.key}}" bindtap="choose" aria-role="tab" aria-selected="{{selected===item.key}}" aria-label="{{item.label}}">
+    <cover-image class="activity-tab-icon" src="{{item.icon}}" aria-hidden="true"/>
+    <cover-view class="activity-tab-label">{{item.label}}</cover-view>
+  </cover-view>
+</cover-view>

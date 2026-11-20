@@ -1,0 +1,5 @@
+.service-page{padding-bottom:calc(140rpx + env(safe-area-inset-bottom,0px))}
+.service-cover-frame{max-height:480rpx;overflow:hidden;border-radius:20rpx;margin-bottom:18rpx;background:var(--brand-soft,#eaf4ff)}
+.service-cover{display:block;width:100%}
+.service-actions{position:fixed;z-index:5;bottom:0;left:0;right:0;display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:14rpx;padding:14rpx 24rpx calc(14rpx + env(safe-area-inset-bottom,0px));background:var(--surface,#fff);border-top:1rpx solid var(--border,#dfe7f2)}
+.service-actions button{width:100%;margin:0;min-height:88rpx}

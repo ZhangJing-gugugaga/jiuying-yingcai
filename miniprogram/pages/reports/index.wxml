@@ -1,0 +1,73 @@
+<view class="page tab-page">
+  <view class="row between report-heading">
+    <view class="title grow">经营月报</view>
+    <picker wx:if="{{hasLoaded && !isPublic && month}}" mode="date" fields="month" value="{{month}}" end="{{state.today}}" bindchange="changeMonth" disabled="{{loading || loadingReports}}">
+      <view class="picker picker-control">{{monthDisplay}}</view>
+    </picker>
+  </view>
+  <view wx:if="{{loading && !hasLoaded}}" class="card content-skeleton">
+    <text>正在加载经营月报…</text>
+    <view class="content-skeleton-body" aria-hidden="true"/>
+  </view>
+  <view wx:elif="{{loading}}" class="loading">正在更新经营月报…</view>
+  <view wx:if="{{error}}" class="error">
+    {{error}}
+    <button class="link top-gap" bindtap="refresh">重试</button>
+    <button wx:if="{{outlet!=='all'}}" class="link" bindtap="clearOutlet">清除当前网点筛选</button>
+  </view>
+  <block wx:if="{{hasLoaded && !isPublic && month}}">
+    <view class="card report-list-scope">
+      <view class="filter">
+        <button class="pill {{month===previousMonth?'active':''}}" data-value="previous" bindtap="pickMonthShortcut" disabled="{{loading || loadingReports}}">上月 {{previousMonth}}</button>
+        <button class="pill {{month===currentMonth?'active':''}}" data-value="current" bindtap="pickMonthShortcut" disabled="{{loading || loadingReports}}">本月 {{currentMonth}}</button>
+      </view>
+      <view wx:if="{{periodHint}}" class="hint">{{periodHint}}</view>
+      <button wx:if="{{session.role==='partner' && canOpenEditor}}" class="primary report-new" bindtap="newReport" disabled="{{loading || error || loadingReports}}">填报经营月报</button>
+      <view class="field">
+        <label>网点</label>
+        <picker range="{{options}}" range-key="label" value="{{outletIndex<0 ? 0 : outletIndex}}" bindchange="pickOutlet" disabled="{{loading || pagers.outlets.loading}}">
+          <view class="picker picker-control" hover-class="tap-feedback">{{outletIndex<0 ? '请重新选择网点' : options[outletIndex].label}}</view>
+        </picker>
+      </view>
+      <view wx:if="{{pagers.outlets.hasMore}}" class="pagination">
+        <button class="outline small" data-collection="outlets" bindtap="more" disabled="{{loading || loadingReports || pagers.outlets.loading}}">加载更多网点</button>
+      </view>
+    </view>
+    <view wx:if="{{coverage && !loading}}" class="coverage">
+      <view class="row between">
+        <text>应报 {{coverage.expected}} 家 · 已提交 {{coverage.submitted}} 家</text>
+        <text wx:if="{{coverage.exempt}}" class="muted">免报 {{coverage.exempt}} 家</text>
+      </view>
+      <view wx:if="{{coverage.expected}}" class="report-progress"><view class="report-progress-fill" style="width:{{coverage.percent}}%"></view></view>
+    </view>
+    <view class="filter report-filter">
+      <button class="pill {{displayFilter==='todo'?'active':''}}" data-value="todo" bindtap="filter" disabled="{{loading || loadingReports}}">待我填</button>
+      <button class="pill {{displayFilter==='reviewing'?'active':''}}" data-value="reviewing" bindtap="filter" disabled="{{loading || loadingReports}}">审核中</button>
+      <button class="pill {{displayFilter==='approved'?'active':''}}" data-value="approved" bindtap="filter" disabled="{{loading || loadingReports}}">已通过</button>
+      <button class="pill {{displayFilter==='all'?'active':''}}" data-value="all" bindtap="filter" disabled="{{loading || loadingReports}}">全部</button>
+    </view>
+    <view wx:for="{{reportRows}}" wx:key="id" class="card">
+      <view class="row between">
+        <text class="card-title grow">{{item.outletName}}</text>
+        <text class="badge {{item.statusTone}}">{{item.statusText}}</text>
+      </view>
+      <view class="muted top-gap">{{monthDisplay}}经营月报<text wx:if="{{item.version}}"> · V{{item.version}}</text></view>
+      <view wx:if="{{item.returned || item.review && item.kind==='draft'}}" class="hint report-return-note">总部退回意见：{{item.review || '可联系总部了解详情。'}}</view>
+      <view wx:if="{{item.versionNumbers.effective && item.versionNumbers.effective!==item.version}}" class="hint">V{{item.versionNumbers.effective}} 仍为当前有效月报。</view>
+      <view class="row between top-gap">
+        <view class="grow">
+          <text wx:if="{{item.dueText}}" class="muted">{{item.dueText}}截止</text>
+          <text wx:elif="{{item.submittedText}}" class="muted">{{item.submittedText}}提交</text>
+          <text wx:if="{{item.lateSubmission || item.late || item.overdue}}" class="badge wait">逾期</text>
+        </view>
+        <button class="outline small" data-outlet="{{item.outlet}}" data-month="{{item.month}}" data-id="{{item.kind==='report' ? item.id : ''}}" bindtap="open" disabled="{{loading || error}}">{{item.actionText}}</button>
+      </view>
+    </view>
+    <view wx:if="{{!reportRows.length && !loading && !error}}" class="empty">
+      {{month>=currentMonth ? '所选经营月份尚未开放填报。' : (displayFilter==='todo' && !moreCollections.length ? '所选范围内没有待填写或待修改的月报。' : (moreCollections.length ? '当前已加载范围内没有符合条件的月报。' : '所选网点和经营月份没有符合条件的月报。'))}}
+    </view>
+    <view wx:if="{{moreCollections.length}}" class="pagination">
+      <button class="outline small" bindtap="moreReports" disabled="{{loading || loadingReports}}" loading="{{loadingReports}}">加载更多月报</button>
+    </view>
+  </block>
+</view>

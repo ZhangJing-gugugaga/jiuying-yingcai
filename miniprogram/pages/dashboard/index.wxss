@@ -1,0 +1,21 @@
+.dashboard-filters {
+  margin: var(--space-lg) 0;
+}
+
+.dashboard-filters .field {
+  margin: var(--space-md) 0;
+}
+
+.dashboard-filters .field:last-child {
+  margin-bottom: 0;
+}
+
+.dashboard-exports {
+  display: flex;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.chart-axis {
+  margin-top: var(--space-sm);
+}

@@ -1,0 +1,49 @@
+.activity-tabs {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  display: flex;
+  box-sizing: border-box;
+  min-height: var(--tab-bar-height);
+  min-height: calc(var(--tab-bar-height) + env(safe-area-inset-bottom, 0px));
+  padding: 0 env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+  border-top: 1rpx solid var(--border);
+  background: var(--surface);
+}
+
+.activity-tab {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-width: 0;
+  min-height: 88rpx;
+  min-height: max(88rpx, 44px);
+  gap: var(--space-xs);
+  color: var(--muted);
+  font-size: var(--font-caption);
+  line-height: 1.35;
+}
+
+.activity-tab-active {
+  color: var(--brand);
+  font-weight: 650;
+}
+
+.activity-tab:active {
+  background: var(--surface-muted);
+}
+
+.activity-tab-icon {
+  width: 44rpx;
+  height: 44rpx;
+}
+
+.activity-tab-label {
+  white-space: normal;
+  text-align: center;
+  overflow-wrap: anywhere;
+}

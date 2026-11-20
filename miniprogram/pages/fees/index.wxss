@@ -1,0 +1,25 @@
+.fees-heading .section-title {
+  margin-right: auto;
+  font-size: var(--font-title);
+}
+
+.mock-payment-overlay {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(17, 38, 33, 0.56);
+  padding: 36rpx;
+  padding-bottom: calc(36rpx + env(safe-area-inset-bottom, 0px));
+}
+.mock-payment-dialog {
+  width: 100%;
+  max-width: 680rpx;
+  max-height: 90vh;
+  overflow-y: auto;
+}

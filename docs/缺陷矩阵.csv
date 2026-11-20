@@ -1,0 +1,21 @@
+﻿编号,场景,复核发现,整改,文件,验证,状态
+A01,T02/T06/T12,切店或筛选后选中的业务范围丢失，月报空结果隐藏搜索,按网点ID保留选择，空结果仍可清空或重查,miniprogram/utils/page.js；pages/report；pages/dashboard,acceptance-native.test.cjs,已修复，复核结果见报告与实际验包日志
+A02,T04,GPS采集时间未落库，切店或跨月可能沿用旧证据,顶部 capturedAt 契约；异步范围校验；照片与坐标按范围清除,miniprogram/pages/location；utils/api.js,acceptance-native.test.cjs,已修复，复核结果见报告与实际验包日志
+A03,T05,位置变更切店保留旧坐标和照片,新店填写新定位证据，补件绑定原申请,miniprogram/pages/requests,acceptance-native.test.cjs,已修复，复核结果见报告与实际验包日志
+A04,T11/T13,客服消息可能停留在旧工单；位置消息漏目标月份和补件申请,按业务对象精确跳转，定位详情查授权,miniprogram/pages/support；utils/page.js,acceptance-native.test.cjs,已修复，复核结果见报告与实际验包日志
+A05,T14,写请求401不返登录，迟到旧响应可清新令牌,按发出请求的token核对状态，统一登录恢复,miniprogram/utils/api.js,acceptance-native.test.cjs,已修复，复核结果见报告与实际验包日志
+A06,T06/T13,月报退回待办完成后重复生成,按业务事实跳过无须生成待办,shared/operations.cjs,acceptance-business.test.cjs,已修复，复核结果见报告与实际验包日志
+A07,T08,撤销未持久化关联汇总调整待复核,命令范围包含关联记录,server/command-scope.cjs,acceptance-business.test.cjs,已修复，复核结果见报告与实际验包日志
+A08,T12,已结算报告包含未结算的经营说明,取有效结算快照关联的当前说明,server/index.cjs,acceptance-business.test.cjs,已修复，复核结果见报告与实际验包日志
+A09,T11,未转人工FAQ、内部协作和未升级工单存在读范围过宽,详情、列表和操作按岗位及归属；客服后台展示授权备注,shared/core.cjs；server/repository.cjs；admin-web/app.js,acceptance-permissions.test.cjs,已修复，复核结果见报告与实际验包日志
+A10,T11,客服搜索可间接匹配内部店址,客服目录最小字段，搜索限制名称和区划,server/repository.cjs,acceptance-permissions.test.cjs,已修复，复核结果见报告与实际验包日志
+A11,T12,本主体或区域分页能看到越权结算计数及集团覆盖字段,SQL按授权记录过滤，总部保留集团值,shared/core.cjs；server/repository.cjs,acceptance-permissions.test.cjs,已修复，复核结果见报告与实际验包日志
+A12,T11,公众号送达摘要权限没有对齐会话,沿用客服记录统一授权并限制公众号渠道,server/official-account.cjs,official-account.test.cjs,已修复，复核结果见报告与实际验包日志
+A13,T09,验签公钥读取失败时第二调用不再严格拦截,双密钥同时验证成功才缓存,server/wechat-pay.cjs,wechat-pay.test.cjs,已修复，复核结果见报告与实际验包日志
+A14,T09,缺少可选金额的未付回执不兼容；重复关单可重复写审计,状态区分可选字段和严格到账条件；关单幂等,server/payments.cjs,wechat-pay.test.cjs,已修复，复核结果见报告与实际验包日志
+A15,T09/T13,真实到账遗漏付款待办,事务内关闭待支付和逾期待办，记录依据与时间,server/payments.cjs,wechat-pay.test.cjs,已修复，复核结果见报告与实际验包日志
+A16,T12,等行数不同筛选的导出审计无法区分,记录已验证的主体、网点筛选,server/index.cjs,release-boundaries.test.cjs,已修复，复核结果见报告与实际验包日志
+A17,Web回归,异步弹窗渲染前两项检查读取计数,等待同一检查元素可见，原断言保留,tests/browser-round2.cjs；tests/browser-remediation.cjs,新目录浏览器日志,已修复，复核结果见报告与实际验包日志
+A18,微信平台,历史 V3 18页独立验收候选版（2026-11-18）CLI 服务端口关闭，图形界面已进入项目,隔离目录装入真实项目源码；取证层级见微信运行验证报告,execution/acceptance-compiler-initial,ide-cli.log；ide-backend.log,历史候选版 IDE 图形界面模拟器月报链路通过；真机与真实平台待验证；V3.3基线 IDE 已导入，信任提示阻断，模拟器 0/19；最终候选待按新 SHA256 独立实测
+A19,T06,列表没有继续草稿入口，待审和有效月报仍显示提交按钮,按月列本人草稿，直达表单，版本有审核状态时只读并保留更正入口,miniprogram/pages/report；miniprogram/pages/reports,历史 V3 18页月报闭环模拟器复验（2026-11-18）；acceptance-native.test.cjs,已验证（历史候选版）
+A20,T06,筛选嵌入第一张审核卡、分页重复、首报空变更、岗位审核入口不匹配,筛选前置、单一分页、仅非空差异、按岗位与状态显示审核、显示实际截止日,admin-web/app.js,历史 V3 18页月报闭环模拟器复验（2026-11-18）；browser.cjs,已验证（历史候选版）

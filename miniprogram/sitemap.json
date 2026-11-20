@@ -1,0 +1,7 @@
+{
+  "desc": "仅允许已发布的集团业务详情被索引",
+  "rules": [
+    { "action": "allow", "page": "pages/service-detail/index" },
+    { "action": "disallow", "page": "*" }
+  ]
+}

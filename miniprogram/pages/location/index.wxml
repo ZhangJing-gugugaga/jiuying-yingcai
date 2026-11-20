@@ -1,0 +1,104 @@
+<view class="page">
+  <view class="title">网点位置核验</view>
+  <view wx:if="{{loading}}" class="loading">正在加载，请稍候…</view>
+  <view wx:if="{{error && !canSubmitEvidence}}" class="error">{{error}}<button class="link top-gap" bindtap="refresh">重试</button></view>
+  <view class="card">
+    <view class="field" wx:if="{{outlets.length>1 || pagers.outlets.hasMore || outletSearch}}"><input placeholder="搜索网点名称或地区" value="{{outletSearch}}" bindconfirm="outletSearch" disabled="{{busy || loading}}"/></view>
+    <view wx:if="{{pagers.outlets.hasMore}}" class="pagination">
+      <text class="muted">已显示 {{pagers.outlets.loaded}} / {{pagers.outlets.total}} 家网点</text>
+      <button class="outline small" data-collection="outlets" bindtap="more" loading="{{pagers.outlets.loading}}" disabled="{{loading || pagers.outlets.loading}}">加载更多</button>
+    </view>
+    <view class="field">
+      <label>核验网点</label>
+      <picker range="{{outletNames}}" value="{{outletIndex + 1}}" bindchange="chooseOutletFromPicker" disabled="{{loading || busy || !outlets.length}}">
+        <view class="picker picker-control">{{outlets.length ? outletNames[outletIndex + 1] : '暂无可选网点'}}</view>
+      </picker>
+    </view>
+    <view wx:if="{{month}}" class="field">
+      <label>核验月份</label><picker mode="date" fields="month" value="{{month}}" end="{{state.today}}" bindchange="chooseMonth" disabled="{{busy || loading}}"><view class="picker picker-control">{{month}}</view></picker>
+    </view>
+    <view wx:if="{{scopeChangeError}}" class="error">{{scopeChangeError}}</view>
+    <view wx:if="{{recentDraft}}" class="notice">
+      <view>上次填写的是 {{recentDraft.label}}</view>
+      <button class="link" bindtap="resumeRecentDraft">继续上次核验</button>
+    </view>
+    <view wx:if="{{!outletId && !loading && !error && outlets.length}}" class="hint">选择要核验的网点后继续。</view>
+    <block wx:if="{{outletId}}">
+      <view wx:if="{{monthLoading}}" class="hint">正在查询所选月份的核验记录…</view>
+      <view wx:if="{{monthError}}" class="error">{{monthError}}<button class="link" bindtap="retryMonth">重新查询</button></view>
+      <view wx:if="{{submissionNotice || monthStatus}}" class="notice verification-status">
+        <view class="card-title">总部核验进度</view>
+        <view class="top-gap">{{submissionNotice || monthStatus}}</view>
+      </view>
+      <view wx:if="{{verificationNote}}" class="hint">总部补件意见<view>{{verificationNote}}</view></view>
+      <view wx:if="{{recordError}}" class="hint">{{recordError}}</view>
+    </block>
+  </view>
+  <view wx:if="{{recordError && !outletId}}" class="error">{{recordError}}</view>
+  <view wx:if="{{canSubmitEvidence && !monthLoading}}" id="verification-form" class="card">
+    <view class="card-title">{{needsExplanation ? '补充现场资料' : '提交现场资料'}}</view>
+    <view wx:if="{{recoveryAvailable}}" class="notice top-gap">
+      <view>此网点、此月份有未提交的地址和说明。</view>
+      <view class="actions">
+        <button class="outline small" bindtap="restoreRecovery">恢复文字草稿</button>
+        <button class="link" bindtap="discardRecovery">放弃草稿</button>
+      </view>
+    </view>
+    <view class="field"><label>实际经营地址</label><input data-field="address" value="{{form.address}}" bindinput="input" maxlength="2000" disabled="{{busy || loading}}"/></view>
+    <view class="verification-position">
+      <view class="card-title">位置资料</view>
+      <view class="hint">{{coords ? (coords.source==='gps' ? '已获取现场 GPS 定位' : '已在地图上选点，尚未获取现场 GPS 定位') : '请选择现场 GPS 定位或在地图上确认地址。'}}</view>
+      <view class="actions">
+        <button class="outline" data-manual="false" bindtap="locate" disabled="{{busy || loading || locating}}">获取现场定位</button>
+        <button class="link" data-manual="true" bindtap="locate" disabled="{{busy || loading || locating}}">手动确认地址</button>
+      </view>
+      <view wx:if="{{positionError}}" class="error">{{positionError}}<button wx:if="{{gpsPermissionDenied}}" class="link" bindtap="openLocationSettings">前往位置设置</button></view>
+      <view wx:if="{{locationPermissionMessage}}" class="hint">{{locationPermissionMessage}}</view>
+      <view class="hint">定位仅在点击后采集。手动选点可提交地址资料，由总部进一步核验。</view>
+      <map wx:if="{{coords}}" class="map" latitude="{{coords.lat}}" longitude="{{coords.lng}}" markers="{{markers}}"/>
+      <view wx:if="{{accuracy}}" class="hint">定位精度：{{accuracy}}</view>
+      <view wx:if="{{capturedText}}" class="hint">{{captureTimeLabel}}：{{capturedText}}</view>
+    </view>
+    <button class="outline" bindtap="photo" loading="{{uploadingPhoto}}" disabled="{{busy || loading || uploadingPhoto}}">{{photo ? '重新上传现场照片' : '上传现场照片'}}</button>
+    <view wx:if="{{uploadingPhoto && photoProgress !== null}}" class="hint">{{photoProgress===100 ? '照片已传输，正在检查…' : '照片上传中 ' + photoProgress + '%'}} </view>
+    <view wx:if="{{photoError}}" class="error">{{photoError}}</view>
+    <image wx:if="{{preview && !previewUnavailable}}" class="photo" src="{{preview}}" mode="aspectFill" data-file-id="{{photo.id}}" binderror="photoPreviewFailed"/>
+    <view wx:if="{{previewUnavailable}}" class="hint">照片已上传，预览暂时无法打开。需要更换时可重新上传。</view>
+    <view class="field">
+      <label>{{needsExplanation ? '补充说明' : '补充说明（选填）'}}</label>
+      <textarea data-field="explanation" value="{{form.explanation}}" bindinput="input" maxlength="600" placeholder="请说明需要总部了解的情况" disabled="{{busy || loading}}"/>
+    </view>
+    <view wx:if="{{needsExplanation}}" class="hint">请根据总部意见补充实际经营地址或现场证明。</view>
+    <view wx:if="{{locating}}" class="hint">正在获取位置，请稍候。</view>
+    <view class="action-dock">
+      <view wx:if="{{error && errorArea!=='position' && errorArea!=='photo' && !loading}}" class="error">{{error}}</view>
+      <view wx:if="{{draftNotice}}" class="notice" aria-live="polite">{{draftNotice}}</view>
+      <view wx:if="{{!locating && !uploadingPhoto && (!coords || !photo)}}" class="hint">{{!coords && !photo ? '提交前请确认位置并上传现场照片。' : !coords ? '还需确认网点位置。' : '还需上传现场照片。'}}</view>
+      <button class="link" bindtap="saveRecovery" disabled="{{busy || loading || monthLoading}}">保存文字草稿</button>
+      <button class="primary" bindtap="submit" loading="{{busy}}" disabled="{{busy || loading || monthLoading || locating || uploadingPhoto}}">{{coords.source==='manual' ? '提交地址资料' : '提交核验资料'}}</button>
+    </view>
+  </view>
+  <block wx:if="{{outletId}}">
+    <view id="verification-history" class="row between">
+      <view class="section-title">{{historyExpanded ? '历月核验记录' : '所选月份的最近核验'}}</view>
+      <button class="link" bindtap="toggleHistory">{{historyExpanded ? '查看所选月份' : '查看历月记录'}}</button>
+    </view>
+    <view wx:for="{{historyExpanded ? history : monthHistory}}" wx:key="id" id="verification-{{item.id}}" class="card">
+      <view class="card-title">{{item.outletName}}</view>
+      <view class="top-gap"><text class="badge {{item.statusTone}}">{{item.statusText}}</text></view>
+      <view class="muted top-gap">{{item.monthText}} · {{item.address}}</view>
+      <view wx:if="{{item.positionText}}" class="hint">{{item.positionText}}</view>
+      <view wx:if="{{item.accuracyText}}" class="hint">定位精度：{{item.accuracyText}}</view>
+      <view wx:if="{{item.capturedText}}" class="hint">{{item.captureTimeLabel}}：{{item.capturedText}}</view>
+      <view wx:if="{{item.distanceText}}" class="hint">{{item.distanceText}}</view>
+      <view wx:if="{{item.explanation}}" class="hint">{{item.explanation}}</view>
+      <view wx:if="{{item.publicNote}}" class="hint">总部意见：{{item.publicNote}}</view>
+      <button wx:if="{{item.needsExplanation && !recordError}}" class="outline small top-gap" data-id="{{item.id}}" bindtap="supplementLocation" disabled="{{loading || busy}}">补充现场资料</button>
+    </view>
+    <view wx:if="{{!(historyExpanded ? history.length : monthHistory.length) && !loading && !monthLoading && !monthError && !error}}" class="empty">{{historyExpanded ? '该网点暂无核验记录。' : '所选月份暂无核验记录。'}}</view>
+    <view wx:if="{{historyExpanded && pagers.verifications.hasMore}}" class="pagination">
+      <text class="muted">已显示 {{pagers.verifications.loaded}} / {{pagers.verifications.total}} 条核验记录</text>
+      <button class="outline small" data-collection="verifications" bindtap="more" loading="{{pagers.verifications.loading}}" disabled="{{loading || pagers.verifications.loading}}">加载更多</button>
+    </view>
+  </block>
+</view>

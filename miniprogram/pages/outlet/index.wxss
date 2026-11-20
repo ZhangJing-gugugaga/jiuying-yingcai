@@ -1,0 +1,6 @@
+.outlet-address-text{font-size:30rpx;line-height:1.55;overflow-wrap:anywhere}
+.outlet-address-card button{margin-left:0}
+.outlet-actions{margin-top:14rpx}
+.outlet-matter-actions{display:flex;flex-wrap:wrap;gap:12rpx;margin-top:14rpx}
+.outlet-matter-actions button{flex:1 1 220rpx;min-width:0;width:auto;margin:0}
+.outlet-history-change{padding:16rpx 0 0;overflow-wrap:anywhere}

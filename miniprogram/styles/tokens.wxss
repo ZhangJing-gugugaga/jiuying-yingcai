@@ -1,0 +1,45 @@
+page {
+  --brand: #0e65b7;
+  --brand-deep: #174a80;
+  --brand-soft: #eaf4ff;
+  --brand-on-dark: #d9eaff;
+  --background: #f6f9fd;
+  --surface: #ffffff;
+  --text: #1c3048;
+  --muted: #52677e;
+  --border: #dfe7f2;
+  --border-strong: #afc5db;
+  --surface-muted: #f0f5fb;
+  --neutral-bg: #edf1f5;
+  --neutral-text: #526377;
+  --success-bg: #e8f5ee;
+  --success-text: #256648;
+  --warning-bg: #fff3d8;
+  --warning-text: #78541d;
+  --error-bg: #fff0ee;
+  --error-text: #9f4135;
+  --hero-glow: rgba(255, 255, 255, .12);
+  --hero-divider: rgba(255, 255, 255, .25);
+  --hero-button-border: rgba(255, 255, 255, .45);
+
+  --font-caption: 24rpx;
+  --font-body: 28rpx;
+  --font-section: 32rpx;
+  --font-metric: 36rpx;
+  --font-title: 40rpx;
+  --font-display: 48rpx;
+  --font-hero: 56rpx;
+
+  --space-2xs: 4rpx;
+  --space-xs: 8rpx;
+  --space-sm: 12rpx;
+  --space-md: 16rpx;
+  --space-lg: 24rpx;
+  --space-xl: 32rpx;
+  --space-2xl: 64rpx;
+
+  --radius-badge: 8rpx;
+  --radius-control: 12rpx;
+  --radius-card: 24rpx;
+  --tab-bar-height: 110rpx;
+}

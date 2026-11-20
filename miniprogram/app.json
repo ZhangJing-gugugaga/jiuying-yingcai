@@ -1,0 +1,83 @@
+{
+  "pages": [
+    "pages/home/index",
+    "pages/login/index",
+    "pages/outlets/index",
+    "pages/outlet/index",
+    "pages/reports/index",
+    "pages/report/index",
+    "pages/fees/index",
+    "pages/requests/index",
+    "pages/location/index",
+    "pages/support/index",
+    "pages/messages/index",
+    "pages/profile/index",
+    "pages/finance/index",
+    "pages/tasks/index",
+    "pages/discover/index",
+    "pages/service-detail/index"
+  ],
+  "subpackages": [
+    { "root": "pages/dashboard", "pages": ["index"] },
+    { "root": "pages/agreements", "pages": ["index"] },
+    { "root": "pages/security", "pages": ["index"] },
+    { "root": "pages/training", "pages": ["index"] }
+  ],
+  "window": {
+    "navigationBarTitleText": "九盈英才",
+    "navigationBarBackgroundColor": "#ffffff",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f6f9fd",
+    "enablePullDownRefresh": false
+  },
+  "tabBar": {
+    "custom": true,
+    "color": "#52677e",
+    "selectedColor": "#0e65b7",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/home/index",
+        "iconPath": "assets/nav-home.png",
+        "selectedIconPath": "assets/nav-home-active.png",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/outlets/index",
+        "iconPath": "assets/nav-outlets.png",
+        "selectedIconPath": "assets/nav-outlets-active.png",
+        "text": "网点"
+      },
+      {
+        "pagePath": "pages/reports/index",
+        "iconPath": "assets/nav-report.png",
+        "selectedIconPath": "assets/nav-report-active.png",
+        "text": "月报"
+      },
+      {
+        "pagePath": "pages/profile/index",
+        "iconPath": "assets/nav-profile.png",
+        "selectedIconPath": "assets/nav-profile-active.png",
+        "text": "我的"
+      }
+    ]
+  },
+  "permission": {
+    "scope.userLocation": {
+      "desc": "在您主动提交月度位置核验或选择网点位置时使用一次定位，不进行后台追踪"
+    }
+  },
+  "requiredPrivateInfos": [
+    "getLocation",
+    "chooseLocation"
+  ],
+  "networkTimeout": {
+    "request": 15000,
+    "downloadFile": 15000,
+    "uploadFile": 15000
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}

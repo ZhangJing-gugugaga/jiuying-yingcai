@@ -1,0 +1,239 @@
+<view class="page">
+  <view class="title">联系总部</view>
+  <view wx:if="{{returnStatus || tab!=='home'}}" class="actions">
+    <button wx:if="{{returnStatus}}" class="link" bindtap="backToMessages" disabled="{{busy || pendingAction}}">返回通知</button>
+    <button wx:if="{{tab!=='home'}}" class="link" data-tab="home" bindtap="tab" disabled="{{busy || pendingAction}}">返回客服首页</button>
+  </view>
+  <view wx:if="{{loading}}" class="loading">正在加载，请稍候…</view>
+  <view wx:if="{{openingHistory}}" class="hint">正在打开记录，请稍候。</view>
+  <view wx:if="{{error && !actionArea}}" class="error">{{error}}<button class="link top-gap" bindtap="refresh">重试</button></view>
+  <view wx:if="{{draftAvailable && !showTicketForm && (draftPrompt || tab==='home' || tab==='ticket' && !ticket)}}" class="card top-gap">
+    <view class="card-title">{{draftPending?'有一份工单提交结果待确认':'有一份未提交的工单草稿'}}</view>
+    <view class="actions">
+      <button class="outline" bindtap="restoreTicketDraft" loading="{{pendingAction==='restoreDraft'}}" disabled="{{busy || loading || openingHistory || pendingAction}}">{{draftPending?'查看待确认提交':'继续填写'}}</button>
+      <button wx:if="{{!draftPending}}" class="link" bindtap="discardTicketDraft" disabled="{{busy || loading || openingHistory || pendingAction}}">放弃草稿</button>
+      <button wx:elif="{{draftUnavailable}}" class="link" bindtap="discardTicketDraft" disabled="{{busy || loading || openingHistory || pendingAction}}">清除本机待确认记录</button>
+    </view>
+    <view wx:if="{{error && actionArea==='draft'}}" class="error">{{error}}</view>
+    <view wx:if="{{draftPending && draftUnavailable}}" class="hint">已提交的工单会保留在总部记录中。</view>
+  </view>
+  <view wx:if="{{!draftAvailable && actionNotice && actionArea==='draft'}}" class="notice">{{actionNotice}}</view>
+  <block wx:if="{{tab==='home'}}">
+    <view class="card support-contact">
+      <view class="card-title">需要总部跟进？</view>
+      <view class="hint">提交问题后，可在原工单查看回复和办理进度。</view>
+      <button class="primary top-gap" bindtap="prepareTicket" disabled="{{busy || loading || openingHistory || pendingAction}}">提交问题</button>
+      <view class="actions">
+        <button class="link" data-tab="chat" bindtap="tab" disabled="{{loading}}">在线咨询</button>
+        <button wx:if="{{phoneNumber}}" class="link" bindtap="phone">致电总部</button>
+      </view>
+      <view wx:if="{{phoneNumber && serviceHours}}" class="hint">{{serviceHours}}</view>
+    </view>
+    <view class="section-head">
+      <view class="section-title">我的问题</view>
+      <button class="link" data-tab="ticket" bindtap="tab" disabled="{{loading || openingHistory}}">全部工单</button>
+    </view>
+    <view wx:if="{{tickets.length}}" class="card">
+      <block wx:for="{{tickets}}" wx:key="id">
+        <view wx:if="{{index < 3}}" class="list-item row between support-recent" data-id="{{item.id}}" bindtap="open" hover-class="tap-feedback" aria-role="button">
+          <view class="grow">
+            <view class="card-title">{{item.title}}</view>
+            <view wx:if="{{item.outletName}}" class="muted">{{item.outletName}}</view>
+          </view>
+          <text class="badge {{item.statusTone}}">{{item.statusText}}</text>
+        </view>
+      </block>
+    </view>
+    <view wx:elif="{{!loading && !error}}" class="empty">提交问题后，办理进度会显示在这里。</view>
+    <view class="actions">
+      <button class="link" data-tab="chatHistory" bindtap="tab">历史咨询</button>
+      <button class="link" data-tab="faq" bindtap="tab">常见问题</button>
+    </view>
+  </block>
+
+  <view wx:if="{{workContact && !openingHistory}}" class="card top-gap">
+    <view class="detail-row"><text>{{workContact.title}}</text><text>{{workContact.phone}}</text></view>
+    <view wx:if="{{workContact.source!=='headquarters'}}" class="hint">{{tab==='ticket' && (ticket.outletName || linkedTicket.outletName) ? (ticket.outletName || linkedTicket.outletName) : outlets[outletIndex].name}}</view>
+    <button class="outline small" bindtap="dialWorkContact" loading="{{workContactDialing}}" disabled="{{workContactDialing}}">拨打工作电话</button>
+  </view>
+  <view wx:elif="{{tab==='chat' && phoneNumber && !loading && !workContactLoading && !openingHistory}}" class="card top-gap">
+    <view class="detail-row"><text>总部客服电话</text><text>{{phoneNumber}}</text></view>
+    <button class="outline small" bindtap="phone">致电总部</button>
+  </view>
+
+  <block wx:if="{{tab==='chat'}}">
+    <view class="section-title">在线咨询</view>
+    <view wx:if="{{!chat}}" class="hint">您好，请描述您遇到的问题。</view>
+    <scroll-view wx:if="{{chat.messages.length}}" class="support-transcript {{chat.messages.length<=2 ? 'support-transcript-compact' : ''}}" scroll-y="true" scroll-into-view="chat-end-{{chat.id}}-{{chat.messages.length}}">
+      <view wx:for="{{chat.messages}}" wx:key="key" class="chat">
+        <view class="muted">{{item.actorText}} · {{item.at}}</view>
+        <text class="chat-content" selectable="true">{{item.text}}</text>
+      </view>
+      <view id="chat-end-{{chat.id}}-{{chat.messages.length}}"></view>
+    </scroll-view>
+    <button wx:if="{{chat}}" class="link" bindtap="acknowledge" data-id="{{chat.id}}" disabled="{{busy || loading || openingHistory || pendingAction}}">已查看客服回复</button>
+    <view class="field"><textarea disabled="{{openingHistory}}" value="{{text}}" bindinput="text" bindblur="text" maxlength="1000" placeholder="请输入您想咨询的内容"/></view>
+    <view class="actions">
+      <button class="outline" bindtap="human" loading="{{pendingAction==='human'}}" disabled="{{busy || loading || openingHistory || pendingAction}}">{{pendingAction==='human'?'正在联系…':'转人工客服'}}</button>
+      <button class="primary" bindtap="send" loading="{{pendingAction==='send'}}" disabled="{{busy || loading || openingHistory || pendingAction}}">{{pendingAction==='send'?'正在发送…':'发送'}}</button>
+    </view>
+    <view wx:if="{{error && actionArea==='chat'}}" class="error">{{error}}</view>
+    <view wx:if="{{actionNotice && actionArea==='chat'}}" class="notice">{{actionNotice}}</view>
+    <view class="list-item top-gap">
+      <view class="card-title">需要总部跟进？</view>
+      <view class="hint">工单提交后，可随时查看进度和回复。</view>
+      <button class="outline small" bindtap="prepareTicket" disabled="{{busy || loading || openingHistory || pendingAction}}">提交问题</button>
+    </view>
+  </block>
+  <block wx:elif="{{tab==='chatHistory'}}">
+    <view class="section-title">历史咨询</view>
+    <view wx:if="{{!chats.length && !loading && !error}}" class="empty">
+      <view>还没有咨询记录。</view>
+      <button class="outline small" data-tab="chat" bindtap="tab">去咨询</button>
+    </view>
+    <view wx:for="{{chats}}" wx:key="id" class="card" data-id="{{item.id}}" bindtap="loadChat" hover-class="tap-feedback" aria-role="button">
+      <view class="row between"><text>{{item.human ? '人工咨询' : '在线咨询'}}</text><text class="arrow">›</text></view>
+      <view class="muted top-gap">{{item.createdText}}</view>
+    </view>
+    <view wx:if="{{pagers.supportChats.hasMore}}" class="pagination">
+      <button class="outline small" data-collection="supportChats" bindtap="more" loading="{{pagers.supportChats.loading}}" disabled="{{loading || pagers.supportChats.loading}}">加载更多</button>
+    </view>
+  </block>
+
+  <block wx:elif="{{tab==='faq'}}">
+    <view class="card">
+      <view class="card-title">常见问题</view>
+      <view wx:for="{{faqs}}" wx:key="id" class="list-item">
+        <view class="card-title">{{item.question}}</view>
+        <view class="hint">{{item.answer}}</view>
+      </view>
+      <view wx:if="{{!faqs.length && !loading && !error}}" class="hint">暂未发布常见问题，您可以直接联系总部客服。</view>
+      <button class="link top-gap" data-tab="chat" bindtap="tab">在线咨询</button>
+    </view>
+    <view wx:if="{{pagers.faqEntries.hasMore}}" class="pagination">
+      <button class="outline small" data-collection="faqEntries" bindtap="more" loading="{{pagers.faqEntries.loading}}" disabled="{{loading || pagers.faqEntries.loading}}">加载更多</button>
+    </view>
+  </block>
+
+  <block wx:elif="{{tab==='ticket'}}">
+    <view wx:if="{{!ticket && showTicketForm}}" class="card top-gap">
+      <view class="row between"><text class="card-title">填写正式工单</text><button class="link" bindtap="closeTicketForm" disabled="{{busy || pendingAction}}">返回工单记录</button></view>
+      <view class="hint">核对网点和问题描述后提交。后续可从工单记录查看客服回复。</view>
+      <view wx:if="{{draftPending}}" class="hint">上次提交结果待确认。请用原内容重试，以免重复提交。</view>
+      <view wx:if="{{linkedTicket}}" class="hint">关联工单：{{linkedTicket.title}} {{linkedTicket.createdText}}<button class="link" bindtap="cancelLink" disabled="{{busy || loading || openingHistory || pendingAction || draftPending}}">取消关联</button></view>
+      <view class="field">
+        <label>问题类型</label>
+        <picker range="{{categories}}" value="{{categoryIndex}}" bindchange="category" disabled="{{busy || loading || openingHistory || pendingAction || draftPending}}"><view class="picker">{{categories[categoryIndex]}}</view></picker>
+        <view class="hint">网点、费用或其他问题可通过在线咨询联系总部客服。</view>
+      </view>
+      <view wx:if="{{linkedTicket}}" class="detail-row"><text>涉及网点</text><text>{{linkedTicket.outletName || linkedTicket.outlet}}</text></view>
+      <view wx:else class="field">
+        <label>涉及网点</label>
+        <picker range="{{outlets}}" range-key="selectionName" value="{{outletIndex}}" bindchange="outlet" disabled="{{!outlets[1] || busy || loading || openingHistory || pendingAction || draftPending}}">
+          <view class="picker">{{outlets[outletIndex].selectionName || '请选择网点'}}</view>
+        </picker>
+        <view wx:if="{{!loading && !outlets[1]}}" class="hint">若不清楚涉及哪个网点，请先在线咨询总部。</view>
+        <input wx:if="{{!draftPending}}" class="top-gap" placeholder="按网点名称或地区搜索" value="{{outletSearch}}" bindconfirm="outletSearch" disabled="{{busy || loading || openingHistory || pendingAction}}"/>
+        <view wx:if="{{pagers.outlets.hasMore && !draftPending}}" class="pagination">
+          <button class="outline small" data-collection="outlets" bindtap="more" loading="{{pagers.outlets.loading}}" disabled="{{loading || pagers.outlets.loading}}">加载更多网点</button>
+        </view>
+      </view>
+      <view class="field"><label>问题标题</label><input data-field="title" value="{{form.title}}" bindinput="input" bindblur="input" maxlength="120" disabled="{{busy || openingHistory || pendingAction || draftPending}}"/></view>
+      <view class="field"><label>问题描述</label><textarea data-field="description" value="{{form.description}}" bindinput="input" bindblur="input" maxlength="2000" disabled="{{busy || openingHistory || pendingAction || draftPending}}"/></view>
+      <view class="field"><label>联系方式（选填）</label><input data-field="contact" value="{{form.contact}}" bindinput="input" bindblur="input" maxlength="2000" disabled="{{busy || openingHistory || pendingAction || draftPending}}"/></view>
+      <view class="field">
+        <label>问题图片（选填）</label>
+        <view class="hint">最多 3 张，每张不超过 5 MB。</view>
+        <view wx:if="{{attachments.length}}" class="support-images">
+          <view wx:for="{{attachments}}" wx:key="id" class="support-image-item">
+            <button class="support-image-button" data-id="{{item.id}}" bindtap="previewDraftAttachment" aria-label="预览图片 {{index+1}}" disabled="{{busy || pendingAction}}">
+              <image class="support-image" src="{{item.preview}}" mode="aspectFill"/>
+            </button>
+            <button wx:if="{{!draftPending}}" class="link small" data-id="{{item.id}}" bindtap="removeAttachment" aria-label="移除图片 {{index+1}}" disabled="{{busy || pendingAction}}">移除</button>
+          </view>
+        </view>
+        <button wx:if="{{attachments.length<maxAttachments && !draftPending}}" class="outline small" bindtap="pickAttachment" loading="{{pendingAction==='attach'}}" disabled="{{busy || loading || openingHistory || pendingAction || !linkedTicket && !outlets[outletIndex].id}}">{{pendingAction==='attach'?'正在上传…':'添加图片'}}</button>
+        <view wx:if="{{pendingAction==='attach' && attachmentProgress !== null}}" class="hint">已上传 {{attachmentProgress}}%</view>
+      </view>
+      <view wx:if="{{!loading && !linkedTicket && !outlets[outletIndex].id}}" class="hint">请先选择问题涉及的网点。</view>
+      <view wx:if="{{error && actionArea==='ticket'}}" class="error">{{error}}</view>
+      <view wx:if="{{actionNotice && actionArea==='ticket'}}" class="notice">{{actionNotice}}</view>
+      <button class="primary" bindtap="create" loading="{{pendingAction==='create'}}" disabled="{{busy || loading || openingHistory || pendingAction || !linkedTicket && !outlets[outletIndex].id}}">{{pendingAction==='create'?'正在提交…':draftPending?'重试提交':'确认提交工单'}}</button>
+    </view>
+
+    <view wx:if="{{ticket}}" class="card">
+      <button class="link" bindtap="backToTicketList" disabled="{{busy || pendingAction}}">返回工单记录</button>
+      <view class="row between"><view class="card-title">{{ticket.title}}</view><text class="badge {{ticket.statusTone}}">{{ticket.statusText}}</text></view>
+      <view wx:if="{{ticket.outletName}}" class="detail-row"><text>涉及网点</text><text>{{ticket.outletName}}</text></view>
+      <view wx:if="{{ticket.nextStep}}" class="notice">{{ticket.nextStep}}</view>
+      <view class="detail-row" wx:if="{{ticket.createdText}}"><text>提交时间</text><text>{{ticket.createdText}}</text></view>
+      <view class="detail-row" wx:if="{{ticket.recentProgress}}"><text>最近处理进度</text><text>{{ticket.recentProgress}} {{ticket.recentActivityAt}}</text></view>
+      <view class="hint">{{ticket.description}}</view>
+      <view wx:if="{{ticket.attachmentIds.length}}" class="field">
+        <view class="card-title">工单图片</view>
+        <view class="support-images">
+          <button wx:for="{{ticket.attachmentIds}}" wx:key="*this" class="support-image-button" data-id="{{item}}" bindtap="previewTicketAttachment" aria-label="查看图片 {{index+1}}" disabled="{{busy || loading || openingHistory || pendingAction}}">
+            <image wx:if="{{ticketPreviews[item]}}" class="support-image" src="{{ticketPreviews[item]}}" mode="aspectFill"/>
+            <text wx:else>图片 {{index+1}}</text>
+          </button>
+        </view>
+      </view>
+      <block wx:if="{{ticket.messages.length}}">
+        <view class="card-title">客服回复</view>
+        <view wx:for="{{ticket.messages}}" wx:key="key" class="list-item">
+          <view class="muted">{{item.staff ? '总部客服' : '您提交的资料'}} · {{item.at}}</view>
+          <text class="chat-content" selectable="true">{{item.text}}</text>
+        </view>
+        <button class="link" bindtap="acknowledge" data-id="{{ticket.id}}" disabled="{{busy || loading || openingHistory || pendingAction}}">已查看客服回复</button>
+      </block>
+      <block wx:if="{{ticket.status==='waiting'}}">
+        <view class="field"><label>补充资料</label><textarea data-field="supplement" disabled="{{openingHistory}}" value="{{form.supplement}}" bindinput="input" bindblur="input" placeholder="请根据客服回复填写补充说明"/></view>
+        <button class="primary" bindtap="supplement" loading="{{pendingAction==='supplement'}}" disabled="{{busy || loading || openingHistory || pendingAction}}">{{pendingAction==='supplement'?'正在提交…':'提交补充资料'}}</button>
+      </block>
+      <block wx:if="{{ticket.status==='closed'}}">
+        <view class="hint">本次工单已完成处理。如问题仍未解决，您可以重新提交，并关联本次记录。</view>
+        <button class="outline" bindtap="link" disabled="{{busy || loading || openingHistory || pendingAction}}">问题仍未解决？重新提交</button>
+        <block wx:if="{{ticket.canRate}}">
+          <view class="field">
+            <label>本次人工客服服务是否满意？</label>
+            <view class="support-ratings" role="group" aria-label="人工客服评分">
+              <button wx:for="{{ratingOptions}}" wx:key="*this" class="support-rating {{rating===item?'selected':''}}" data-score="{{item}}" bindtap="rating" aria-label="{{item}} 分" aria-pressed="{{rating===item}}" disabled="{{busy || loading || openingHistory || pendingAction}}">{{item}} 分</button>
+            </view>
+            <view class="hint">1 分不满意，5 分满意。当前 {{rating}} 分。</view>
+          </view>
+          <view class="field"><input data-field="comment" disabled="{{busy || openingHistory || pendingAction}}" value="{{form.comment}}" bindinput="input" bindblur="input" placeholder="评价说明（选填）"/></view>
+          <button class="primary" bindtap="rate" loading="{{pendingAction==='rate'}}" disabled="{{busy || loading || openingHistory || pendingAction}}">{{pendingAction==='rate'?'正在提交…':'提交评价'}}</button>
+        </block>
+      </block>
+      <button wx:if="{{ticket.linkedTicketId}}" class="link" data-id="{{ticket.linkedTicketId}}" bindtap="open" disabled="{{busy || loading || openingHistory || pendingAction}}">查看原工单</button>
+    </view>
+
+    <view wx:if="{{!showTicketForm && error && actionArea==='ticket'}}" class="error">{{error}}</view>
+    <view wx:if="{{!showTicketForm && actionNotice && actionArea==='ticket'}}" class="notice">{{actionNotice}}</view>
+
+    <block wx:if="{{!ticket && !showTicketForm}}">
+    <view class="section-title">工单记录</view>
+    <view class="filter">
+      <view class="pill {{statusFilter==='all'?'active':''}}" data-status="all" bindtap="filterStatus">全部</view>
+      <view class="pill {{statusFilter==='queued'?'active':''}}" data-status="queued" bindtap="filterStatus">等待客服接单</view>
+      <view class="pill {{statusFilter==='active'?'active':''}}" data-status="active" bindtap="filterStatus">处理中</view>
+      <view class="pill {{statusFilter==='waiting'?'active':''}}" data-status="waiting" bindtap="filterStatus">待补充资料</view>
+      <view class="pill {{statusFilter==='closed'?'active':''}}" data-status="closed" bindtap="filterStatus">已完成</view>
+    </view>
+    <view wx:if="{{!tickets.length && !loading && !error}}" class="empty">
+      <view>{{statusFilter==='all'?'还没有工单。':'当前筛选下暂无工单。'}}</view>
+      <button wx:if="{{statusFilter==='all'}}" class="outline small" bindtap="prepareTicket">提交问题</button>
+      <button wx:else class="outline small" data-status="all" bindtap="filterStatus">查看全部工单</button>
+    </view>
+    <view wx:for="{{tickets}}" wx:key="id" class="card" data-id="{{item.id}}" bindtap="open">
+      <view class="row between"><view class="card-title">{{item.title}}</view><text class="badge {{item.statusTone}}">{{item.statusText}}</text></view>
+      <view wx:if="{{item.outletName}}" class="hint">{{item.outletName}}</view>
+      <view class="muted top-gap">{{item.recentActivityAt || item.createdText}}</view>
+      <view wx:if="{{item.nextStep}}" class="hint">{{item.nextStep}}</view>
+    </view>
+    <view wx:if="{{pagers.supportTickets.hasMore}}" class="pagination">
+      <button class="outline small" data-collection="supportTickets" bindtap="more" loading="{{pagers.supportTickets.loading}}" disabled="{{loading || pagers.supportTickets.loading}}">加载更多</button>
+    </view>
+    </block>
+  </block>
+</view>

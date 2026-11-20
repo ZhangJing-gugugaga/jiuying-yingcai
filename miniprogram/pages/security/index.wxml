@@ -1,0 +1,37 @@
+<view class="page compact">
+  <view class="title">账号安全</view>
+  <view wx:if="{{loading}}" class="loading">正在加载，请稍候…</view>
+  <view wx:if="{{error && !actionArea}}" class="error">{{error}}<button class="link top-gap" bindtap="refresh">重试</button></view>
+  <view wx:if="{{!managerName && !loading && !error}}" class="empty">当前账号暂无权限查看此内容。</view>
+
+  <block wx:if="{{managerName}}">
+    <view class="card">
+      <view class="card-title">负责人及登录方式</view>
+      <view class="detail-row"><text>当前负责人</text><text>{{managerName}}</text></view>
+      <view class="detail-row"><text>总部登记手机号</text><text>{{bindings.smsMobileMasked || '尚未登记'}}</text></view>
+      <view class="detail-row"><text>微信绑定状态</text><text>{{bindings.wechatBound ? '已绑定' : '尚未绑定'}}</text></view>
+      <view class="detail-row"><text>短信登录状态</text><text>{{!smsEnabled ? '暂未开放' : (bindings.smsMobileMasked ? '已开通' : '尚未登记手机号')}}</text></view>
+      <view wx:if="{{error && actionArea==='wechat'}}" class="error">{{error}}</view>
+      <button wx:if="{{wechatEnabled && !bindings.wechatBound}}" class="outline" bindtap="bindWechat" disabled="{{busy || loading}}">绑定微信</button>
+      <view wx:if="{{!wechatEnabled}}" class="hint">微信登录暂未开放，请使用其他已开通方式登录。</view>
+    </view>
+
+    <view class="card">
+      <view class="card-title">修改登录密码</view>
+      <view class="field"><label>当前密码</label><input password="{{true}}" value="{{form.currentPassword}}" data-field="currentPassword" bindinput="input" maxlength="128" disabled="{{busy}}"/></view>
+      <view class="field"><label>新密码（至少 12 位）</label><input password="{{true}}" value="{{form.password}}" data-field="password" bindinput="input" maxlength="128" disabled="{{busy}}"/></view>
+      <view class="field"><label>确认新密码</label><input password="{{true}}" value="{{form.confirmPassword}}" data-field="confirmPassword" bindinput="input" maxlength="128" disabled="{{busy}}"/></view>
+      <view wx:if="{{error && actionArea==='password'}}" class="error">{{error}}</view>
+      <button class="primary" bindtap="changePassword" disabled="{{busy || loading}}" loading="{{busy}}">更新登录密码</button>
+    </view>
+
+    <view class="card">
+      <view class="card-title">变更账号资料</view>
+      <view class="hint">负责人或登记手机号变更由总部审核。可在业务申请中查看进度。</view>
+      <view class="filter">
+        <button class="outline small" data-page="requests" data-query="type=accountChange&change=manager" bindtap="nav" disabled="{{busy}}">申请变更负责人</button>
+        <button class="outline small" data-page="requests" data-query="type=accountChange&change=mobile" bindtap="nav" disabled="{{busy}}">申请变更手机号</button>
+      </view>
+    </view>
+  </block>
+</view>

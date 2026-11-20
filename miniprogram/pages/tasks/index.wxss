@@ -1,0 +1,38 @@
+.matters-verification {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 12rpx 0;
+  background: #f6f9fd;
+  background: var(--background);
+}
+
+.matters-sections {
+  display: flex;
+  gap: 16rpx;
+  margin: 12rpx 0;
+}
+
+.matters-sections button {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0 8rpx;
+}
+
+.matters-notice {
+  scroll-margin-top: 116rpx;
+  scroll-margin-top: calc(max(88rpx, 44px) + 28rpx);
+}
+
+.matters-unread{
+  min-width:30rpx;
+  padding:2rpx 8rpx;
+  margin-left:2rpx;
+  border-radius:20rpx;
+  background:var(--brand);
+  color:#fff;
+  font-size:20rpx;
+}
+
+.matters-overdue{background:#fff5f6}

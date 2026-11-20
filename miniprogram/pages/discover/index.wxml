@@ -1,0 +1,117 @@
+<view class="page compact">
+  <view class="title">集团与服务</view>
+  <view wx:if="{{loading}}" class="loading">正在加载，请稍候…</view>
+  <view wx:if="{{error && section!=='cooperation'}}" class="error">{{error}}<button class="link top-gap" bindtap="refresh">重试</button></view>
+  <view class="discover-sections">
+    <button wx:for="{{primarySections}}" wx:key="id" class="{{section===item.id ? 'primary' : 'outline'}} small" data-section="{{item.id}}" bindtap="selectSection">{{item.name}}</button>
+  </view>
+  <block wx:if="{{showArticles}}">
+    <view wx:for="{{articles}}" wx:key="id" class="card">
+      <view class="card-title">{{item.title}}</view>
+      <image wx:if="{{item.coverPath}}" class="article-cover top-gap" src="{{item.coverPath}}" mode="aspectFit" lazy-load data-id="{{item.id}}" binderror="coverFailed" aria-label="{{item.title}}封面" />
+      <view class="article top-gap">{{item.body || item.text || item.intro}}</view>
+    </view>
+    <view wx:if="{{state && !articles.length && !loading && !error}}" class="empty">该栏目内容暂未发布，欢迎联系总部了解。</view>
+  </block>
+  <block wx:elif="{{section==='services'}}">
+    <block wx:for="{{serviceRows}}" wx:key="slot">
+      <view wx:if="{{item.available}}" class="card">
+        <view class="card-title">{{item.title}}</view>
+        <view wx:if="{{item.summary}}" class="article top-gap">{{item.summary}}</view>
+        <image wx:if="{{item.coverPath}}" class="service-cover top-gap" src="{{item.coverPath}}" mode="aspectFit" lazy-load data-id="{{item.id}}" binderror="coverFailed" aria-label="{{item.title}}封面" />
+        <button class="outline top-gap" data-id="{{item.id}}" bindtap="openService">查看业务详情</button>
+      </view>
+    </block>
+    <view wx:if="{{state && noPublishedServices && !loading && !error}}" class="empty">该栏目内容暂未发布，欢迎联系总部了解。</view>
+  </block>
+  <view wx:if="{{(showArticles || section==='services') && pagers.publicContents.hasMore}}" class="pagination">
+    <button class="outline small" data-collection="publicContents" bindtap="more" loading="{{pagers.publicContents.loading}}">加载更多公开资料</button>
+  </view>
+
+  <block wx:if="{{section==='outlets'}}">
+    <button class="primary top-gap" data-page="outlets" data-query="scope=public" bindtap="nav">查找服务网点</button>
+    <button class="outline top-gap" data-page="outlets" data-query="{{'scope=public&mode=map'}}" bindtap="nav">全域网点地图</button>
+  </block>
+  <block wx:if="{{section==='contact'}}">
+    <button class="primary top-gap" data-page="support" bindtap="nav">联系总部客服</button>
+    <button class="outline top-gap" data-section="cooperation" bindtap="selectSection">合作咨询</button>
+  </block>
+  <block wx:if="{{section==='cooperation'}}">
+    <view wx:if="{{selectedCooperation && !error}}" id="cooperation-current" class="card cooperation-current">
+      <view wx:if="{{cooperationNotice}}" class="notice">{{cooperationNotice}}</view>
+      <view class="section-title">留言进度</view>
+      <view class="row between"><view class="card-title grow">{{selectedCooperation.company}}</view><text class="badge {{selectedCooperation.statusTone}}">{{selectedCooperation.statusText}}</text></view>
+      <view class="article top-gap">{{selectedCooperation.message}}</view>
+      <view wx:if="{{selectedCooperation.dateText}}" class="muted top-gap">提交于 {{selectedCooperation.dateText}}</view>
+    </view>
+    <view class="card">
+      <view class="card-title">合作咨询</view>
+      <view class="hint">留下您的合作意向，总部工作人员将根据您提供的信息联系您。</view>
+      <view class="field">
+        <label>企业或机构名称</label>
+        <input data-field="company" value="{{form.company}}" bindinput="input" maxlength="200" placeholder="个人咨询可填写个人"/>
+      </view>
+      <view class="two-col">
+        <view class="field"><label>联系人</label><input data-field="name" value="{{form.name}}" bindinput="input" maxlength="200" placeholder="请输入联系人姓名"/></view>
+        <view class="field"><label>联系电话</label><input data-field="contact" value="{{form.contact}}" bindinput="input" maxlength="30" placeholder="请输入可接听的电话"/></view>
+      </view>
+      <view class="field">
+        <label>合作需求</label>
+        <textarea data-field="message" value="{{form.message}}" bindinput="input" maxlength="2000" placeholder="请描述您的合作需求"/>
+      </view>
+      <view class="consent-box">
+        <switch checked="{{privacyConsented}}" bindchange="consent" color="#0e65b7" />
+        <view class="hint">我同意将上述联系方式和留言提供给总部，仅用于本次合作联系。</view>
+      </view>
+      <view wx:if="{{error}}" class="error">{{error}}<button class="link" bindtap="refresh">重新加载记录</button></view>
+      <button class="primary top-gap" bindtap="submitCooperation" loading="{{busy}}" disabled="{{busy}}">{{busy ? '正在提交…' : '提交合作意向'}}</button>
+      <view wx:if="{{cooperationNotice && !selectedCooperation}}" class="notice">{{cooperationNotice}}</view>
+      <view class="hint">总部会通过您填写的电话联系您。</view>
+    </view>
+    <view class="section-head">
+      <view class="section-title">我的合作留言</view>
+      <button wx:if="{{isPublic}}" class="link" data-page="messages" bindtap="nav">合作留言通知</button>
+    </view>
+    <view class="filter">
+      <button class="pill {{cooperationStatus==='all'?'active':''}}" data-status="all" bindtap="filterCooperation">全部</button>
+      <button class="pill {{cooperationStatus==='submitted'?'active':''}}" data-status="submitted" bindtap="filterCooperation">已提交</button>
+      <button class="pill {{cooperationStatus==='received'?'active':''}}" data-status="received" bindtap="filterCooperation">已接收</button>
+      <button class="pill {{cooperationStatus==='contacted'?'active':''}}" data-status="contacted" bindtap="filterCooperation">已联系</button>
+      <button class="pill {{cooperationStatus==='closed'?'active':''}}" data-status="closed" bindtap="filterCooperation">已结束</button>
+    </view>
+    <block wx:for="{{cooperationRows}}" wx:key="id">
+      <view wx:if="{{item.id !== selectedCooperation.id}}" class="card">
+        <view class="row between"><view class="card-title grow">{{item.company}}</view><text class="badge {{item.statusTone}}">{{item.statusText}}</text></view>
+        <view class="article top-gap">{{item.message}}</view>
+        <view wx:if="{{item.dateText}}" class="muted top-gap">{{item.dateText}}</view>
+      </view>
+      <view wx:else class="card row between">
+        <text class="grow">{{item.company}} · {{item.statusText}}</text>
+        <button class="link" bindtap="showCooperation">查看留言进度</button>
+      </view>
+    </block>
+    <view wx:if="{{!cooperationRows.length && !loading && !error}}" class="empty">当前暂无符合条件的合作留言。</view>
+    <view wx:if="{{pagers.cooperationRequests.hasMore}}" class="pagination">
+      <button class="outline small" data-collection="cooperationRequests" bindtap="more" loading="{{pagers.cooperationRequests.loading}}">加载更多合作留言</button>
+    </view>
+  </block>
+  <block wx:if="{{section==='faq'}}">
+    <view class="section-title">常见问题</view>
+    <view wx:for="{{faqs}}" wx:key="id" class="card">
+      <view class="card-title">{{item.question}}</view>
+      <view class="article top-gap">{{item.answer}}</view>
+    </view>
+    <view wx:if="{{state && !faqs.length && !loading && !error}}" class="empty">暂未发布常见问题，您可以联系总部客服。</view>
+    <view wx:if="{{pagers.faqEntries.hasMore}}" class="pagination">
+      <button class="outline small" data-collection="faqEntries" bindtap="more" loading="{{pagers.faqEntries.loading}}">加载更多常见问题</button>
+    </view>
+    <button class="link top-gap" data-page="support" bindtap="nav">联系总部客服</button>
+  </block>
+  <view class="filter discover-more">
+    <button wx:for="{{secondarySections}}" wx:key="id" class="pill {{section===item.id?'active':''}}" data-section="{{item.id}}" bindtap="selectSection">{{item.name}}</button>
+  </view>
+  <view wx:if="{{showArticles || section==='services'}}" class="discover-contact-actions actions">
+    <button class="outline small" data-page="outlets" data-query="scope=public" bindtap="nav">查找服务网点</button>
+    <button class="outline small" data-page="support" bindtap="nav">联系总部</button>
+  </view>
+</view>

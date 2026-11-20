@@ -1,0 +1,232 @@
+.side .nav {
+  min-height: 0;
+  overflow-y: auto;
+}
+.nav-group {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 4px;
+}
+.nav-group-label {
+  color: var(--muted);
+  font-size: 11px;
+  margin: 7px 13px 2px;
+}
+.nav .nav-link { width: 100%; }
+.nav-more > summary {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 10px 13px;
+  min-height: 40px;
+  border-radius: 10px;
+  cursor: pointer;
+  color: var(--muted);
+}
+.nav-more > summary::after {
+  content: '▾';
+  margin-left: auto;
+}
+.nav-more[open] > summary::after { content: '▴'; }
+.nav-more[open] > summary, .nav-more > summary:hover {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+.nav-more .nav-link { padding-left: 24px; }
+
+#billing-month-scope { color: var(--muted); }
+
+.task-summary {
+  margin: 0 0 24px;
+}
+
+.task-summary > h2 {
+  color: var(--brand);
+  font-size: 17px;
+  margin: 0 0 12px;
+}
+
+.task-cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.task-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 16px 18px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  min-width: 0;
+  transition: background-color .18s, border-color .18s;
+}
+
+.task-card:hover {
+  background: var(--brand-soft);
+  border-color: var(--line-strong);
+}
+
+.task-card:focus-visible, .task-queue a:focus-visible, .focused-business a:focus-visible, .approval-history summary:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 3px;
+}
+
+.task-card-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+  color: var(--brand);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.task-card-label svg {
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  padding: 6px;
+  background: var(--brand-soft);
+  border-radius: 8px;
+}
+
+.task-count {
+  color: var(--brand);
+  font: 34px/1 Georgia, serif;
+  font-variant-numeric: tabular-nums;
+  margin: 8px 0 12px;
+}
+
+.task-card-deadline, .task-card-link {
+  font-size: 11px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.task-card-link {
+  margin-top: auto;
+  padding-top: 5px;
+}
+
+.task-card-link svg {
+  width: 13px;
+  height: 13px;
+}
+
+.task-filters .field {
+  flex: 1 1 140px;
+  max-width: 230px;
+}
+
+.task-title-cell strong {
+  white-space: normal;
+  min-width: 120px;
+  overflow-wrap: anywhere;
+}
+
+.task-queue .row-actions {
+  min-width: 150px;
+}
+
+.task-pagination, .approval-pagination {
+  justify-content: flex-end;
+}
+
+.record > [data-action="approval-open"], .panel-body > [data-action="approval-open"] {
+  margin-top: 12px;
+}
+
+.approval-history {
+  border-top: 1px solid var(--line);
+  margin-top: 18px;
+  padding-top: 16px;
+}
+
+dialog header + .approval-history {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+dialog header + .approval-history > h3 {
+  display: none;
+}
+
+.approval-history h3 {
+  color: var(--brand);
+}
+
+.approval-event {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 6px 18px;
+}
+
+.approval-event b {
+  color: var(--brand);
+  font-size: 14px;
+}
+
+.approval-event time, .approval-event + small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.approval-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.approval-history .timeline p {
+  color: var(--text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.approval-history summary {
+  cursor: pointer;
+  width: fit-content;
+  margin-top: 8px;
+  color: var(--brand-deep);
+  font-size: 12px;
+}
+
+.approval-attachments {
+  margin-top: 8px;
+}
+
+.approval-history pre {
+  max-height: 320px;
+}
+
+@media (max-width: 1050px) {
+  .task-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+}
+
+@media (max-width: 420px) {
+  .task-card {
+    padding: 12px;
+  }
+
+  .task-card-label {
+    font-size: 12px;
+  }
+
+  .task-card-label svg {
+    flex-basis: 24px;
+    width: 24px;
+    height: 24px;
+    padding: 4px;
+  }
+}
