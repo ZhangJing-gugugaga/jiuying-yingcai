@@ -49,7 +49,7 @@
   <view wx:elif="{{loading}}" class="loading">正在更新网点信息…</view>
   <block wx:if="{{hasLoaded && state && !loading && !error}}">
     <block wx:if="{{mode==='map'}}">
-      <button wx:if="{{!directory}}" class="link" bindtap="modeUnavailable">返回网点列表</button>
+      <button wx:if="{{!directory && !mapError}}" class="link" bindtap="modeUnavailable">返回网点列表</button>
       <view wx:if="{{directory}}" class="row between directory-map-options">
         <text class="muted grow">{{directory && (geo==='overseas' || countryCode && countryCode!=='CN') ? '境外底图若显示不全，可按地址查找。' : '可按地址查找当前范围内的网点。'}}</text>
         <button class="link" bindtap="modeUnavailable">查看地址列表</button>
@@ -59,6 +59,7 @@
         {{mapError}}
         <view class="actions">
           <button class="outline small" bindtap="retryMap">重试地图</button>
+          <button wx:if="{{!directory}}" class="outline small" bindtap="modeUnavailable">返回网点列表</button>
         </view>
       </view>
       <view wx:if="{{markers.length && !mapError}}" class="map-panel">

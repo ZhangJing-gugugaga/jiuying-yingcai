@@ -127,12 +127,20 @@ test('an unavailable member map exposes the same authorised address list and can
   assert.match(outlets.data.mapError, /网点地址/);
   assert.deepEqual(outlets.data.rows.map(row => row.id), expectedIds);
   assert.match(wxml('outlets'), /mode==='list' \|\| mapError/);
+  assert.match(wxml('outlets'), /wx:if="{{mapError}}"[\s\S]*?bindtap="modeUnavailable">返回网点列表/);
   outlets.open(tap({ id: rows[0].id }));
   assert.equal(routes.at(-1).url, '/pages/outlet/index?id=' + rows[0].id);
   await outlets.retryMap();
   assert.equal(outlets.data.mapError, '');
   assert.deepEqual(outlets.data.rows.map(row => row.id), expectedIds);
   assert.ok(outlets.data.markers.length);
+  outlets.mapFailed();
+  const search = outlets.data.search;
+  outlets.modeUnavailable();
+  assert.equal(outlets.data.mode, 'list');
+  assert.equal(outlets.data.mapError, '');
+  assert.equal(outlets.data.search, search);
+  assert.deepEqual(outlets.data.rows.map(row => row.id), expectedIds);
 });
 
 test('public home exposes directory and login, with a guest login action in profile', async t => {

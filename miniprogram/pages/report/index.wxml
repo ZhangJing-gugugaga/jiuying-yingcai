@@ -141,7 +141,7 @@
         <textarea value="{{reason}}" bindinput="reason" disabled="{{busy || loading || switching}}" placeholder="请说明本次更正的原因"/>
       </view>
       <view wx:if="{{correctionType==='full' || correctionOptions[correctionFieldIndex].field==='revenue'}}" class="hint">如更正涉及营业收入，提交后还需完成财务复核。</view>
-      <view wx:if="{{showActionError && error}}" class="error">{{error}}</view>
+      <view wx:if="{{correctionError || (showActionError && error)}}" class="error">{{correctionError || error}}</view>
       <button class="outline" bindtap="correct" disabled="{{busy || loading || switching}}">提交更正申请</button>
     </view>
 

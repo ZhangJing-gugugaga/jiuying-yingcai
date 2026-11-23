@@ -75,7 +75,7 @@ const editor = define({
     versionUnavailable: false, currentAction: '', returnedReason: '', submitting: false, inlineConfirmation: false,
     submitConfirmationContent: confirmationContent, showActionError: false, actionNotice: '',
     missingFields: [], missingFieldsText: '', fieldErrors: {}, confirmationRows: [],
-    reason: '', correctionType: 'field', correctionFieldIndex: 0, correctionOptions: [], recoveryAvailable: false,
+    reason: '', correctionError: '', correctionType: 'field', correctionFieldIndex: 0, correctionOptions: [], recoveryAvailable: false,
   },
 
   load(query) {
@@ -222,7 +222,7 @@ const editor = define({
         ...values, form: { ...emptyForm }, editableFields: { ...readOnlyFields }, enrollmentStatus: 'pending',
         applicable: false, timing: null, canEdit: false, canSubmit: false, canCorrect: false, editNotice: '', versions: [], current: null,
         currentApprovedVersion: null, latestSubmittedVersion: null, linkedVersion: null, versionUnavailable: false,
-        currentAction: '', returnedReason: '', reason: '', showActionError: false, actionNotice: '', displayStatus: '', dueDisplay: '',
+        currentAction: '', returnedReason: '', reason: '', correctionError: '', showActionError: false, actionNotice: '', displayStatus: '', dueDisplay: '',
         historyExpanded: !!versionId, formExpanded: false, correctionExpanded: false, noteExpanded: false, hasDraft: false,
         missingFields: [], missingFieldsText: '', fieldErrors: {}, confirmationRows: [],
         correctionType: 'field', correctionFieldIndex: 0, recoveryAvailable: false,
@@ -317,7 +317,7 @@ const editor = define({
 
   async writeReport(command, payload, success, refresh = true) {
     const serial = this._serial;
-    this.setData({ busy: true, error: '', showActionError: false, actionNotice: '' });
+    this.setData({ busy: true, error: '', showActionError: false, correctionError: '', actionNotice: '' });
     try {
       let saved;
       try {
@@ -328,7 +328,8 @@ const editor = define({
             ? '保存失败，您填写的内容已保留，请重试。' : error.code === 'NETWORK'
               ? '网络连接中断，暂未确认操作结果。填写内容已保留，请检查网络后重试。'
               : api.errorText(error);
-          this.actionFailure(message);
+          if (command === 'report.correct') this.setData({ correctionError: message });
+          else this.actionFailure(message);
         }
         return null;
       }
@@ -473,7 +474,7 @@ const editor = define({
   },
 
   reason(event) {
-    this.setData({ reason: event.detail.value });
+    this.setData({ reason: event.detail.value, correctionError: '' });
     this.updateLeaveWarning();
   },
   correctionType(event) { this.setData({ correctionType: event.currentTarget.dataset.type }); },
@@ -482,7 +483,7 @@ const editor = define({
   async correct() {
     const { loading, busy, switching, canCorrect, currentApprovedVersion, correctionType, correctionOptions, correctionFieldIndex, reason } = this.data;
     if (loading || busy || switching || this._confirming || !canCorrect || !currentApprovedVersion) return;
-    if (!reason.trim()) return this.actionFailure('请填写更正原因。');
+    if (!reason.trim()) return this.setData({ correctionError: '请填写更正原因。' });
     const field = correctionOptions[correctionFieldIndex]?.field;
     await this.writeReport('report.correct', {
       id: currentApprovedVersion.id, reason: reason.trim(), correctionType, fields: correctionType === 'field' ? [field] : [],

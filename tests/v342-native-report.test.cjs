@@ -203,6 +203,28 @@ test('restored fields submit through a tap with no form event object, can cancel
   }));
 }));
 
+test('approved report correction shows its own error and clears it when the reason changes', () => withReport(async ({ open, state, staff }) => {
+  const report = await api.command('report.submit', {
+    outlet: restoreScope.outlet, month: restoreScope.month, revenue: 1000, orders: 20, traffic: 80, enroll: 2, note: '',
+  });
+  await staff('ops', '/api/commands', { command: 'review.report', payload: { id: report.result.id, decision: 'approve' } });
+
+  const editor = await open();
+  assert.equal(editor.data.canCorrect, true);
+  const before = state.calls.length;
+  await editor.correct();
+  assert.equal(state.calls.length, before);
+  assert.equal(editor.data.correctionError, '请填写更正原因。');
+  assert.equal(editor.data.showActionError, false);
+  const markup = readFileSync(require.resolve('../miniprogram/pages/report/index.wxml'), 'utf8');
+  assert.match(markup, /{{correctionError \|\| error}}<\/view>\s*<button[^>]+bindtap="correct"/);
+
+  editor.reason({ detail: { value: '核对订单数' } });
+  assert.equal(editor.data.correctionError, '');
+  await editor.correct();
+  assert.equal(state.responses.findLast(row => row.command === 'report.correct')?.status, 200);
+}));
+
 test('the only confirmation is inline and it can cancel or confirm the exact pending action', () => withReport(async ({ open, state }) => {
   const editor = await open();
   fill(editor);
