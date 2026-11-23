@@ -1,3 +1,5 @@
+@import "../styles/tokens.wxss";
+
 .activity-tabs {
   position: fixed;
   bottom: 0;
@@ -10,7 +12,7 @@
   min-height: calc(var(--tab-bar-height) + env(safe-area-inset-bottom, 0px));
   padding: 0 env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
   border-top: 1rpx solid var(--border);
-  background: var(--surface);
+  background-color: var(--surface);
 }
 
 .activity-tab {
@@ -22,9 +24,9 @@
   min-width: 0;
   min-height: 88rpx;
   min-height: max(88rpx, 44px);
-  gap: var(--space-xs);
+  gap: var(--space-2xs, 4rpx);
   color: var(--muted);
-  font-size: var(--font-caption);
+  font-size: var(--font-caption, 24rpx);
   line-height: 1.35;
 }
 
@@ -33,13 +35,26 @@
   font-weight: 650;
 }
 
+.activity-tab-icon-well {
+  width: 82rpx;
+  height: 49rpx;
+  border-radius: 999rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.activity-tab-active .activity-tab-icon-well {
+  background-color: var(--brand-soft);
+}
+
 .activity-tab:active {
-  background: var(--surface-muted);
+  background-color: var(--surface-muted);
 }
 
 .activity-tab-icon {
-  width: 44rpx;
-  height: 44rpx;
+  width: 39rpx;
+  height: 39rpx;
 }
 
 .activity-tab-label {

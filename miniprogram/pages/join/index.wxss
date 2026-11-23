@@ -1,0 +1,25 @@
+.join-section { display: flex; flex-direction: column; gap: 18rpx; }
+.join-section .section-title { margin: 0; }
+.join-field { margin: 0; }
+.join-field textarea { width: 100%; min-height: 96rpx; }
+.join-qr { align-self: center; width: 320rpx; max-width: 100%; padding: 0; line-height: 1; background: var(--surface); }
+.join-qr image { display: block; width: 100%; height: 320rpx; }
+.join-note { padding: 18rpx; border-radius: 16rpx; background: var(--surface-muted); overflow-wrap: anywhere; }
+.join-note text { font-weight: 600; }
+.join-intro, .join-record-head {
+  background: radial-gradient(ellipse at top right, #dceafe, transparent 70%), var(--surface);
+}
+.join-intro-mark {
+  display: grid;
+  place-items: center;
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: var(--radius-control);
+  background: var(--brand-soft);
+  color: var(--brand-deep);
+}
+.join-record-head { padding: var(--space-md); border-radius: var(--radius-control); overflow-wrap: anywhere; }
+.join-record-head .section-title { margin-top: var(--space-xs); }
+.join-record-returned .join-record-head { background: var(--warning-bg); color: var(--warning-text); }
+.join-recovery { padding: 0; overflow: hidden; }
+.join-recovery-form { display: flex; flex-direction: column; gap: var(--space-sm); padding: var(--space-md); }

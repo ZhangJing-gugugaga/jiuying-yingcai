@@ -1,22 +1,28 @@
 <view class="page">
-  <view class="section-head fees-heading">
-    <view class="section-title">服务费</view>
-    <button wx:if="{{!exactBill && section==='bills'}}" class="link" bindtap="toggleFilters">{{filtersOpen ? '收起筛选' : '筛选账单'}}</button>
-    <button wx:if="{{!exactBill && section==='bills' && scopeReady}}" class="link" bindtap="toggleHistory">{{historyOpen ? '收起历史' : '历史记录'}}</button>
-    <button wx:if="{{section!=='bills'}}" class="link" data-section="bills" bindtap="chooseSection" disabled="{{loading || busy}}">返回账单</button>
-  </view>
-  <view wx:if="{{historyOpen && scopeReady && !exactBill && section==='bills'}}" class="actions">
-    <button class="link" data-section="records" bindtap="chooseSection" disabled="{{loading || busy}}">付款与实收历史</button>
-    <button class="link" data-section="adjustments" bindtap="chooseSection" disabled="{{loading || busy}}">费用调整历史</button>
-    <button class="link" bindtap="openAgreements">查看服务协议</button>
-  </view>
+  <view class="title">{{section==='records' ? '付款与实收历史' : (section==='adjustments' ? '费用调整历史' : '咨询服务费')}}</view>
+  <button wx:if="{{section!=='bills'}}" class="link" data-section="bills" bindtap="chooseSection" disabled="{{loading || busy}}">返回账单</button>
   <view wx:if="{{loading && !hasLoaded}}" class="card content-skeleton">
     <text>正在加载服务费{{section==='bills' ? '账单' : '记录'}}…</text>
     <view class="content-skeleton-body" aria-hidden="true"/>
   </view>
   <view wx:elif="{{loading}}" class="loading">正在更新服务费{{section==='bills' ? '账单' : '记录'}}…</view>
   <view wx:if="{{error && (!paymentErrorBill || section!=='bills')}}" class="error">{{error}}<button class="link top-gap" bindtap="refresh">重试</button></view>
-  <view wx:if="{{(!exactBill && filtersOpen) || error}}" class="card">
+  <view wx:if="{{section==='bills' && scopeReady && !loading && !exactBill}}" class="card fees-overview">
+    <view class="fees-scope">{{outlets[outletIndex].label || '全部网点'}} · {{filterMonthValue || '全部账期'}}</view>
+    <view class="card-title top-gap">待付合计</view>
+    <view wx:if="{{ledgerTotals && ledgerTotals.unpaid}}" class="metric-value amount-number">¥ {{ledgerTotals.unpaid}}</view>
+    <view wx:else class="hint">暂未取得合计金额。单笔金额可在账单中查看。</view>
+  </view>
+  <view wx:if="{{!exactBill && section==='bills'}}" class="fees-tools">
+    <button class="link" bindtap="toggleFilters" disabled="{{loading || busy}}">{{filtersOpen ? '收起筛选' : '筛选账单'}}</button>
+    <button wx:if="{{scopeReady}}" class="link" bindtap="toggleHistory" disabled="{{loading || busy}}">{{historyOpen ? '收起历史' : '历史记录'}}</button>
+  </view>
+  <view wx:if="{{historyOpen && scopeReady && !exactBill && section==='bills'}}" class="actions">
+    <button class="link" data-section="records" bindtap="chooseSection" disabled="{{loading || busy}}">付款与实收历史</button>
+    <button class="link" data-section="adjustments" bindtap="chooseSection" disabled="{{loading || busy}}">费用调整历史</button>
+    <button class="link" bindtap="openAgreements">查看服务协议</button>
+  </view>
+  <view wx:if="{{(!exactBill && filtersOpen) || (error && !scopeReady)}}" class="card">
     <view class="field">
     <label>账单网点</label>
     <picker range="{{outlets}}" range-key="label" value="{{outletIndex}}" bindchange="filterOutlet" disabled="{{loading || busy}}">
@@ -41,18 +47,11 @@
   </view>
   <button wx:if="{{scopeReady && payment.status==='pending' && state.adapterMode==='real'}}" class="outline" data-id="{{payment.id}}" bindtap="resume" disabled="{{busy}}">查看付款状态</button>
   <block wx:if="{{section==='bills'}}">
-  <view wx:if="{{!exactBill && !filtersOpen && (selected || filterMonthValue)}}" class="hint">{{outlets[outletIndex].label}} · {{filterMonthValue || '全部账期'}}</view>
   <view wx:if="{{!exactBill}}" class="filter">
     <button class="pill {{statusFilter==='unpaid'?'active':''}}" data-status="unpaid" bindtap="filterStatus" disabled="{{loading || busy}}">待支付</button>
     <button class="pill {{statusFilter==='paid'?'active':''}}" data-status="paid" bindtap="filterStatus" disabled="{{loading || busy}}">已支付</button>
     <button class="pill {{statusFilter==='all'?'active':''}}" data-status="all" bindtap="filterStatus" disabled="{{loading || busy}}">全部账单</button>
   </view>
-  <view wx:if="{{ledgerTotals && scopeReady && !loading && !exactBill && statusFilter==='unpaid'}}" class="card">
-    <view class="card-title">待支付合计</view>
-    <view wx:if="{{ledgerTotals.unpaid}}" class="metric-value amount-number">¥ {{ledgerTotals.unpaid}}</view>
-    <view wx:else class="hint">暂未取得合计金额。单笔金额可在账单中查看。</view>
-  </view>
-  <view wx:elif="{{scopeReady && !loading && !exactBill && statusFilter==='unpaid'}}" class="hint">暂未取得合计金额。单笔金额可在账单中查看。</view>
   <view wx:if="{{bills.length && !exactBill}}" class="section-title">服务费账单</view>
   <view wx:for="{{bills}}" wx:key="id" class="card">
     <view class="row between"><text class="card-title grow">{{item.monthText}} · {{item.displayOutlet}}</text><text class="badge {{item.statusTone}}">{{item.statusText}}</text></view>
@@ -72,10 +71,10 @@
       <button wx:if="{{state.adapterMode==='real' && paymentEnabled}}" class="primary" data-id="{{item.id}}" bindtap="pay" disabled="{{busy || loading}}">微信支付</button>
       <view wx:if="{{state.adapterMode==='real' && !paymentEnabled}}" class="hint">微信支付暂未开放。</view>
     </block>
-    <button class="link" data-id="{{item.id}}" bindtap="openBill" disabled="{{loading || busy}}">查看账单</button>
+    <button class="link" data-id="{{item.id}}" bindtap="openBill" disabled="{{loading || busy}}">{{exactBill ? '查看付款与账单明细' : '查看账单'}}</button>
   </view>
-  <view wx:if="{{state && !bills.length && !loading && !error}}" class="empty">
-    {{filterMonthValue || statusFilter!=='all' ? '当前筛选下没有账单。' : '当前网点范围暂无服务费账单。'}}
+  <view wx:if="{{state && !bills.length && !loading && !error}}">
+    <t-empty class="native-empty" icon="wallet" description="{{filterMonthValue || statusFilter!=='all' ? '当前筛选下没有账单。' : '当前网点范围暂无服务费账单。'}}"/>
     <button wx:if="{{filterMonthValue || statusFilter!=='all'}}" class="link" bindtap="clearFilters">查看所选网点的全部账单</button>
   </view>
   <view wx:if="{{pagers.bills.hasMore}}" class="pagination"><button class="outline small" data-collection="bills" bindtap="more" loading="{{pagers.bills.loading}}" disabled="{{loading || pagers.bills.loading}}">加载更多账单</button></view>
@@ -83,7 +82,7 @@
 
   </block>
   <block wx:if="{{section==='records'}}">
-  <view class="hint">以下记录按当前网点展示，涵盖全部账期。</view>
+  <view wx:if="{{scopeReady}}" class="hint">{{outlets[outletIndex].label}} · 全部账期</view>
   <button wx:if="{{scopeReady}}" class="link" bindtap="openFinance">查看付款与凭证</button>
   <view class="section-title">付款记录</view>
   <view wx:for="{{payments}}" wx:key="id" class="card">
@@ -98,7 +97,7 @@
     <button wx:if="{{item.status==='pending' && item.adapterMode!=='mock' && state.adapterMode==='real'}}" class="link" data-id="{{item.id}}" bindtap="resume" disabled="{{busy}}">查看付款状态</button>
     <button wx:if="{{item.status==='pending' && item.adapterMode!=='mock' && state.adapterMode==='real'}}" class="link" data-id="{{item.id}}" bindtap="closeExpired" disabled="{{busy}}">关闭过期付款</button>
   </view>
-  <view wx:if="{{state && !payments.length && !loading && !error}}" class="empty">暂无付款记录。</view>
+  <t-empty wx:if="{{state && !payments.length && !loading && !error}}" class="native-empty" icon="wallet" description="暂无付款记录。"/>
   <view wx:if="{{pagers.payments.hasMore}}" class="pagination"><button class="outline small" data-collection="payments" bindtap="more" loading="{{pagers.payments.loading}}" disabled="{{loading || pagers.payments.loading}}">加载更多付款记录</button></view>
 
   <view class="section-title">实收记录</view>
@@ -107,12 +106,12 @@
     <view wx:if="{{item.dateText}}" class="muted">{{item.dateText}}</view>
     <button wx:if="{{item.billId}}" class="link" data-id="{{item.id}}" data-record="receipt" data-section="receipts" bindtap="openBill">查看原账单</button>
   </view>
-  <view wx:if="{{state && !receipts.length && !loading && !error}}" class="empty">暂无实收记录。</view>
+  <t-empty wx:if="{{state && !receipts.length && !loading && !error}}" class="native-empty" icon="wallet" description="暂无实收记录。"/>
   <view wx:if="{{pagers.receipts.hasMore}}" class="pagination"><button class="outline small" data-collection="receipts" bindtap="more" loading="{{pagers.receipts.loading}}" disabled="{{loading || pagers.receipts.loading}}">加载更多实收记录</button></view>
 
   </block>
   <block wx:if="{{section==='adjustments'}}">
-  <view class="hint">以下调整按当前网点展示，涵盖全部账期。</view>
+  <view wx:if="{{scopeReady}}" class="hint">{{outlets[outletIndex].label}} · 全部账期</view>
   <view class="section-title">费用调整记录</view>
   <view class="hint">费用调整以总部财务核算结果为准。</view>
   <view wx:for="{{adjustments}}" wx:key="id" class="card">
@@ -125,7 +124,7 @@
       <view wx:if="{{item.serviceUntilText}}" class="detail-row"><text>服务可使用至</text><text>{{item.serviceUntilText}}</text></view>
     </block>
   </view>
-  <view wx:if="{{state && !adjustments.length && !loading && !error}}" class="empty">暂无费用调整记录。</view>
+  <t-empty wx:if="{{state && !adjustments.length && !loading && !error}}" class="native-empty" icon="wallet" description="暂无费用调整记录。"/>
   <view wx:if="{{pagers.adjustments.hasMore}}" class="pagination"><button class="outline small" data-collection="adjustments" bindtap="more" loading="{{pagers.adjustments.loading}}" disabled="{{loading || pagers.adjustments.loading}}">加载更多费用调整</button></view>
   </block>
   <!-- DEV_ONLY_START -->

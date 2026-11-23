@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "加盟申请",
+  "usingComponents": {
+    "t-cell": "/vendor/tdesign/cell/cell",
+    "t-icon": "/vendor/tdesign/icon/icon"
+  }
+}

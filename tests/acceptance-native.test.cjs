@@ -644,7 +644,9 @@ test('monthly list resumes only the owner draft, then pending and approved versi
   await api.command('report.draft',{outlet:'zz',month,revenue:123.45,note:'草稿回填验收'});
   let list=page('reports');
   await list.onShow();
-  assert.deepEqual(list.data.draftRows.map(row=>[row.outlet,row.month,row.revenue]),[['zz',month,123.45]]);
+  const drafts = list.data.reportRows.filter(row => row.status === 'draft');
+  assert.deepEqual(drafts.map(row=>[row.outletId,row.month]),[['zz',month]]);
+  assert.ok(!Object.hasOwn(drafts[0], 'revenue'));
   list.open(tap({outlet:'zz',month}));
   assert.match(calls.at(-1).navigateTo,/outlet=zz&month=2026-10$/);
   let report=page('report',{outlet:'zz',month});
@@ -663,8 +665,8 @@ test('monthly list resumes only the owner draft, then pending and approved versi
   await api.login('partnerA');
   list=page('reports');
   await list.onShow();
-  assert.equal(list.data.draftRows.length,0);
-  assert.equal(list.data.rows.find(row=>row.id===id).status,'approved');
+  assert.equal(list.data.reportRows.some(row=>row.status==='draft'),false);
+  assert.equal(list.data.reportRows.find(row=>row.reportId===id).status,'approved');
   report=page('report',{outlet:'zz',month});
   await report.onShow();
   assert.equal(report.data.currentApprovedVersion.id,id);
@@ -674,7 +676,7 @@ test('monthly list resumes only the owner draft, then pending and approved versi
   await api.login('partnerB');
   list=page('reports');
   await list.onShow();
-  assert.equal(list.data.draftRows.length,0);
+  assert.equal(list.data.reportRows.some(row=>row.status==='draft'),false);
 }));
 
 test('the visitor report tab returns to public home with sign-in and directory actions before any private requests', () => nativeRun(async ({calls}) => {
@@ -684,13 +686,13 @@ test('the visitor report tab returns to public home with sign-in and directory a
   await reports.onShow();
   assert.ok(calls.some(call => call.reLaunch === '/pages/home/index'));
   assert.equal(reports.data.error, '');
-  assert.ok(!calls.some(call => /\/api\/collections\/(reports|drafts|businessTasks|exemptions|outlets)/.test(call.url || '')));
+  assert.ok(!calls.some(call => /\/api\/(?:reports\/worklist|collections\/(reports|drafts|businessTasks|exemptions|outlets))/.test(call.url || '')));
   const template = fs.readFileSync(path.join(native,'pages/home/index.wxml'),'utf8');
   assert.match(template,/data-page="login"[^>]*bindtap="nav">加盟商登录/);
-  assert.match(template,/data-page="outlets"[^>]*data-query="scope=public&mode=list"[^>]*bindtap="nav">查找服务网点/);
+  assert.match(template,/data-page="outlets"[^>]*data-query="scope=public&mode=list"[^>]*bindtap="nav"[^>]*>[\s\S]*?class="home-feature-label">公开网点/);
   const home=page('home');
   home.nav(tap({page:'login'}));
-  home.nav(tap({page:'outlets',query:'scope=public'}));
+  home.nav(tap({page:'outlets',query:'scope=public&mode=list'}));
   assert.ok(calls.some(call => call.navigateTo==='/pages/login/index'));
   assert.ok(calls.some(call => call.switchTab==='/pages/outlets/index'));
 }));

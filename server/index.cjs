@@ -5,9 +5,15 @@ const {aggregateSQL}=require('./analytics.cjs');const {authentication}=require('
 const approvalHistory=require('./approval-history.cjs');
 const {scopedGrants}=require('../shared/operations.cjs');
 const hash=x=>createHash('sha256').update(x).digest('hex');const ROOT=path.resolve(__dirname,'..');
-function createServer({dbPath=process.env.DB_PATH||path.join(ROOT,'var/local.db'),env=process.env,seed=true,integrationFetch}={}){
+function createServer({dbPath=process.env.DB_PATH||path.join(ROOT,'var/local.db'),env=process.env,seed=true,integrationFetch,roleTrial,roleTrialControls}={}){
  const adapter=adapters(env);const development=env.NODE_ENV!=='production';const rate=new Map();
+ const trialProfiles=env.NODE_ENV==='test'&&adapter.mode==='mock'&&roleTrial?{roleTrial}:{};
+ const trialControls=trialProfiles.roleTrial&&roleTrialControls;
  if(!development)core.check(env.PUBLIC_ORIGIN&&/^https:\/\//.test(env.PUBLIC_ORIGIN),'CONFIG','生产环境须配置HTTPS PUBLIC_ORIGIN');
+ let staffPortalUrl=null;
+ if(!development){
+  try{const origin=new URL(env.PUBLIC_ORIGIN);if(origin.protocol==='https:'&&origin.origin===env.PUBLIC_ORIGIN)staffPortalUrl=origin.href;}catch{}
+ }
  const store=openStore(dbPath,{seed:seed&&development,productionRuntime:!development});
  const auth=authentication(store,env),today=()=>env.NODE_ENV==='test'?store.settings().today:new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()),repo=repository(store,{today});
  const external=require('./external-auth.cjs').externalAuth(store,auth,env,integrationFetch);
@@ -19,6 +25,8 @@ function createServer({dbPath=process.env.DB_PATH||path.join(ROOT,'var/local.db'
  const training=trainingService(store);
  const formExports=require('./approval-export.cjs').approvalExport(store,repo);
  const contacts=require('./work-contacts.cjs').workContacts(store);
+ const onboarding=require('./onboarding.cjs').service(store,repo);
+ const uploads=require('./file-access.cjs');
  function readAnalyticsSnapshot(read){
   // Collect the entire view from one WAL snapshot, then release it before rendering or writing the audit.
   store.db.exec('BEGIN');
@@ -35,8 +43,8 @@ function createServer({dbPath=process.env.DB_PATH||path.join(ROOT,'var/local.db'
   if(contentType.split(';')[0].trim().toLowerCase()!=='multipart/form-data'){
    const p=await protectedJson(req);
    core.check(typeof p.base64==='string'&&p.base64.length<=7*1024*1024&&/^[A-Za-z0-9+/]*={0,2}$/.test(p.base64),'INPUT','附件内容无效');
-   const {name,type,purpose}=p;
-   return {name,type,purpose,bytes:Buffer.from(p.base64,'base64')};
+   const {name,type,purpose,applicationId,applicationVersion}=p;
+   return {name,type,purpose,applicationId,applicationVersion,bytes:Buffer.from(p.base64,'base64')};
   }
   const limit=5*1024*1024+64*1024;
   core.check(contentType.length<=256&&(!req.headers['content-length']||Number(req.headers['content-length'])<=limit),'PAYLOAD_TOO_LARGE','附件请求过大',413);
@@ -51,14 +59,17 @@ function createServer({dbPath=process.env.DB_PATH||path.join(ROOT,'var/local.db'
   try{form=await new Response(Buffer.concat(chunks),{headers:{'Content-Type':contentType}}).formData();}
   catch{core.fail('INPUT','请重新选择照片后上传');}
   const keys=[...form.keys()];
-  core.check(keys.every(key=>['file','name','type','purpose'].includes(key))&&keys.length===new Set(keys).size,'INPUT','附件字段无效');
+  core.check(keys.every(key=>['file','name','type','purpose','applicationId','applicationVersion'].includes(key))&&keys.length===new Set(keys).size,'INPUT','附件字段无效');
   const file=form.get('file');
   core.check(file instanceof File&&file.size>0&&file.size<=5*1024*1024,'INPUT','附件须在5MB内');
+  const version=form.get('applicationVersion');
+  core.check(version===null||(typeof version==='string'&&/^[1-9]\d{0,15}$/.test(version)),'INPUT','申请版本无效');
   sessionFor(req);
-  return {name:form.get('name')??file.name,type:form.get('type')??file.type,purpose:form.get('purpose')??undefined,bytes:Buffer.from(await file.arrayBuffer())};
+  return {name:form.get('name')??file.name,type:form.get('type')??file.type,purpose:form.get('purpose')??undefined,
+   applicationId:form.get('applicationId')??undefined,applicationVersion:version===null?undefined:Number(version),bytes:Buffer.from(await file.arrayBuffer())};
  }
  function fileAccess(f,session){return require('./file-access.cjs').fileAccess(store,f,session,repo);}
- function evidence(p,session){for(const obj of [p.photo,p.data?.photo])if(obj){const f=store.db.prepare('SELECT id,subject,owner FROM files WHERE id=?').get(obj.id||'');core.check(fileAccess(f,session)!=='support-ticket','FORBIDDEN','工单图片仅可随工单提交',403);}}
+ function evidence(p,session){for(const obj of [p.photo,p.data?.photo])if(obj){const f=store.db.prepare('SELECT id,subject,owner FROM files WHERE id=?').get(obj.id||'');core.check(!fileAccess(f,session),'FORBIDDEN','此类图片仅可在原业务使用',403);}}
  function visibleResult(state,session,raw){const v=core.view(state,session.actor,{subject:session.subject});for(const rows of [...Object.values(v).filter(Array.isArray),v.support.chats,v.support.tickets]){const found=rows.find(x=>x.id===raw.id);if(found)return found;}core.check(session.actor==='manager'&&['regional','support-settings'].includes(raw.id),'FORBIDDEN','当前权限不允许读取此操作结果',403);return raw;}
  const server=http.createServer(async(req,res)=>{const requestId=randomUUID(),started=Date.now();res.setHeader('X-Request-Id',requestId);res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','no-referrer');res.setHeader('Cache-Control','no-store');res.setHeader('X-Frame-Options','DENY');if(!development)res.setHeader('Strict-Transport-Security','max-age=31536000');res.on('finish',()=>{for(const [key,value] of [['requests.total',1],['requests.duration_ms',Date.now()-started],['requests.errors',res.statusCode>=400?1:0]])store.db.prepare('INSERT INTO runtime_metrics(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=value+excluded.value').run(key,value);});
   const respond=(status,body)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8'});res.end(JSON.stringify(body));};
@@ -66,7 +77,28 @@ function createServer({dbPath=process.env.DB_PATH||path.join(ROOT,'var/local.db'
    const origin=req.headers.origin;if(origin){let u;try{u=new URL(origin);}catch{core.fail('ORIGIN','来源无效',403);}core.check(development?(['localhost','127.0.0.1','[::1]'].includes(u.hostname)&&['http:','https:'].includes(u.protocol)||u.protocol==='https:'&&origin===env.PUBLIC_ORIGIN):origin===env.PUBLIC_ORIGIN,'ORIGIN','来源不在允许列表',403);res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin');res.setHeader('Access-Control-Allow-Headers','Authorization,Content-Type,Idempotency-Key');res.setHeader('Access-Control-Allow-Methods','GET,POST,OPTIONS');}
    if(req.method==='OPTIONS'){res.writeHead(204);return res.end();}const url=new URL(req.url,'http://localhost'),route=url.pathname;
    if(route==='/health'&&req.method==='GET'){store.db.prepare('SELECT 1').get();return respond(200,{data:{status:'ok',database:'sqlite',adapterMode:adapter.mode,productionReady:false},requestId});}
-   if(route==='/api/config'&&req.method==='GET')return respond(200,{data:{mode:development?'development':'production',adapterMode:adapter.mode,devLoginEnabled:development&&adapter.mode==='mock',passwordLoginEnabled:true,visitorEnabled:true,authCapabilities:external.capabilities,staffLogin:staffIdentity.capabilities,wechatLoginEnabled:external.capabilities.wechat,smsLoginEnabled:external.capabilities.sms,paymentEnabled:payments.capabilities.wechat,paymentChannels:payments.capabilities},requestId});
+   if(route==='/api/config'&&req.method==='GET')return respond(200,{data:{mode:development?'development':'production',adapterMode:adapter.mode,devLoginEnabled:development&&adapter.mode==='mock',passwordLoginEnabled:true,visitorEnabled:true,authCapabilities:external.capabilities,staffLogin:staffIdentity.capabilities,staffPortalUrl,wechatLoginEnabled:external.capabilities.wechat,smsLoginEnabled:external.capabilities.sms,paymentEnabled:payments.capabilities.wechat,paymentChannels:payments.capabilities,...trialProfiles},requestId});
+   if(trialControls&&route.startsWith('/api/role-trial/')){
+    core.check(['127.0.0.1','::1','::ffff:127.0.0.1'].includes(req.socket.remoteAddress),'FORBIDDEN','仅限本机隔离试用',403);
+    if(route==='/api/role-trial/open'&&req.method==='POST'){
+     core.check(req.headers.origin==='http://127.0.0.1:'+req.socket.localPort,'ORIGIN','请从本机试用窗口打开',403);
+     await json(req,1024);
+     core.check(trialControls.openNative,'TRIAL_NATIVE_UNAVAILABLE','请在微信开发者工具中导入试用工程',503);
+     try{await trialControls.openNative();}catch(error){core.fail('TRIAL_NATIVE_UNAVAILABLE',error.message,503);}
+     return respond(200,{data:{opened:true},requestId});
+    }
+    if(route==='/api/role-trial/applicant'&&req.method==='POST'){
+     await json(req,1024);
+     const key='trial-applicant:'+req.socket.remoteAddress;
+     auth.rate(key,60);auth.failure(key,60);
+     return respond(200,{data:auth.session('public',true,trialControls.applicantSubject),requestId});
+    }
+    if(route==='/api/role-trial/proof'&&req.method==='GET'){
+     core.check(sessionFor(req).subject===trialControls.applicantSubject,'NOT_FOUND','找不到试用付款截图',404);
+     res.writeHead(200,{'Content-Type':'image/png','Cache-Control':'no-store'});
+     return res.end(trialControls.supplementImage);
+    }
+   }
    if(req.method==='POST'&&['/api/payments/notify','/api/payments/wechat/refund-notify','/api/payments/alipay/notify','/api/payments/alipay/refund-notify'].includes(route)){
     const channel=route.includes('/alipay/')?'alipay':'wechat',refund=route.endsWith('/refund-notify');
     const raw=await rawBody(req,131072,channel==='alipay'?['application/x-www-form-urlencoded']:['application/json']);
@@ -91,6 +123,28 @@ function createServer({dbPath=process.env.DB_PATH||path.join(ROOT,'var/local.db'
    }
    if(route.startsWith('/api/')){
     const session=sessionFor(req),ctx={...session,requestId,today:today(),now:new Date().toISOString()};
+    if(route==='/api/onboarding/config'){
+     if(req.method==='GET')return respond(200,{data:onboarding.configuration(ctx),requestId});
+     if(req.method==='POST')return respond(200,{data:onboarding.configure(ctx,await protectedJson(req,8192),requestId),requestId});
+    }
+    if(route==='/api/onboarding/applications'&&req.method==='GET')return respond(200,{data:onboarding.list(ctx,Object.fromEntries(url.searchParams)),requestId});
+    if(route.startsWith('/api/onboarding/')&&req.method==='POST'){
+     const review=/^\/api\/onboarding\/applications\/(join-[a-f0-9-]{36})\/review$/.exec(route);
+     if(review||['/api/onboarding/applications','/api/onboarding/recover'].includes(route)){
+      const input=await protectedJson(req,8192),key=req.headers['idempotency-key'];
+      if(route==='/api/onboarding/recover'){
+       const rateKey='onboarding-recover:'+hash(req.socket.remoteAddress||'local');
+       auth.rate(rateKey,60);auth.failure(rateKey,60);
+       return respond(200,{data:onboarding.recover(ctx,input,requestId),requestId});
+      }
+      if(!review&&session.actor==='public'){
+       const rateKey='onboarding-submit:'+session.subject;
+       auth.rate(rateKey,24);auth.failure(rateKey,24);
+      }
+      const data=review?onboarding.review(ctx,review[1],input,key,requestId):onboarding.submit(ctx,input,key,requestId);
+      return respond(200,{data,requestId});
+     }
+    }
     if(route==='/api/approval-exports'&&req.method==='GET')return respond(200,{data:formExports.details(session,Object.fromEntries(url.searchParams)),requestId});
     if(route==='/api/approval-exports/grants'&&req.method==='POST')return respond(200,{data:formExports.save(session,await protectedJson(req,8192),requestId),requestId});
     if(route==='/api/approval-exports/csv'&&req.method==='GET'){
@@ -111,6 +165,7 @@ function createServer({dbPath=process.env.DB_PATH||path.join(ROOT,'var/local.db'
      readJson:limit=>protectedJson(req,limit),reauthorize:()=>sessionFor(req)
     });
     if(route==='/api/reports/context'&&req.method==='GET')return respond(200,{data:repo.reportContext(session,Object.fromEntries(url.searchParams)),requestId});
+    if(route==='/api/reports/worklist'&&req.method==='GET')return respond(200,{data:readAnalyticsSnapshot(()=>repo.reportWorklist(session,Object.fromEntries(url.searchParams))),requestId});
     if(route==='/api/payments/prepay'&&req.method==='POST')return respond(200,{data:await payments.prepay(session,await protectedJson(req,8192),req.headers['idempotency-key'],requestId,()=>sessionFor(req)),requestId});
     if(route==='/api/payments/exceptions'&&req.method==='GET')return respond(200,{data:payments.paymentExceptions(session,Object.fromEntries(url.searchParams)),requestId});
     const channelRefundRequest=/^\/api\/payment-refunds\/requests\/([^/]+)$/.exec(route);
@@ -193,10 +248,16 @@ function createServer({dbPath=process.env.DB_PATH||path.join(ROOT,'var/local.db'
      return res.end(bytes);
     }
     if(route==='/api/files'&&req.method==='POST'){
-     const {name:submittedName,type,purpose,bytes}=await imageUpload(req);
+     const {name:submittedName,type,purpose,bytes,applicationId,applicationVersion}=await imageUpload(req);
      core.check(typeof submittedName==='string'&&submittedName.trim().length>0&&submittedName.length<=200,'INPUT','附件名称无效');
      core.check(['image/png','image/jpeg','image/webp'].includes(type),'INPUT','仅支持PNG/JPEG/WebP图片');
-     core.check(purpose===undefined||purpose==='support-ticket','INPUT','附件用途无效');
+     uploads.checkUploadPurpose(purpose,session);
+     core.check(purpose==='onboarding-proof'||(applicationId===undefined&&applicationVersion===undefined),'INPUT','附件字段无效');
+     if(purpose==='onboarding-proof'){
+      const rateKey='onboarding-proof:'+hash(req.socket.remoteAddress||'local');
+      auth.rate(rateKey,60);auth.failure(rateKey,60);
+      onboarding.authorizeProofUpload(ctx,applicationId,applicationVersion);
+     }
      core.check(bytes.length>0&&bytes.length<=5*1024*1024,'INPUT','附件须在5MB内');
      const magic=type==='image/png'?bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])):type==='image/jpeg'?bytes[0]===255&&bytes[1]===216&&bytes[2]===255:bytes.subarray(0,4).toString()==='RIFF'&&bytes.subarray(8,12).toString()==='WEBP';
      core.check(magic,'INPUT','附件MIME和文件魔数不一致');
@@ -204,10 +265,11 @@ function createServer({dbPath=process.env.DB_PATH||path.join(ROOT,'var/local.db'
      const id='file-'+randomUUID(),name=sanitized.name;
      core.check(name.length>0,'INPUT','附件名称无效');
      store.transaction(()=>{
-      sessionFor(req);
+      const fresh=sessionFor(req);
+      const target=purpose==='onboarding-proof'?onboarding.authorizeProofUpload(fresh,applicationId,applicationVersion):null;
       store.db.prepare('INSERT INTO files VALUES(?,?,?,?,?,?,?,?,?)').run(id,session.subject,core.own(session.actor),name,type,sanitized.bytes.length,hash(sanitized.bytes),sanitized.bytes,new Date().toISOString());
       store.db.prepare('INSERT INTO file_metadata VALUES(?,?,?,?,?)').run(id,sanitized.originalDigest,sanitized.width,sanitized.height,sanitized.transformVersion);
-      if(purpose)require('./file-access.cjs').registerUploadPurpose(store,id,purpose);
+      if(purpose)uploads.registerUploadPurpose(store,id,purpose,target);
      });
      return respond(201,{data:{id,name,type,size:sanitized.bytes.length,url:'/api/files/'+id,sanitized:true,width:sanitized.width,height:sanitized.height},requestId});
     }
@@ -225,7 +287,7 @@ function createServer({dbPath=process.env.DB_PATH||path.join(ROOT,'var/local.db'
       f=readFile.get(id);
      }
      res.writeHead(200,{'Content-Type':f.mime,'Content-Disposition':"attachment; filename*=UTF-8''"+encodeURIComponent(f.name),'Content-Length':f.size,
-      ...(purpose==='support-ticket'?{'Cache-Control':'private, no-store'}:{})});
+      ...(purpose?{'Cache-Control':'private, no-store'}:{})});
      return res.end(Buffer.from(f.bytes));
     }
     if(route==='/api/commands'&&req.method==='POST'){

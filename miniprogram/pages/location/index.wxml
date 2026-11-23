@@ -2,7 +2,7 @@
   <view class="title">网点位置核验</view>
   <view wx:if="{{loading}}" class="loading">正在加载，请稍候…</view>
   <view wx:if="{{error && !canSubmitEvidence}}" class="error">{{error}}<button class="link top-gap" bindtap="refresh">重试</button></view>
-  <view class="card">
+  <view class="card verification-scope">
     <view class="field" wx:if="{{outlets.length>1 || pagers.outlets.hasMore || outletSearch}}"><input placeholder="搜索网点名称或地区" value="{{outletSearch}}" bindconfirm="outletSearch" disabled="{{busy || loading}}"/></view>
     <view wx:if="{{pagers.outlets.hasMore}}" class="pagination">
       <text class="muted">已显示 {{pagers.outlets.loaded}} / {{pagers.outlets.total}} 家网点</text>
@@ -95,7 +95,7 @@
       <view wx:if="{{item.publicNote}}" class="hint">总部意见：{{item.publicNote}}</view>
       <button wx:if="{{item.needsExplanation && !recordError}}" class="outline small top-gap" data-id="{{item.id}}" bindtap="supplementLocation" disabled="{{loading || busy}}">补充现场资料</button>
     </view>
-    <view wx:if="{{!(historyExpanded ? history.length : monthHistory.length) && !loading && !monthLoading && !monthError && !error}}" class="empty">{{historyExpanded ? '该网点暂无核验记录。' : '所选月份暂无核验记录。'}}</view>
+    <t-empty wx:if="{{!(historyExpanded ? history.length : monthHistory.length) && !loading && !monthLoading && !monthError && !error}}" class="native-empty" icon="location" description="{{historyExpanded ? '该网点暂无核验记录。' : '所选月份暂无核验记录。'}}"/>
     <view wx:if="{{historyExpanded && pagers.verifications.hasMore}}" class="pagination">
       <text class="muted">已显示 {{pagers.verifications.loaded}} / {{pagers.verifications.total}} 条核验记录</text>
       <button class="outline small" data-collection="verifications" bindtap="more" loading="{{pagers.verifications.loading}}" disabled="{{loading || pagers.verifications.loading}}">加载更多</button>

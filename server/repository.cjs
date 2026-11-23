@@ -15,6 +15,8 @@ const approvalCommandsByCollection = {
 const all=['manager','ops','finance'];
 const privateFinance=['bills','payments','receipts','adjustments','drafts','summaryAdjustments','agreements','billCorrections','feeProposals','offlinePayments','refundRequests','invoiceRequests'];
 const published=['contents','faqEntries','publicProfiles'];
+const reportWorklistFilters={action:['missing','draft','returned'],reviewing:['pending','finance','exemption_pending'],approved:['approved']};
+const blockedReportStatuses={current_month:'not_open',future_month:'not_open',exempt:'exempt',full_pause:'exemption_pending',no_operation:'not_required'};
 const publishedContentWhere="(json_extract(data,'$.publishedSnapshot.status')='published' OR (json_extract(data,'$.publishedSnapshot') IS NULL AND status='published'))";
 const collectionStatuses={
  outlets:['open','paused','preparing','closed'],
@@ -306,6 +308,43 @@ function repository(store,{today}={}){const db=store.db;
     if (unavailableActions.length) item.unavailableActions = unavailableActions;
   }
  }
+ function addRequestProgress(items) {
+  const paused=items.filter(item=>item.type==='pauseFee'&&item.status==='approved');
+  const adjustments=paused.length?db.prepare(`
+   SELECT r.id requestId,a.status,json_extract(a.data,'$.offsetMonth') offsetMonth,
+    b.id billId,b.month billMonth,b.status billStatus,
+    EXISTS(SELECT 1 FROM feeProposals p WHERE p.outlet=a.outlet AND p.owner IS a.owner
+     AND p.status='pending' AND json_extract(p.data,'$.adjustmentId')=a.id) pendingReview
+   FROM requests r JOIN adjustments a ON a.outlet=r.outlet AND a.owner IS r.owner
+    AND json_extract(a.data,'$.requestId')=r.id
+   LEFT JOIN bills b ON b.id=json_extract(a.data,'$.appliedBillId') AND b.outlet=a.outlet AND b.owner IS a.owner
+   WHERE r.id IN (SELECT value FROM json_each(?)) ORDER BY a.rowid
+  `).all(JSON.stringify(paused.map(item=>item.id))):[];
+  const byRequest=new Map(adjustments.map(row=>[row.requestId,row]));
+  for(const item of items){
+   if(item.status!=='approved')continue;
+   if(item.policyPending===true){
+    item.progress={stage:'awaiting_policy',label:'待确认生效规则',description:'总部已审批。现有经营或报送规则继续适用，请等待总部确认生效。'};
+    continue;
+   }
+   if(item.type!=='pauseFee')continue;
+   const adjustment=byRequest.get(item.id);
+   if(adjustment?.status==='applied'&&adjustment.billId){
+    const reversed=adjustment.billStatus==='reversed';
+    item.progress={stage:reversed?'credit_bill_reversed':'credited',label:reversed?'抵扣账单已冲正':'已抵扣入账',
+     description:reversed?'请查看原抵扣账单和关联的后续账单。':'费用调整已计入对应账期，可查看原抵扣账单。',
+     billId:adjustment.billId,month:adjustment.billMonth};
+   }else if(adjustment?.status==='approved'){
+    item.progress={stage:'awaiting_credit_bill',label:'待抵扣入账',description:'财务已复核核算结果，抵扣将计入对应账期。',month:adjustment.offsetMonth};
+   }else if(adjustment?.status==='待财务核算调整'){
+    item.progress=adjustment.pendingReview
+     ?{stage:'awaiting_finance_review',label:'待财务复核',description:'总部已提交费用核算方案，等待财务确认。'}
+     :{stage:'awaiting_calculation',label:'待核算费用',description:'总部已审批停费申请，正在核算实际费用。'};
+   }else{
+    item.progress={stage:'adjustment_unavailable',label:'待核实费用进度',description:'暂无可核实的费用调整进度，请联系总部。'};
+   }
+  }
+ }
  function list(name,session,params={},validateStatus=true){
   if(name==='outlets'&&(params.scope==='public'||session.actor==='public')){
    if(validateStatus)checkCollectionStatus(name,params.status);
@@ -320,6 +359,7 @@ function repository(store,{today}={}){const db=store.db;
   }
   const p=query(name,session,params,false,validateStatus),items=project(name,p.records,p.s,session);
   markUnavailableAssignedActions(name,items,session);
+  if(name==='requests')addRequestProgress(items);
   if(name==='staffAccounts'&&session.actor==='manager'){
    const activated=new Set(activatedStaffIds(db,items.map(staff=>staff.id)));
    for(const staff of items)staff.activated=activated.has(staff.id);
@@ -338,6 +378,82 @@ function repository(store,{today}={}){const db=store.db;
  function snapshot(session,params={}){const v=context(session);v.support={...v.support,chats:[],tickets:[]};v.pagination={};for(const name of core.COLLECTIONS){if(!access(name,session,contextState(session))){if(!name.startsWith('support'))v[name]=[];continue;}const page=list(name,session,params,false);if(name==='supportChats')v.support.chats=page.items;else if(name==='supportTickets')v.support.tickets=page.items;else v[name]=page.items;v.pagination[name]={...page,items:undefined};}v.locationTasks=core.own(session.actor)||['manager','location'].includes(session.actor)?list('locationTasks',session,{limit:params.limit,offset:params.offset}).items:[];return v;}
  function commandState(session,command,payload){const {scopedCommandState}=require('./command-scope.cjs');const loaded=scopedCommandState(store,session,command,payload,typeof today==='function'?today():store.settings().today);Object.defineProperty(loaded.state,'__jobScope',{value:loaded.jobScope,enumerable:false});return loaded.state;}
 
+ function reportEligibility(s,outlet,month,currentApprovedVersion,actor){
+  const enrollmentStatus=operations.enrollmentFor(outlet,month);
+  const isOwner=core.own(actor)===outlet.owner&&!!outlet.owner;
+  const reviewing=s.reports.some(x=>['pending','finance'].includes(x.status));
+  const block=core.reportMonthBlock(s,outlet,month);
+  const canCorrect=isOwner&&!block&&!reviewing&&!!currentApprovedVersion&&!currentApprovedVersion.correctionAllowed;
+  const reason=!isOwner?'read_only':block?.reason||(reviewing?'reviewing':canCorrect?'correction_required':null);
+  const canEdit=reason===null;
+  return {block,enrollmentStatus,eligibility:{canEdit,canSubmit:canEdit&&enrollmentStatus!=='pending',canCorrect,reason}};
+ }
+
+ function reportWorklist(session,params={}){
+  core.check(session.role==='partner'&&core.own(session.actor),'FORBIDDEN','仅加盟商可查看经营月报清单',403);
+  const {month,outlet='all',status:filter='all'}=params;
+  const limit=Number(params.limit??25),offset=Number(params.offset??0);
+  core.check(typeof month==='string'&&/^20\d{2}-(0[1-9]|1[0-2])$/.test(month),'INPUT','月份格式无效');
+  core.check(typeof outlet==='string'&&outlet.length>0&&outlet.length<=128,'INPUT','网点格式无效');
+  core.check(filter==='all'||Object.hasOwn(reportWorklistFilters,filter),'INPUT','月报筛选状态无效');
+  core.check((params.limit===undefined||/^\d+$/.test(String(params.limit)))&&Number.isSafeInteger(limit)&&limit>=1&&limit<=50&&
+   (params.offset===undefined||/^\d+$/.test(String(params.offset)))&&Number.isSafeInteger(offset)&&offset>=0,'INPUT','limit须1—50，offset非负');
+
+  const s=contextState(session),scope=access('outlets',session,s),exact=outlet!=='all';
+  const outlets=db.prepare(`SELECT data FROM outlets WHERE (${scope.where})${exact?' AND id=?':''} ORDER BY id`)
+   .all(...scope.params,...(exact?[outlet]:[])).map(row=>JSON.parse(row.data));
+  core.check(!exact||outlets.length,'FORBIDDEN','无网点权限',403);
+  const summary={expected:0,submitted:0,exempt:0,actionable:0,awaitingExemption:0,inReview:0};
+  if(!outlets.length)return {month,items:[],total:0,offset,limit,hasMore:false,summary};
+
+  const ids=JSON.stringify(outlets.map(row=>row.id)),policy=reportPolicy(s.today);
+  s.policies=policy?[policy]:[];
+  const {dueOn}=operations.reportTiming(s,month,policy);
+  function monthRows(name,fields,suffix=''){
+   const accessScope=access(name,session,s);
+   return db.prepare(`SELECT ${fields} FROM ${name} WHERE (${accessScope.where}) AND month=?
+    AND outlet IN (SELECT value FROM json_each(?)) ${suffix}`).all(...accessScope.params,month,ids);
+  }
+  // Pick only the latest, effective and reviewing versions. Worklist rows don't use report values or trails.
+  const reports=monthRows('reports',`id,outlet,month,version,status,current,
+   json_extract(data,'$.revoked') revoked,json_extract(data,'$.correctionAllowed') correctionAllowed,
+   json_extract(data,'$.dueOn') dueOn,json_extract(data,'$.late') late,
+   CASE WHEN status='returned' THEN json_extract(data,'$.reviewNote') END returnNote`,
+  `AND (current=1 OR status IN ('pending','finance') OR version=(SELECT max(v.version) FROM reports v
+    WHERE v.outlet=reports.outlet AND v.month=reports.month AND v.owner=reports.owner))`);
+  const versionsByOutlet=Map.groupBy(reports,row=>row.outlet);
+  const drafts=new Set(monthRows('drafts','outlet').map(row=>row.outlet));
+  const exemptions=Map.groupBy(monthRows('exemptions','outlet,month,status',"AND status='approved'"),row=>row.outlet);
+  const items=[];
+  let total=0;
+  for(const record of outlets){
+   const state={...s,reports:versionsByOutlet.get(record.id)||[],exemptions:exemptions.get(record.id)||[]};
+   const {newest,approved,latest}=operations.reportVersions(state.reports);
+   const {block,enrollmentStatus,eligibility}=reportEligibility(state,record,month,approved,session.actor);
+   const status=block?blockedReportStatuses[block.reason]:
+    ['pending','finance'].includes(latest?.status)?latest.status:
+    drafts.has(record.id)?'draft':latest?.status==='returned'?'returned':approved?'approved':'missing';
+   const related=status==='approved'?approved:['pending','finance','returned'].includes(status)?latest:null;
+   const counts=operations.coverage(state,[record],[month]);
+   summary.expected+=counts.expected;
+   summary.submitted+=counts.submitted;
+   summary.exempt+=counts.exempt;
+   if(reportWorklistFilters.action.includes(status))summary.actionable++;
+   if(status==='exemption_pending')summary.awaitingExemption++;
+   if(['pending','finance'].includes(status))summary.inReview++;
+
+   if(filter!=='all'&&!reportWorklistFilters[filter].includes(status))continue;
+   if(total++<offset||items.length>=limit)continue;
+   const reason=eligibility.reason||(enrollmentStatus==='pending'?'enrollment_pending':null);
+   items.push({outletId:record.id,outletName:record.name,month,status,reason,reportId:related?.id??null,
+    latestVersion:newest?.version??null,effectiveVersion:approved?.version??null,
+    dueOn:status==='not_open'||status==='not_required'||status==='exempt'?null:related?.dueOn??dueOn,canSubmit:eligibility.canSubmit,
+    returnNote:['draft','returned'].includes(status)&&latest?.status==='returned'?latest.returnNote:null,
+    late:related?.late===1});
+  }
+  return {month,items,total,offset,limit,hasMore:offset+items.length<total,summary};
+ }
+
  function reportContext(session,params={}){
   const s=contextState(session),scope=access('reports',session,s);
   core.check(scope,'FORBIDDEN','无月报权限',403);
@@ -352,16 +468,10 @@ function repository(store,{today}={}){const db=store.db;
   s.exemptions=db.prepare('SELECT data FROM exemptions WHERE outlet=? AND month=?').all(outlet,month).map(x=>JSON.parse(x.data));
   const v=core.view(s,session.actor,session),historyVersions=v.reports;
   const currentApprovedVersion=historyVersions.find(x=>x.current&&x.status==='approved'&&!x.revoked)||null;
-  const enrollmentStatus=operations.enrollmentFor(outletRecord,month);
-  const isOwner=!!core.own(session.actor)&&core.own(session.actor)===outletRecord.owner;
-  const reviewing=s.reports.some(x=>['pending','finance'].includes(x.status));
-  const block=core.reportMonthBlock(s,outletRecord,month);
-  const canCorrect=isOwner&&!block&&!reviewing&&!!currentApprovedVersion&&!currentApprovedVersion.correctionAllowed;
-  const reason=!isOwner?'read_only':block?.reason||(reviewing?'reviewing':canCorrect?'correction_required':null);
-  const canEdit=reason===null;
-  return {outlet,month,draft:v.drafts[0]||null,currentApprovedVersion,latestSubmittedVersion:historyVersions.at(-1)||null,historyVersions,enrollmentStatus,timing:operations.reportTiming(s,month,reportPolicy(s.today)),eligibility:{canEdit,canSubmit:canEdit&&enrollmentStatus!=='pending',canCorrect,reason}};
+  const {enrollmentStatus,eligibility}=reportEligibility(s,outletRecord,month,currentApprovedVersion,session.actor);
+  return {outlet,month,draft:v.drafts[0]||null,currentApprovedVersion,latestSubmittedVersion:historyVersions.at(-1)||null,historyVersions,enrollmentStatus,timing:operations.reportTiming(s,month,reportPolicy(s.today)),eligibility};
  }
  const tasks=taskQueries(db,{contextState,access,detail,reportPolicy});
- return {reportContext,list,detail,approvalRecord,context,snapshot,commandState,contextState,access,...tasks};
+ return {reportContext,reportWorklist,list,detail,approvalRecord,context,snapshot,commandState,contextState,access,...tasks};
 }
 module.exports={repository};

@@ -2,6 +2,7 @@ const {define,go,api,fmt}=require('../../utils/page');
 const mapView=require('../../utils/outlet-map');
 const {publicShare,directory:directoryShare}=require('../../utils/public-share');
 const {recentSearches,addRecentSearch,clearRecentSearches}=require('../../utils/public-outlet-preferences');
+const {outletSummaryRows,outletSummaryStatus}=require('../../utils/outlet-summary');
 
 const geography=[
   {value:'all',label:'全域分布'},
@@ -13,25 +14,30 @@ const pointPageSize=200;
 const mapError='暂时无法加载网点地图，请重试。仍可查看下方网点地址。';
 
 const statusFilters=[{value:'all',label:'全部'},...['preparing','open','paused','closed'].map(value=>({value,label:fmt.label(value,'outlet')}))];
-const summaries=[
-  {key:'report',title:'经营月报',labels:{missing:'待填写',pending:'总部审核中',finance:'财务复核中',returned:'待我修改',approved:'已通过',revoked:'已撤销',exempt:'已免报',exemption_pending:'免报待审核',not_required:'本月无需报送'}},
-  {key:'location',title:'位置核验',labels:{missing:'待提交位置资料',pending:'等待总部核验',approved:'位置已核验',exception:'位置待核实',not_required:'本月无需核验'}},
-  {key:'fee',title:'咨询服务费',labels:{missing:'暂无账单',unpaid:'待支付',partially_paid:'部分支付',paid:'已支付',settled_zero:'已结清',reversed:'已冲正',mixed:'账单状态不同，请查看账单'}}
+const nextActions=[
+  {key:'report',status:'returned',page:'report',label:'修改月报'},
+  {key:'location',status:'exception',page:'location',label:'补充位置资料'},
+  {key:'report',status:'missing',page:'report',label:'填写月报'},
+  {key:'location',status:'missing',page:'location',label:'提交位置资料'},
+  {key:'fee',status:'unpaid',page:'fees',label:'查看账单'},
+  {key:'fee',status:'partially_paid',page:'fees',label:'查看账单'}
 ];
-const outletActions=[
-  {page:'location',label:'位置核验'},{page:'fees',label:'账单'},
-  {page:'requests',label:'办理事项'},{page:'agreements',label:'服务协议'}
-];
-const settlementLabels={settled:'已结算',unsettled:'尚未结算'};
-
-function summaryRows(summary){
-  return summaries.flatMap(({key,title,labels})=>{
-    const record=summary?.[key];
-    const monthText=fmt.monthText(record?.month);
-    if(!monthText)return [];
-    const settlement=key==='report'?settlementLabels[record.settlementStatus]:'';
-    return [{key,title,monthText,statusText:[labels[record.status]||'暂不可查看',settlement].filter(Boolean).join(' · ')}];
-  });
+function privateRow(outlet){
+  const {summary,countryCode,countryName,province,city,district,status}=outlet;
+  const activity=nextActions.find(({key,status})=>summary?.[key]?.status===status&&fmt.monthText(summary[key].month));
+  const waiting=summary?.report?.status==='exemption_pending'?'免报待审核':summary?.location?.status==='pending'?'等待总部核验':'';
+  const area=(countryCode&&countryCode!=='CN'?[countryName,city]:[city||province,district])
+    .filter((name,index,all)=>name&&all.indexOf(name)===index).join(' · ');
+  const rows=outletSummaryRows(summary);
+  let nextAction=null;
+  if(activity){
+    const {key,page,label}=activity;
+    const {title,monthText}=rows.find(row=>row.key===key);
+    const statusText=outletSummaryStatus(key,activity.status);
+    nextAction={page,label,month:summary[key].month,text:[title,monthText,statusText].join(' · ')};
+  }
+  return {...outlet,area,statusText:fmt.label(status,'outlet'),statusTone:fmt.statusTone(status,'outlet'),
+    summaryRows:rows,nextAction,waitingText:nextAction?'':waiting};
 }
 
 function publicRow(outlet){
@@ -70,7 +76,7 @@ const page=define({
     }
   }],
   data:{
-    directory:false,search:'',searchDraft:'',recentSearches:[],showRecent:false,region:[],showRegionFilters:false,statusFilter:'all',statusFilters,rows:[],groups:[],outletActions,mode:'list',
+    directory:false,search:'',searchDraft:'',recentSearches:[],showRecent:false,region:[],showRegionFilters:false,statusFilter:'all',statusFilters,rows:[],groups:[],mode:'list',
     geography,geo:'all',countryCode:'',availableCountries:[],countryChoices:[allCountries],countryIndex:0,countriesLoaded:false,
     markers:[],center:null,zoom:mapView.minScale,minScale:mapView.minScale,maxScale:mapView.maxScale,
     mapLoading:false,mapError:'',pointCount:0,selectedPoint:null,clusterRows:[],clusterTotal:0
@@ -88,7 +94,7 @@ const page=define({
   },
   async loaded(s){
     const directory=this.data.isPublic||this.query.scope==='public';
-    const rows=directory?s.outlets.map(publicRow):s.outlets.map(outlet=>({...outlet,statusText:fmt.label(outlet.status,'outlet'),summaryRows:summaryRows(outlet.summary)}));
+    const rows=s.outlets.map(directory?publicRow:privateRow);
     this.setData({directory,rows,groups:groupRows(rows,directory),recentSearches:directory?recentSearches():[]});
     this.updatePublicShareMenu();
     wx.setNavigationBarTitle?.({title:directory?'服务网点':'我的网点'});
@@ -276,15 +282,29 @@ const page=define({
     this.setData({mode:'list',mapError:'',mapLoading:false,selectedPoint:null,clusterRows:[],clusterTotal:0});
   },
   open(e){this.openOutlet(e.currentTarget.dataset.id);},
-  outletAction(e){
-    const {id,page}=e.currentTarget.dataset;
+  openFromPrivateList(page,query){
+    const range={token:this.data.session?.token,scope:this.query.scope,loaded:this.data.pagers.outlets?.loaded||0};
+    go(page,query,()=>{this._returnRange=range;});
+  },
+  privateOutlet(id){
+    const session=api.session();
     if(this.data.isPublic||this.data.directory||this.data.loading||this.data.error||
-      !this.data.rows.some(row=>row.id===id&&row.owner)||!outletActions.some(action=>action.page===page))return;
-    const month=page==='location'?this.data.state.today.slice(0,7):undefined;
-    go(page,api.query({outlet:id,month,filterOutlet:page==='requests'?id:undefined}));
+      session?.role!=='partner'||session.token!==this.data.session?.token)return;
+    return this.data.rows.find(row=>row.id===id&&row.owner);
+  },
+  outletAction(e){
+    const outlet=this.privateOutlet(e.currentTarget.dataset.id);
+    if(!outlet?.nextAction)return;
+    const {page,month}=outlet.nextAction;
+    this.openFromPrivateList(page,api.query({outlet:outlet.id,month}));
   },
   openOutlet(id){
     const directory=this.data.directory;
+    if(!directory){
+      const outlet=this.privateOutlet(id);
+      if(outlet)this.openFromPrivateList('outlet',api.query({id:outlet.id}));
+      return;
+    }
     if(this.data.loading||this.data.error||
         !this.data.rows.some(row=>row.id===id)&&
         !(directory&&this.data.mode==='map'&&(this._pointRows||[]).some(row=>row.id===id)))return;
@@ -293,8 +313,23 @@ const page=define({
   }
 });
 const refresh=page.refresh;
-page.refresh=function(){
+page.refresh=async function(){
+  const range=this._returnRange;
+  this._returnRange=null;
   this.updatePublicShareMenu();
-  return refresh.call(this);
+  const pending=refresh.call(this);
+  const serial=this._serial;
+  await pending;
+  const canRestore=()=>range&&serial===this._serial&&range.token===api.session()?.token&&range.scope===this.query.scope&&
+    !this.data.directory&&!this.data.isPublic&&!this.data.error&&this.data.pagers.outlets?.hasMore&&this.data.pagers.outlets.loaded<range.loaded;
+  if(!canRestore())return;
+  this.setData({loading:true});
+  try{
+    while(canRestore())await this.fetchCollection('outlets',false,serial);
+  }catch{
+    // fetchCollection sets the list’s retry state when a page fails.
+  }finally{
+    if(serial===this._serial)this.setData({loading:false});
+  }
 };
 Page(page);

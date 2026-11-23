@@ -1,4 +1,4 @@
-<view class="page tab-page">
+<view class="page tab-page home-page {{publicView ? 'home-public' : 'home-member'}}">
   <view class="home-header row between">
     <view class="row grow">
       <view class="home-mark" aria-hidden="true">九</view>
@@ -6,83 +6,87 @@
         <view class="home-title">九盈英才</view>
         <view wx:if="{{managerName && !publicView}}" class="home-caption">{{managerName}}{{outletCount !== null ? ' · '+outletCount+' 家网点' : ''}}</view>
         <view wx:elif="{{publicView}}" class="home-caption">集团与网点服务</view>
-        <view wx:elif="{{displayDate}}" class="home-caption">{{displayDate}}</view>
+        <view wx:else class="home-caption">{{displayDate || '加盟商工作台'}}</view>
       </view>
     </view>
     <block wx:if="{{publicView}}">
       <button wx:if="{{!session || session.role==='public'}}" class="home-login" data-page="login" bindtap="nav">加盟商登录</button>
       <button wx:elif="{{session}}" class="home-login" bindtap="returnWorkbench">返回工作台</button>
     </block>
-    <button wx:elif="{{unread}}" class="home-login" data-page="tasks" data-query="section=notices&status=unread" bindtap="nav">未读通知 · {{unread}}</button>
   </view>
-  <view wx:if="{{loading && !hasLoaded && !publicView && !taskPreviewReady}}" class="card content-skeleton">
-    <text>正在加载工作台…</text>
-    <view class="content-skeleton-body" aria-hidden="true"/>
-  </view>
-  <view wx:elif="{{loading && hasLoaded && !publicView}}" class="loading">正在更新工作台…</view>
-  <view wx:if="{{error}}" class="error">{{error}}<button class="link top-gap" bindtap="refresh">重试</button></view>
 
-  <block wx:if="{{!publicView && (hasLoaded || taskPreviewReady)}}">
-    <view class="section-head">
-      <view class="section-title">待我处理{{openTotal ? ' · '+openTotal : ''}}</view>
-    </view>
-    <view wx:if="{{todoPreview.length}}" class="card home-todo-card">
-      <view wx:for="{{todoPreview}}" wx:key="id" class="list-item row {{item.overdue ? 'home-todo-overdue' : ''}}">
-        <view class="grow">
-          <view class="card-title">{{item.title}}</view>
-          <view wx:if="{{item.detail}}" class="home-caption">{{item.detail}}</view>
-          <view wx:if="{{item.dueText}}" class="home-due">{{item.dueText}}</view>
-        </view>
-        <button class="outline small" data-id="{{item.id}}" bindtap="openTodo" disabled="{{!taskPreviewReady || openingTodo}}">{{item.actionText}}</button>
-      </view>
-      <button wx:if="{{openTotal > todoPreview.length}}" class="link" data-page="tasks" data-query="status=open" bindtap="nav">查看其余 {{openTotal - todoPreview.length}} 项待处理事项</button>
-    </view>
-    <view wx:if="{{todoError}}" class="error">{{todoError}}</view>
-    <view wx:if="{{taskError}}" class="card row between">
-      <text class="muted">部分待办暂未加载。</text>
-      <button class="link" bindtap="refresh">重新加载</button>
-    </view>
-    <view wx:elif="{{!openTotal && taskPreviewReady && !error}}" class="card empty">目前没有需要您处理的事项。</view>
-    <button wx:if="{{openTotal && !todoPreview.length}}" class="link" data-page="tasks" data-query="status=open" bindtap="nav">查看全部待处理事项</button>
-    <button wx:if="{{inProgressTotal}}" class="link home-progress-link" data-page="tasks" data-query="status=in_progress" bindtap="nav">查看处理中事项 · {{inProgressTotal}}</button>
+  <block wx:if="{{!publicView && session.role==='partner'}}">
+    <view class="section-head"><view class="section-title">经营办理</view></view>
     <view class="home-tools">
-      <button class="home-tool" data-page="location" bindtap="nav">月度位置核验</button>
-      <button class="home-tool" data-page="fees" bindtap="nav">咨询服务费</button>
-      <button class="home-tool" data-page="tasks" bindtap="nav">我的事项</button>
+      <button class="home-tool" data-page="outlets" data-query="scope=private" bindtap="openOutlets" hover-class="tap-feedback">
+        <t-icon class="home-tool-icon ice" name="shop" size="41rpx" aria-hidden="true"/>
+        <text class="home-tool-label">我的网点</text>
+        <text class="home-tool-note">{{firstOutlet ? firstOutlet.actionText || '查看网点与申请' : outletCount ? outletCount+' 家网点' : '查看网点与申请'}}</text>
+      </button>
+      <button class="home-tool" data-page="reports" data-query="outlet=all" bindtap="nav" hover-class="tap-feedback">
+        <t-icon class="home-tool-icon mint" name="file" size="41rpx" aria-hidden="true"/>
+        <text class="home-tool-label">经营月报</text>
+        <text class="home-tool-note">填报与审核进度</text>
+      </button>
+      <button class="home-tool" data-page="fees" bindtap="nav" hover-class="tap-feedback">
+        <t-icon class="home-tool-icon amber" name="wallet" size="41rpx" aria-hidden="true"/>
+        <text class="home-tool-label">咨询服务费</text>
+        <text class="home-tool-note">账单与付款记录</text>
+      </button>
+      <button class="home-tool" data-page="tasks" bindtap="nav" hover-class="tap-feedback" aria-label="{{hasUnreadNotices ? '我的事项，有未读通知' : '我的事项'}}">
+        <t-badge wx:if="{{hasUnreadNotices}}" dot="{{true}}" offset="{{[1, 4]}}">
+          <t-icon class="home-tool-icon ice" name="task" size="41rpx" aria-hidden="true"/>
+        </t-badge>
+        <t-icon wx:else class="home-tool-icon ice" name="task" size="41rpx" aria-hidden="true"/>
+        <text class="home-tool-label">我的事项</text>
+        <text class="home-tool-note">{{openTotal > 0 ? openTotal+' 项待处理' : hasUnreadNotices ? '有未读通知' : '待办与通知'}}</text>
+      </button>
     </view>
-
-    <view wx:if="{{period && taskPreviewReady && !error}}" class="hero home-summary">
-      <view class="hero-title">{{latestMetrics.length ? latestSettledMonthText+'经营概况' : '本月经营概况'}}</view>
-      <view wx:if="{{summaryError}}" class="muted top-gap">经营概况暂未加载，可进入看板重试。</view>
-      <block wx:elif="{{hasCurrentSettlement}}">
-        <view wx:if="{{asOf}}" class="muted">数据截至{{asOf}} · 仅汇总已结算数据</view>
-        <view class="metrics"><view wx:for="{{metrics}}" wx:key="label" class="metric"><view class="metric-label">{{item.label}}</view><view class="metric-value">{{item.value}}</view></view></view>
-      </block>
-      <block wx:else>
-        <view class="muted top-gap">本月数据尚未结算</view>
-        <block wx:if="{{latestMetrics.length}}">
-          <view class="muted top-gap">最近已结算月 · 仅汇总已结算数据</view>
-          <view class="metrics"><view wx:for="{{latestMetrics}}" wx:key="label" class="metric"><view class="metric-label">{{item.label}}</view><view class="metric-value">{{item.value}}</view></view></view>
-        </block>
-        <view wx:if="{{!latestSettledMonth && !reviewing}}" class="muted top-gap">当前暂无可查看的经营数据</view>
-        <button wx:if="{{latestSettledMonth}}" class="outline small top-gap" bindtap="openSettled">查看 {{latestSettledMonthText}} 已结算数据</button>
-      </block>
-      <view wx:if="{{reviewing}}" class="muted top-gap">部分网点数据正在审核，暂未纳入正式统计</view>
-      <button wx:if="{{hasCurrentSettlement || !latestSettledMonth}}" class="outline small top-gap" data-page="dashboard" bindtap="nav">查看经营看板</button>
+    <view wx:if="{{loading && !hasLoaded}}" class="card content-skeleton">
+      <text>正在查看网点和待办…</text>
+      <view class="content-skeleton-body" aria-hidden="true"/>
+    </view>
+    <view wx:elif="{{loading}}" class="loading">正在更新工作台…</view>
+    <view wx:if="{{error || taskError}}" class="error">
+      {{error || '暂时无法读取待办数量。'}}<button class="link" bindtap="refresh">重试</button>
     </view>
   </block>
   <block wx:elif="{{publicView}}">
-    <view class="home-map-card">
-      <view class="home-map-label">{{groupIntro.title || '九盈英才集团与服务'}}</view>
-      <view class="home-map-caption">了解集团五大业务，查找中国及境外服务网点</view>
-      <view class="home-map-actions">
-        <button class="primary small" data-page="outlets" data-query="scope=public&mode=list" bindtap="nav">查找服务网点</button>
-        <button class="outline small" data-page="discover" data-query="section=services" bindtap="nav">集团业务</button>
+    <view wx:if="{{error}}" class="error">{{error}}<button class="link top-gap" bindtap="refresh">重试</button></view>
+    <view class="home-public-hero">
+      <view class="home-public-hero-copy">
+        <view class="home-public-title">{{groupIntro.title || '集团业务与服务'}}</view>
+        <t-button theme="primary" shape="round" data-page="discover" data-query="section=services" bind:tap="nav">查看集团业务</t-button>
       </view>
+      <image class="home-public-art" src="/assets/home-network.webp" mode="aspectFit" aria-hidden="true"/>
     </view>
-    <view class="home-contact-card">
-      <button class="home-contact" data-page="support" bindtap="nav">联系总部</button>
-      <button wx:if="{{headquartersPhone}}" class="outline small home-dial" bindtap="dialHeadquarters" aria-label="拨打总部电话 {{headquartersPhone}}">拨打总部电话</button>
+
+    <view class="home-public-primary">
+      <button class="home-feature" data-page="outlets" data-query="scope=public&mode=list" bindtap="nav" hover-class="tap-feedback">
+        <t-icon class="home-feature-icon ice" name="location" size="45rpx" aria-hidden="true"/>
+        <view class="home-feature-copy"><view class="home-feature-label">公开网点</view><view class="home-feature-detail">国内与境外</view></view>
+      </button>
+      <button class="home-feature" data-page="support" bindtap="nav" hover-class="tap-feedback">
+        <t-icon class="home-feature-icon mint" name="service" size="45rpx" aria-hidden="true"/>
+        <view class="home-feature-copy"><view class="home-feature-label">联系总部</view><view class="home-feature-detail">咨询与办事</view></view>
+      </button>
+    </view>
+
+    <view class="home-public-shortcuts">
+      <t-grid column="{{4}}" hover="{{true}}">
+        <t-grid-item text="集团介绍" icon="home" data-page="discover" data-query="section=brand" bind:click="nav"/>
+        <t-grid-item text="全域地图" aria-label="全域网点地图" icon="map" data-page="outlets" data-query="scope=public&mode=map" bind:click="nav"/>
+        <t-grid-item text="申请加盟" icon="user-add" data-page="join" bind:click="nav"/>
+        <t-grid-item text="合作咨询" icon="chat" data-page="discover" data-query="section=cooperation" bind:click="nav"/>
+      </t-grid>
+      <view wx:if="{{(session && session.role==='public') || headquartersPhone}}" class="home-public-followup">
+        <button wx:if="{{session && session.role==='public'}}" class="home-contact" data-page="messages" bindtap="nav" aria-label="{{hasUnreadNotices ? '通知，有未读消息' : '通知'}}">
+          <t-badge wx:if="{{hasUnreadNotices}}" dot="{{true}}" offset="{{[0, 2]}}"><t-icon name="notification" size="34rpx" aria-hidden="true"/></t-badge>
+          <t-icon wx:else name="notification" size="34rpx" aria-hidden="true"/>
+          <text>通知</text>
+        </button>
+        <button wx:if="{{headquartersPhone}}" class="home-contact" bindtap="dialHeadquarters" aria-label="拨打总部电话 {{headquartersPhone}}"><t-icon name="call" size="34rpx" aria-hidden="true"/><text>拨打总部电话</text></button>
+      </view>
     </view>
 
     <view class="section-head">
@@ -91,7 +95,7 @@
     <view wx:if="{{publishedServices.length}}" class="home-services">
       <button wx:for="{{publishedServices}}" wx:key="id" class="home-service" data-id="{{item.id}}" bindtap="openService">
         <image wx:if="{{item.coverPath}}" class="home-service-image" src="{{item.coverPath}}" mode="aspectFill" lazy-load data-id="{{item.id}}" binderror="publicCoverFailed" aria-label="{{item.title}}封面" />
-        <view wx:else class="home-service-placeholder" aria-hidden="true">{{item.initial}}</view>
+        <view wx:else class="home-service-placeholder" aria-hidden="true"><t-icon name="layers" size="48rpx"/></view>
         <view class="home-service-title">{{item.title}}</view>
       </button>
     </view>
@@ -100,13 +104,15 @@
       <view class="content-skeleton-body" aria-hidden="true"/>
     </view>
     <view wx:elif="{{loading}}" class="loading">正在更新业务介绍…</view>
-    <view wx:elif="{{hasLoaded && !error}}" class="home-content-empty">业务介绍准备中。</view>
-
-    <view class="section-title">了解九盈</view>
-    <view class="card home-secondary">
-      <button class="home-contact" data-page="discover" data-query="section=brand" bindtap="nav">集团介绍与服务</button>
-      <button class="home-contact" data-page="discover" data-query="section=cooperation" bindtap="nav">合作咨询</button>
-      <button class="home-contact" data-page="outlets" data-query="scope=public&mode=map" bindtap="nav">全域网点地图</button>
-    </view>
+    <t-empty wx:elif="{{hasLoaded && !error}}" class="native-empty" icon="file" description="业务介绍准备中。"/>
   </block>
+  <!-- DEV_ONLY_START -->
+  <view wx:if="{{roleTrial && roleTrialMode !== 'authenticated'}}" class="card home-trial">
+    <view class="section-title">隔离试用</view>
+    <button class="outline" bindtap="openTrialApplication" disabled="{{roleTrialBusy}}">加盟付款试用</button>
+    <button wx:if="{{session.role === 'partner'}}" class="link" bindtap="openTrialReport">查看试用月报</button>
+    <button wx:else class="link" bindtap="openTrialWorkbench" disabled="{{roleTrialBusy}}">切回加盟商工作台</button>
+    <view wx:if="{{roleTrialError}}" class="error">{{roleTrialError}}<button class="link" bindtap="onShow">重试</button></view>
+  </view>
+  <!-- DEV_ONLY_END -->
 </view>

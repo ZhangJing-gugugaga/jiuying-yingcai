@@ -7,9 +7,68 @@
       <text wx:if="{{internal && organizationName}}" class="muted">所属加盟商：{{organizationName}}</text>
       <text class="badge {{outlet.statusTone}}">{{outlet.statusText}}</text>
     </view>
-    <view wx:if="{{internal && outlet.statusNote}}" class="hint">{{outlet.statusNote}}</view>
-    <view class="card top-gap outlet-address-card">
-      <view class="card-title">{{internal ? '经营地址' : '对外地址'}}</view>
+    <block wx:if="{{internal}}">
+      <view class="card outlet-section">
+        <view class="card-title">月报与账单</view>
+        <view class="grid outlet-actions">
+          <view class="outlet-work-item">
+            <t-icon name="task" size="36rpx" aria-hidden="true"/>
+            <view class="outlet-work-title">经营月报</view>
+            <view wx:if="{{businessSections.report}}" class="outlet-work-state">{{businessSections.report.monthText}} · {{businessSections.report.statusText}}</view>
+            <button class="primary small" data-page="report" data-month="{{businessScope.report.month}}" bindtap="action">{{businessScope.report.status==='returned' ? '修改月报' : businessScope.report.status==='missing' ? '填写月报' : '查看月报'}}</button>
+          </view>
+          <view class="outlet-work-item">
+            <t-icon name="wallet" size="36rpx" aria-hidden="true"/>
+            <view class="outlet-work-title">服务费账单</view>
+            <view wx:if="{{businessSections.fee}}" class="outlet-work-state">{{businessSections.fee.monthText}} · {{businessSections.fee.statusText}}</view>
+            <button class="outline small" data-page="fees" data-month="{{businessScope.fee.status==='missing' ? '' : businessScope.fee.month}}" bindtap="action">查看账单</button>
+          </view>
+        </view>
+        <view class="outlet-subsection">
+          <view class="row between outlet-section-heading">
+            <view class="outlet-subheading">本月经营情况</view>
+            <text wx:if="{{summary}}" class="badge">{{summary.settled ? '数据已结算' : '本月数据尚未结算'}}</text>
+          </view>
+          <view wx:if="{{summaryError}}" class="hint">暂时无法获取本月经营数据，请刷新后重试。</view>
+          <block wx:if="{{summary.settled}}">
+            <view class="detail-row"><text>营业收入</text><text>{{summary.revenueText}}</text></view>
+            <view class="detail-row"><text>有效完成订单</text><text>{{summary.ordersText}}</text></view>
+            <view class="detail-row"><text>到店人次</text><text>{{summary.trafficText}}</text></view>
+            <view class="detail-row"><text>实际招生人数</text><text>{{summary.enrollText}}</text></view>
+          </block>
+        </view>
+      </view>
+      <view class="card outlet-section">
+        <view class="card-title">位置核验</view>
+        <view wx:if="{{businessSections.location}}" class="outlet-location-state"><t-icon name="location" size="36rpx" aria-hidden="true"/><text>{{businessSections.location.monthText}} · {{businessSections.location.statusText}}</text></view>
+        <view class="actions outlet-actions">
+          <button class="outline small" data-page="location" data-month="{{businessScope.location.month}}" bindtap="action">{{businessScope.location.status==='exception' ? '查看并补充位置资料' : businessScope.location.status==='missing' ? '提交位置资料' : '月度位置核验'}}</button>
+          <button class="link" data-page="location" data-history="true" bindtap="action">位置核验记录</button>
+        </view>
+      </view>
+      <view class="card outlet-section">
+        <view class="card-title">营业状态与申请</view>
+        <view wx:if="{{outlet.statusNote}}" class="hint">{{outlet.statusNote}}</view>
+        <view wx:if="{{outlet.statusSince}}" class="detail-row"><text>状态生效日期</text><text>{{outlet.statusSince}}</text></view>
+        <view wx:if="{{outlet.status==='open' || outlet.status==='paused'}}" class="outlet-actions">
+          <button wx:if="{{outlet.status==='open'}}" class="outline small" data-page="requests" data-type="statusChange" data-status="paused" bindtap="action">申请暂停营业</button>
+          <button wx:elif="{{outlet.status==='paused'}}" class="outline small" data-page="requests" data-type="statusChange" data-status="open" bindtap="action">申请恢复营业</button>
+        </view>
+        <view class="hint">暂停营业不会自动暂停咨询服务费。两项申请由总部分别审核。</view>
+        <button class="link" bindtap="toggleMatters" aria-expanded="{{mattersExpanded}}">{{mattersExpanded ? '收起其他办理事项' : '查看其他办理事项'}}</button>
+        <view wx:if="{{mattersExpanded}}" class="outlet-subsection">
+          <view class="outlet-subheading">服务费与申请进度</view>
+          <view class="actions outlet-actions">
+            <button class="outline small" data-page="requests" data-type="pauseFee" bindtap="action">申请暂停收费</button>
+            <button class="outline small" data-page="requests" data-history="true" bindtap="action">其他申请及进度</button>
+            <button class="outline small" data-page="requests" bindtap="action">办理网点事项</button>
+          </view>
+        </view>
+      </view>
+    </block>
+    <view class="card top-gap outlet-address-card {{internal ? 'outlet-section' : ''}}">
+      <view class="card-title">{{internal ? '网点资料' : '对外地址'}}</view>
+      <view wx:if="{{internal}}" class="outlet-subheading outlet-actions">经营地址</view>
       <view wx:if="{{outlet.area || outlet.districtText}}" class="muted">{{outlet.area || outlet.districtText}}</view>
       <view class="outlet-address-text top-gap">{{outlet.address || '暂无可查看地址'}}</view>
       <view wx:if="{{outlet.businessHours}}" class="hint">服务时间 {{outlet.businessHours}}</view>
@@ -23,54 +82,18 @@
         <button wx:if="{{publicRecord}}" class="link" bindtap="toggleFavorite" aria-pressed="{{favorite}}">{{favorite ? '取消收藏' : '收藏网点'}}</button>
         <button class="link" data-page="support" bindtap="nav">联系总部</button>
       </view>
-    </view>
-    <view wx:if="{{internal}}" class="card top-gap">
-      <view class="card-title">在此网点办理</view>
-      <view class="grid outlet-actions">
-        <button data-page="report" bindtap="action">经营月报</button>
-        <button data-page="fees" bindtap="action">服务费账单</button>
+      <view wx:if="{{internal}}" class="outlet-subsection">
+        <view wx:if="{{outlet.phone}}" class="detail-row"><text>联系电话</text><text>{{outlet.phone}}</text></view>
+        <view wx:if="{{outlet.openingText}}" class="detail-row"><text>预计开业日期</text><text>{{outlet.openingText}}</text></view>
+        <view class="detail-row"><text>招生业务适用情况</text><text>{{outlet.enrollmentText}}</text></view>
+        <view class="actions outlet-actions">
+          <button class="outline small" data-page="agreements" bindtap="action">查看服务协议</button>
+        </view>
       </view>
-      <button class="link top-gap" bindtap="toggleMatters" aria-expanded="{{mattersExpanded}}">{{mattersExpanded ? '收起办理事项' : '查看办理事项'}}</button>
-      <block wx:if="{{mattersExpanded}}">
-        <view class="outlet-matter-actions">
-          <button class="outline" data-page="location" bindtap="action">月度位置核验</button>
-          <button wx:if="{{outlet.status==='open'}}" class="outline" data-page="requests" data-type="statusChange" data-status="paused" bindtap="action">申请暂停营业</button>
-          <button wx:if="{{outlet.status==='paused'}}" class="outline" data-page="requests" data-type="statusChange" data-status="open" bindtap="action">申请恢复营业</button>
-          <button class="outline" data-page="requests" data-type="pauseFee" bindtap="action">申请暂停收费</button>
-        </view>
-        <view class="hint">暂停营业不会自动暂停咨询服务费。两项申请由总部分别审核。</view>
-        <view class="actions">
-          <button class="link" data-page="location" data-history="true" bindtap="action">位置核验记录</button>
-          <button class="link" data-page="requests" data-history="true" bindtap="action">其他申请及进度</button>
-        </view>
-      </block>
-    </view>
-    <view wx:if="{{internal}}" class="card top-gap">
-      <view class="card-title">网点资料</view>
-      <view wx:if="{{internal && outlet.phone}}" class="detail-row"><text>联系电话</text><text>{{outlet.phone}}</text></view>
-      <view wx:if="{{internal && outlet.openingText}}" class="detail-row"><text>预计开业日期</text><text>{{outlet.openingText}}</text></view>
-      <view wx:if="{{internal && outlet.statusSince}}" class="detail-row"><text>状态生效日期</text><text>{{outlet.statusSince}}</text></view>
-      <view wx:if="{{internal}}" class="detail-row"><text>招生业务适用情况</text><text>{{outlet.enrollmentText}}</text></view>
     </view>
     <block wx:if="{{internal}}">
-      <view class="section-title">本月经营情况</view>
-      <view class="card">
-        <view class="row between"><text>经营月报</text><text wx:if="{{summary}}" class="badge">{{summary.settled ? '数据已结算' : '本月数据尚未结算'}}</text></view>
-        <view wx:if="{{summaryError}}" class="hint">暂时无法获取本月经营数据，请刷新后重试。</view>
-        <block wx:if="{{summary.settled}}">
-          <view class="detail-row"><text>营业收入</text><text>{{summary.revenueText}}</text></view>
-          <view class="detail-row"><text>有效完成订单</text><text>{{summary.ordersText}}</text></view>
-          <view class="detail-row"><text>到店人次</text><text>{{summary.trafficText}}</text></view>
-          <view class="detail-row"><text>实际招生人数</text><text>{{summary.enrollText}}</text></view>
-        </block>
-      </view>
-      <view wx:if="{{workContact}}" class="card top-gap">
-        <view class="detail-row"><text>{{workContact.title}}</text><text>{{workContact.phone}}</text></view>
-        <button class="outline small" bindtap="dialWorkContact" loading="{{workContactDialing}}" disabled="{{workContactDialing}}">拨打工作电话</button>
-      </view>
-      <button class="link top-gap" data-page="support" bindtap="action">联系总部</button>
-      <view class="card top-gap">
-        <view class="row between">
+      <view class="card outlet-section">
+        <view class="row between outlet-section-heading">
           <view class="card-title">网点历史记录</view>
           <button wx:if="{{history.length || locationHistory.length}}" class="link" bindtap="toggleHistory" aria-expanded="{{historyExpanded}}">{{historyExpanded ? '收起记录' : '查看记录（'+(history.length+locationHistory.length)+'）'}}</button>
         </view>
@@ -85,6 +108,14 @@
             <view wx:if="{{item.after}}" class="detail-row"><text>变更后地址</text><text>{{item.after}}</text></view>
           </view>
         </block>
+      </view>
+      <view class="card outlet-section">
+        <view class="card-title">网点支持</view>
+        <view wx:if="{{workContact}}" class="detail-row"><text>{{workContact.title}}</text><text>{{workContact.phone}}</text></view>
+        <view class="actions outlet-actions">
+          <button wx:if="{{workContact}}" class="outline small" bindtap="dialWorkContact" loading="{{workContactDialing}}" disabled="{{workContactDialing}}">拨打工作电话</button>
+          <button class="outline small" data-page="support" bindtap="action">联系总部</button>
+        </view>
       </view>
     </block>
   </block>

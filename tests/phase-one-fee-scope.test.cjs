@@ -51,6 +51,10 @@ async function fixture(t, run) {
       destinations.push(new URL(url, 'http://local'));
       success?.();
     },
+    reLaunch({ url, success }) {
+      destinations.push(new URL(url, 'http://local'));
+      success?.();
+    },
     showToast() {},
     async request(options) {
       let response, body;
@@ -292,7 +296,7 @@ test('finance cannot act on authorized bills or receipts that conflict with the 
   assert.equal(app.store.load().refundRequests.length, 0);
 }));
 
-test('dashboard keeps the authorized scope, period range and export permission', t => fixture(t, async ({ exports, requests }) => {
+test('dashboard keeps the authorized scope, period range and export permission', t => fixture(t, async ({ exports, requests, destinations }) => {
   const invalid = page('dashboard', { outlet: 'gz', period: '2026-09' });
   await invalid.onShow();
   assert.equal(invalid.data.ready, false);
@@ -312,11 +316,14 @@ test('dashboard keeps the authorized scope, period range and export permission',
 
   await api.login('finance');
   const staff = page('dashboard', { period: '2026-09' });
+  const before = requests.length;
   await staff.onShow();
-  assert.equal(staff.data.ready, true);
-  assert.equal(staff.data.state.capabilities.export, false);
+  assert.equal(staff.data.ready, false);
+  assert.equal(destinations.at(-1).pathname, '/pages/login/index');
+  assert.equal(requests.length, before);
   await staff.export(tap({ format: 'pdf' }));
   assert.equal(exports.length, 1);
+  await assert.rejects(api.request('/api/export?period=2026-09&kind=month&mode=settled&format=pdf'), {status:403});
 }));
 
 test('a bill opens its exact historical agreement and an inaccessible outlet clears the displayed contract', t => fixture(t, async ({ app, requests, destinations, staff }) => {

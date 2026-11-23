@@ -138,6 +138,7 @@ function mattersPage(initialSection='tasks'){
         const month=fmt.monthText(row.month);
         return {
           id:row.id,...taskCopy(row,month),outletName:row.outletName!==row.outlet&&row.outlet?row.outletName:'',
+          amountText:Number.isFinite(row.amount)&&['bill_unpaid','bill_overdue'].includes(row.kind)?'应付 '+fmt.money(row.amount)+' 元':'',
           month,notifiedText:fmt.timeText(row.createdAt),dueText:fmt.dateText(row.dueAt)||fmt.dateText(row.dueOn),overdue:row.overdue===true,
           unreadNoticeIds:noticesByTask.get(row.id)||[],
           finishedText:row.status==='resolved'?fmt.timeText(row.completedAt):'',

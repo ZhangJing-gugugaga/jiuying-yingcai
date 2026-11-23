@@ -6,7 +6,9 @@ const test = require('node:test');
 const api = require('../miniprogram/utils/api');
 
 const tap = dataset => ({ currentTarget: { dataset } });
-const collection = items => ({ items, total: items.length, offset: 0, limit: 50, hasMore: false });
+const collection = (rows, { offset = 0, limit = 50 } = {}) => ({
+  items: rows.slice(offset, offset + limit), total: rows.length, offset, limit, hasMore: offset + limit < rows.length
+});
 const markup = name => fs.readFileSync(require.resolve('../miniprogram/pages/' + name + '/index').replace(/\.js$/, '.wxml'), 'utf8');
 
 function mount(t, name, query = {}, options = {}) {
@@ -16,15 +18,20 @@ function mount(t, name, query = {}, options = {}) {
   const routes = [];
   const calls = [];
   const role = options.role || 'partner';
-  api.session = () => ({ role });
+  api.session = options.session || (() => ({ role }));
   api.request = async route => route === '/api/context'
     ? { actor: role === 'public' ? 'public' : 'partnerA', today: '2026-11-20', support: { settings: { phone: '400-123-4567' } } }
     : options.request?.(route) || {};
-  api.collection = async (name, filters) => collection(options.rows?.(name, filters) || []);
+  api.collection = async (name, filters) => {
+    const rows = await options.rows?.(name, filters);
+    return collection(rows ?? (name === 'outlets' ? [{ id: 'cs', name: '长沙网点', owner: 'p1' }] : []), filters);
+  };
   global.wx = {
     getStorageSync() {},
     makePhoneCall({ phoneNumber }) { calls.push(phoneNumber); },
-    navigateTo({ url, success }) { routes.push(url); success?.(); }
+    navigateTo({ url, success }) { routes.push(url); success?.(); },
+    switchTab({ url, success }) { routes.push(url); success?.(); },
+    setStorageSync() {}
   };
   let definition;
   global.Page = page => { definition = page; };
@@ -54,7 +61,7 @@ function mount(t, name, query = {}, options = {}) {
   return { page, routes, calls };
 }
 
-test('workbench previews at most three actionable tasks by due date and marks an overdue row', async t => {
+test('workbench shows the full pending count with one route to matters', async t => {
   const common = { outlet: 'zz', outletName: '株洲网点', month: '2026-11', target: 'location', status: 'open' };
   const { page, routes } = mount(t, 'home', {}, {
     rows: (name, filters) => name === 'businessTasks' && filters.status === 'open' ? [
@@ -63,20 +70,17 @@ test('workbench previews at most three actionable tasks by due date and marks an
       { ...common, id: 'overdue', kind: 'location_missing', dueAt: '2026-11-19', overdue: true },
       { ...common, id: 'today', kind: 'location_missing', dueAt: '2026-11-20' },
       { ...common, id: 'invalid', target: 'private-unknown', dueAt: '2026-11-01', overdue: true }
-    ] : []
+    ] : undefined
   });
   await page.onShow();
   assert.equal(page.data.openTotal, 5);
-  assert.deepEqual(page.data.todoPreview.map(row => row.id), ['overdue', 'today', 'returned']);
-  assert.match(page.data.todoPreview[0].dueText, /已超期/);
-  assert.equal(page.data.todoPreview[1].dueText, '今天截止');
-  await page.openTodo(tap({ id: 'today' }));
-  assert.deepEqual(routes, ['/pages/location/index?outlet=zz&month=2026-11']);
+  page.nav(tap({page:'tasks'}));
+  assert.deepEqual(routes, ['/pages/tasks/index']);
 });
 
-test('workbench loads the latest verified settlement when the current month has none', async t => {
+test('the secondary dashboard opens the latest verified settlement when the current month has none', async t => {
   const periods = [];
-  const { page } = mount(t, 'home', {}, {
+  const { page } = mount(t, 'dashboard', {}, {
     request(route) {
       const query = new URL(route, 'https://native.invalid').searchParams;
       periods.push(query.get('period'));
@@ -86,34 +90,142 @@ test('workbench loads the latest verified settlement when the current month has 
     }
   });
   await page.onShow();
-  assert.deepEqual(periods, ['2026-11', '2026-10']);
-  assert.equal(page.data.hasCurrentSettlement, false);
-  assert.equal(page.data.latestSettledMonth, '2026-10');
-  assert.equal(page.data.latestMetrics[1].value, 4);
+  assert.deepEqual(periods.slice(0,2), ['2026-11', '2026-10']);
+  assert.equal(page.data.period, '2026-10');
+  assert.equal(page.data.metrics[1].value, 4);
 });
 
-test('workbench tasks can open while the fallback settlement snapshot is loading', async t => {
-  let startSnapshot,finishSnapshot;
-  const snapshotStarted = new Promise(resolve => { startSnapshot = resolve; });
-  const snapshot = new Promise(resolve => { finishSnapshot = resolve; });
+test('workbench can open matters while its pending count is still loading', async t => {
+  let startCount,finishCount;
+  const countStarted = new Promise(resolve => { startCount = resolve; });
+  const count = new Promise(resolve => { finishCount = resolve; });
   const { page, routes } = mount(t, 'home', {}, {
-    rows: (name, filters) => name === 'businessTasks' && filters.status === 'open'
-      ? [{ id: 'task', outlet: 'zz', month: '2026-11', target: 'location', kind: 'location_missing', status: 'open' }] : [],
-    request(route) {
-      if (!route.includes('period=2026-10')) return { settlementMonths: { hasCurrent: false, latestPriorMonth: '2026-10' } };
-      startSnapshot();
-      return snapshot;
+    rows(name, filters) {
+      if (name !== 'businessTasks') return;
+      assert.equal(filters.limit,1);
+      startCount();
+      return count;
     }
   });
   const refresh = page.onShow();
   try {
-    await snapshotStarted;
-    await page.openTodo(tap({ id: 'task' }));
-    assert.deepEqual(routes, ['/pages/location/index?outlet=zz&month=2026-11']);
+    await countStarted;
+    page.nav(tap({page:'tasks'}));
+    assert.deepEqual(routes, ['/pages/tasks/index']);
   } finally {
-    finishSnapshot({});
+    finishCount([]);
     await refresh;
   }
+});
+
+for (const [status, actionText] of [
+  ['empty', '申请新增网点'], ['pending', '查看申请进度'], ['returned', '查看原因并补充'],
+  ['supplement', '查看原因并补充'], ['approved', '查看已通过申请']
+]) {
+  test('zero-outlet workbench opens the correct first-outlet destination for ' + status, async t => {
+    const reads = [];
+    const { page, routes } = mount(t, 'home', {}, {
+      request(route) { reads.push(route); },
+      rows(name, filters) {
+        if (name === 'outlets') return [];
+        if (name !== 'requests') return [];
+        reads.push(filters);
+        return status === 'empty' ? [] : [{ id: 'req-first', status, type: 'newOutlet' }];
+      }
+    });
+    await page.onShow();
+    assert.equal(page.data.outletCount, 0);
+    assert.equal(page.data.firstOutlet?.actionText, actionText);
+    assert.deepEqual(reads, [{ type: 'newOutlet', limit: 1 }]);
+    page.openOutlets();
+    assert.deepEqual(routes, [status === 'empty'
+      ? '/pages/requests/index?type=newOutlet' : '/pages/requests/index?id=req-first']);
+  });
+}
+
+test('zero-outlet workbench retries an unreadable application and keeps existing tasks and notices', async t => {
+  let retry = false;
+  const { page, routes } = mount(t, 'home', {}, {
+    rows(name, filters) {
+      if (name === 'outlets') return [];
+      if (name === 'requests' && !retry) throw new Error('request unavailable');
+      if (name === 'messages') return [{ id: 'msg-unread' }];
+      if (name === 'businessTasks' && filters.status === 'open') {
+        return [{ id: 'task-first', status: 'open', kind: 'request_supplement', recordId: 'req-first', target: 'requests' }];
+      }
+      return [];
+    }
+  });
+  await page.onShow();
+  assert.equal(page.data.firstOutlet?.status, 'error');
+  assert.match(page.data.firstOutlet.detail, /暂时无法确认申请进度/);
+  assert.equal(page.data.openTotal, 1);
+  assert.equal(page.data.hasUnreadNotices, true);
+  page.openFirstOutlet();
+  assert.deepEqual(routes, []);
+  retry = true;
+  await page.refresh();
+  assert.equal(page.data.firstOutlet?.status, 'empty');
+});
+
+test('workbench offers first-outlet guidance only after a successful zero count', async t => {
+  let mode = 'offline';
+  const reads = [];
+  const { page } = mount(t, 'home', {}, {
+    request(route) { reads.push(route); },
+    rows(name) {
+      if (name === 'outlets') {
+        if (mode === 'offline') throw new Error('outlets unavailable');
+        if (mode === 'new') return [];
+        return [1, 2, 3].map(id => ({ id: 'test-' + id, owner: 'p1' }));
+      }
+      if (name === 'requests') reads.push('requests');
+      return [];
+    }
+  });
+  await page.onShow();
+  assert.equal(page.data.firstOutlet, null);
+  assert.deepEqual(reads, []);
+  mode = 'new';
+  await page.refresh();
+  assert.equal(page.data.firstOutlet?.status, 'empty');
+  mode = 'operating';
+  await page.refresh();
+  assert.equal(page.data.firstOutlet, null);
+  assert.equal(page.data.outletCount, 3);
+  assert.equal(reads.filter(read => read === 'requests').length, 1);
+  assert.ok(!reads.some(read => typeof read==='string'&&read.startsWith('/api/dashboard?')));
+  const template = markup('home');
+  assert.match(template, /data-page="outlets" data-query="scope=private" bindtap="openOutlets"[\s\S]*?firstOutlet.actionText/);
+  assert.match(template, /经营办理[\s\S]*?data-page="reports"[\s\S]*?data-page="fees"[\s\S]*?data-page="tasks"/);
+});
+
+test('a delayed first-outlet lookup cannot restore a previous account’s application', async t => {
+  let token = 'first', startLookup, finishLookup;
+  const lookupStarted = new Promise(resolve => { startLookup = resolve; });
+  const lookup = new Promise(resolve => { finishLookup = resolve; });
+  const { page, routes } = mount(t, 'home', {}, {
+    session: () => ({ role: 'partner', token }),
+    rows(name) {
+      if (name === 'requests' && token === 'first') {
+        startLookup();
+        return lookup;
+      }
+      return [];
+    }
+  });
+  const previousRefresh = page.onShow();
+  await Promise.race([lookupStarted, previousRefresh]);
+  assert.equal(page.data.firstOutlet?.status, 'loading');
+  page.openFirstOutlet();
+  assert.deepEqual(routes, []);
+  token = 'second';
+  await page.onShow();
+  finishLookup([{ id: 'req-private', type: 'newOutlet', status: 'returned' }]);
+  await previousRefresh;
+  assert.equal(page.data.firstOutlet?.status, 'empty');
+  page.openFirstOutlet();
+  assert.deepEqual(routes, ['/pages/requests/index?type=newOutlet']);
 });
 
 test('public home dials the configured headquarters number and keeps published business cards available', async t => {
@@ -131,24 +243,75 @@ test('public home dials the configured headquarters number and keeps published b
   assert.match(markup('home'), /bindtap="dialHeadquarters"/);
 });
 
-test('the member outlet tab defaults to its list and scopes each action to its row', async t => {
+test('the outlet tab picks one action by priority and offers detail for waiting rows', async t => {
+  const returned = { month: '2026-10', status: 'returned' };
+  const missing = { month: '2026-10', status: 'missing' };
+  const exception = { month: '2026-11', status: 'exception' };
+  const locationMissing = { month: '2026-11', status: 'missing' };
+  const unpaid = { month: '2026-11', status: 'unpaid' };
+  const partiallyPaid = { month: '2026-11', status: 'partially_paid' };
+  const waitingReport = { month: '2026-10', status: 'exemption_pending' };
+  const waitingLocation = { month: '2026-11', status: 'pending' };
+  const scenarios = [
+    ['cs', returned, exception, unpaid, 'report'],
+    ['zz', missing, exception, unpaid, 'location'],
+    ['hy', missing, locationMissing, unpaid, 'report'],
+    ['cd', waitingReport, locationMissing, unpaid, 'location'],
+    ['km', waitingReport, waitingLocation, unpaid, 'fees'],
+    ['nn', waitingReport, waitingLocation, partiallyPaid, 'fees'],
+    ['hz', waitingReport, waitingLocation, null, null],
+    ['nj', null, waitingLocation, null, null]
+  ];
   const { page, routes } = mount(t, 'outlets', { scope: 'private' }, {
-    rows: name => name === 'outlets' ? [
-      { id: 'cs', name: '长沙网点', owner: 'p1', status: 'open' },
-      { id: 'zz', name: '株洲网点', owner: 'p1', status: 'open' }
-    ] : []
+    rows: name => name === 'outlets' ? scenarios.map(([id, report, location, fee]) => ({
+      id, name: id + '网点', owner: 'p1', status: 'open', province: '湖南省', city: '长沙市', district: '岳麓区',
+      summary: { report, location, fee }
+    })) : []
   });
   await page.onShow();
   assert.equal(page.data.mode, 'list');
   await page.mode(tap({ mode: 'map' }));
   assert.equal(page.data.mode, 'list');
-  page.outletAction(tap({ id: 'zz', page: 'location' }));
-  page.outletAction(tap({ id: 'cs', page: 'agreements' }));
-  page.outletAction(tap({ id: 'missing', page: 'fees' }));
-  assert.deepEqual(routes, ['/pages/location/index?outlet=zz&month=2026-11', '/pages/agreements/index?outlet=cs']);
+  assert.deepEqual(page.data.rows.map(row => row.nextAction?.page ?? null), scenarios.map(row => row[4]));
+  assert.equal(page.data.rows[0].area, '长沙市 · 岳麓区');
+  assert.match(page.data.rows.find(row => row.id === 'hz').waitingText, /免报待审核/);
+  assert.match(page.data.rows.find(row => row.id === 'nj').waitingText, /等待总部核验/);
+  page.outletAction(tap({ id: 'zz' }));
+  page.outletAction(tap({ id: 'cs' }));
+  page.outletAction(tap({ id: 'km' }));
+  page.outletAction(tap({ id: 'hz' }));
+  page.open(tap({ id: 'hz' }));
+  page.outletAction(tap({ id: 'missing' }));
+  assert.deepEqual(routes, ['/pages/location/index?outlet=zz&month=2026-11', '/pages/report/index?outlet=cs&month=2026-10',
+    '/pages/fees/index?outlet=km&month=2026-11', '/pages/outlet/index?id=hz']);
   page.setData({ directory: true });
-  page.outletAction(tap({ id: 'cs', page: 'agreements' }));
+  page.outletAction(tap({ id: 'cs' }));
+  assert.equal(routes.length, 4);
+});
+
+test('returning from an outlet restores the private list search and visible range', async t => {
+  const rows = Array.from({ length: 60 }, (_, index) => ({ id: 'cs-' + index, name: '长沙网点 ' + index, owner: 'p1' }));
+  let token = 'first-account';
+  const { page, routes } = mount(t, 'outlets', { scope: 'private' }, {
+    session: () => ({ role: 'partner', token }),
+    rows: (name, filters) => name === 'outlets' ? rows.filter(row => row.name.includes(filters.q || '')) : []
+  });
+  await page.onShow();
+  await page.search({ detail: { value: '长沙' } });
+  assert.equal(page.data.rows.length, 50);
+  await page.more(tap({ collection: 'outlets' }));
+  assert.equal(page.data.rows.length, 60);
+  page.open(tap({ id: 'cs-59' }));
+  assert.deepEqual(routes, ['/pages/outlet/index?id=cs-59']);
+  await page.onShow();
+  assert.equal(page.data.search, '长沙');
+  assert.equal(page.data.rows.at(-1).id, 'cs-59');
+  page.open(tap({ id: 'cs-59' }));
+  token = 'second-account';
+  page.open(tap({ id: 'cs-59' }));
   assert.equal(routes.length, 2);
+  await page.onShow();
+  assert.equal(page.data.rows.length, 50);
 });
 
 test('public outlet list groups domestic cities and international locations without requesting GPS', async t => {
@@ -165,21 +328,21 @@ test('public outlet list groups domestic cities and international locations with
     [['长沙市', ['cs1', 'cs2']], ['境外 · 新加坡', ['sg']]]);
 });
 
-test('login retains credentials on a wrong password and keeps optional methods behind one control', async t => {
-  const { page } = mount(t, 'login');
+test('login retains credentials after a wrong password and clears them when switching to SMS', async t => {
+  const { page } = mount(t, 'login', {}, {
+    request: () => ({ authCapabilities: { mode: 'real', sms: true, wechat: false } })
+  });
+  await page.onShow();
+  assert.equal(page.data.mode, 'methods');
+  page.mode(tap({ mode: 'password' }));
   api.passwordLogin = async () => { throw Object.assign(new Error('登录名或密码不正确'), { code: 'INVALID_CREDENTIALS' }); };
   page.setData({ username: 'outlet-manager', password: 'typed-password' });
   await page.passwordLogin();
   assert.equal(page.data.password, 'typed-password');
   assert.equal(page.data.error, '账号或密码不正确');
-  page.toggleMethods();
-  assert.equal(page.data.methodsExpanded, false);
-  page.updateChannels({ smsEnabled: true, wechatEnabled: false });
-  page.toggleMethods();
-  assert.equal(page.data.methodsExpanded, true);
+  page.mode(tap({ mode: 'methods' }));
   page.mode(tap({ mode: 'sms' }));
   assert.equal(page.data.mode, 'sms');
-  assert.equal(page.data.methodsExpanded, false);
   assert.equal(page.data.password, '');
 });
 

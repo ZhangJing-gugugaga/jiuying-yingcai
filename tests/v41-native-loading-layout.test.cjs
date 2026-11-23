@@ -74,7 +74,7 @@ test('a failed first load remains eligible for a skeleton on retry', async t => 
   assert.equal(page.data.loading, false);
 });
 
-test('workbench keeps a loaded task during same-account refresh and clears it when the account changes', async t => {
+test('workbench keeps the current task count during refresh and clears it when the account changes', async t => {
   patchRuntime(t);
   let definition;
   global.Page = page => { definition = page; };
@@ -85,25 +85,24 @@ test('workbench keeps a loaded task during same-account refresh and clears it wh
   api.session = () => ({ role: 'partner', token });
   api.request = async resource => resource === '/api/context' ? { actor: token, today } : {};
   api.collection = async (collection, filters) => entries(collection === 'businessTasks' && filters.status === 'open'
-    ? [{ id: token + '-task', outlet: 'cs', kind: 'report_missing', month: '2026-10', status: 'open' }]
+    ? Array.from({length:token==='member-one'?1:2},(_,index)=>({id:token+'-task-'+index}))
     : []);
   const page = instance(definition, 'home');
   await page.refresh();
-  assert.equal(page.data.todoPreview[0].id, 'member-one-task');
+  assert.equal(page.data.openTotal, 1);
 
   const sameAccount = page.refresh();
-  assert.equal(page.data.taskPreviewReady, true);
-  assert.equal(page.data.todoPreview[0].id, 'member-one-task');
+  assert.equal(page.data.hasLoaded, true);
+  assert.equal(page.data.openTotal, 1);
   await sameAccount;
 
   token = 'member-two';
   const otherAccount = page.refresh();
   assert.equal(page.data.hasLoaded, false);
   assert.equal(page.data.state, null);
-  assert.equal(page.data.taskPreviewReady, false);
-  assert.deepEqual(page.data.todoPreview, []);
+  assert.equal(page.data.openTotal, null);
   await otherAccount;
-  assert.equal(page.data.todoPreview[0].id, 'member-two-task');
+  assert.equal(page.data.openTotal, 2);
 });
 
 test('core surfaces present an accessible initial skeleton and keep visible refresh feedback separate', () => {

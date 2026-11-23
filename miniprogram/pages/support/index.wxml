@@ -20,9 +20,9 @@
   <view wx:if="{{!draftAvailable && actionNotice && actionArea==='draft'}}" class="notice">{{actionNotice}}</view>
   <block wx:if="{{tab==='home'}}">
     <view class="card support-contact">
-      <view class="card-title">需要总部跟进？</view>
-      <view class="hint">提交问题后，可在原工单查看回复和办理进度。</view>
-      <button class="primary top-gap" bindtap="prepareTicket" disabled="{{busy || loading || openingHistory || pendingAction}}">提交问题</button>
+      <view class="card-title">总部跟进</view>
+      <view class="hint">提交工单后，可在原记录查看办理进度。</view>
+      <button class="primary" bindtap="prepareTicket" disabled="{{busy || loading || openingHistory || pendingAction}}">提交问题</button>
       <view class="actions">
         <button class="link" data-tab="chat" bindtap="tab" disabled="{{loading}}">在线咨询</button>
         <button wx:if="{{phoneNumber}}" class="link" bindtap="phone">致电总部</button>
@@ -44,7 +44,7 @@
         </view>
       </block>
     </view>
-    <view wx:elif="{{!loading && !error}}" class="empty">提交问题后，办理进度会显示在这里。</view>
+    <t-empty wx:elif="{{!loading && !error}}" class="native-empty" icon="service" description="提交问题后，办理进度会显示在这里。"/>
     <view class="actions">
       <button class="link" data-tab="chatHistory" bindtap="tab">历史咨询</button>
       <button class="link" data-tab="faq" bindtap="tab">常见问题</button>

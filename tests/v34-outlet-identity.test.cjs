@@ -222,7 +222,7 @@ function nativeLocation() {
     global.Page = previous;
   }
   return {
-    ...definition, query: { outlet: 'cs' }, data: structuredClone(definition.data),
+    ...definition, route: 'pages/location/index', query: { outlet: 'cs' }, data: structuredClone(definition.data),
     setData(changes, callback) {
       for (const [path, value] of Object.entries(changes)) {
         const key = path.split('.');
@@ -253,7 +253,7 @@ test('when location permission was denied, the owner can open settings then retr
   };
   const page = nativeLocation();
   const api = require('../miniprogram/utils/api');
-  t.mock.method(api, 'session', () => ({ actor: 'partnerA' }));
+  t.mock.method(api, 'session', () => ({ actor: 'partnerA', role: 'partner', token: 'location-permission-test' }));
   t.mock.method(api, 'request', async () => ({ actor: 'partnerA', today: '2026-11-18' }));
   t.mock.method(api, 'collection', async name => {
     const items = name === 'outlets' ? [{ id: 'cs', owner: 'p1', status: 'open' }] : [];
@@ -275,12 +275,15 @@ test('when location permission was denied, the owner can open settings then retr
 });
 
 test('only the newest attempt asks for location supplements; a completed old exception stays visible as history', async t => {
+  const previous = global.wx;
+  global.wx = {};
+  t.after(() => {global.wx=previous;});
   const page = nativeLocation();
   const outlet = { id: 'cs', owner: 'p1', status: 'open', address: '隔离地址' };
   const older = { id: 'loc-first', status: 'exception', month: '2026-11', outlet: 'cs' };
   const current = { id: 'loc-after', previousId: older.id, status: 'approved', month: '2026-11', outlet: 'cs' };
   const api = require('../miniprogram/utils/api');
-  t.mock.method(api, 'session', () => ({ actor: 'partnerA' }));
+  t.mock.method(api, 'session', () => ({ actor: 'partnerA', role: 'partner', token: 'location-history-test' }));
   t.mock.method(api, 'request', async () => ({ actor: 'partnerA', today: '2026-11-18' }));
   t.mock.method(api, 'collection', async name => {
     const items = name === 'outlets' ? [outlet] : [current, older];

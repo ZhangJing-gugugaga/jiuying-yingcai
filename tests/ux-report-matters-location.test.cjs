@@ -7,6 +7,8 @@ const api = require('../miniprogram/utils/api');
 const outlet = { id: 'cs', name: '长沙网点', owner: 'p1', status: 'open', address: '长沙市某路' };
 const session = { role: 'partner', token: 'test-token', subject: 'partner-test', expiresAt: '2099-01-01T00:00:00Z' };
 const pageResult = items => ({ items, total: items.length, offset: 0, limit: 50, hasMore: false });
+const reportWorklist = (month, items) => ({ ...pageResult(items), month, limit: 25,
+  summary: { expected: 2, submitted: 2, exempt: 0, actionable: 0, awaitingExemption: 0, inReview: 2 } });
 const tap = dataset => ({ currentTarget: { dataset } });
 
 function page(t, name, query = {}) {
@@ -103,7 +105,13 @@ test('a newer verification record suppresses a saved address and supplement', as
 test('the month shortcuts distinguish the open reporting period from the current calendar month', async t => {
   const { instance, routes } = page(t, 'reports', { outlet: 'cs' });
   let today = '2027-01-03';
-  t.mock.method(api, 'request', async () => ({ actor: 'partnerA', today }));
+  t.mock.method(api, 'request', async path => {
+    if (path === '/api/context') return { actor: 'partnerA', today };
+    const month = new URL(path, 'https://native.invalid').searchParams.get('month');
+    const status = month < today.slice(0, 7) ? 'missing' : 'not_open';
+    const row = { outletId: 'cs', month, status, reportId: null };
+    return reportWorklist(month, [row]);
+  });
   t.mock.method(api, 'collection', async name => pageResult(name === 'outlets' ? [outlet] : []));
   await instance.onShow();
   assert.equal(instance.data.month, '2026-12');
@@ -125,18 +133,24 @@ test('the month shortcuts distinguish the open reporting period from the current
 
 test('reviewing shows the current operations and finance submissions without resurfacing an old returned version', async t => {
   const { instance } = page(t, 'reports');
-  t.mock.method(api, 'request', async () => ({ actor: 'partnerA', today: '2026-11-18' }));
   const month = '2026-10';
   const reports = [
-    { id: 'rpt-old', outlet: 'cs', month, status: 'returned', version: 1, versionNumbers: { latest: 2, effective: null } },
-    { id: 'rpt-latest', outlet: 'cs', month, status: 'finance', version: 2, versionNumbers: { latest: 2, effective: null } },
-    { id: 'rpt-review', outlet: 'zz', month, status: 'pending', version: 1, versionNumbers: { latest: 1, effective: null } },
+    { reportId: 'rpt-latest', outletId: 'cs', month, status: 'finance', latestVersion: 2, effectiveVersion: null },
+    { reportId: 'rpt-review', outletId: 'zz', month, status: 'pending', latestVersion: 1, effectiveVersion: null },
   ];
-  t.mock.method(api, 'collection', async (name, filters) => pageResult(name === 'outlets' ? [outlet] :
-    name === 'reports' ? reports.filter(row => filters.status === 'all' || row.status === filters.status) : []));
+  const requests = [];
+  t.mock.method(api, 'request', async path => {
+    if (path === '/api/context') return { actor: 'partnerA', today: '2026-11-18' };
+    const url = new URL(path, 'https://native.invalid');
+    assert.equal(url.pathname, '/api/reports/worklist');
+    requests.push(url.searchParams.get('status'));
+    return reportWorklist(month, reports);
+  });
+  t.mock.method(api, 'collection', async name => pageResult(name === 'outlets' ? [outlet] : []));
   await instance.onShow();
   await instance.filter(tap({ value: 'reviewing' }));
-  assert.deepEqual(instance.data.reportRows.map(row => row.id), ['rpt-latest', 'rpt-review']);
+  assert.deepEqual(requests, ['all', 'reviewing']);
+  assert.deepEqual(instance.data.reportRows.map(row => [row.reportId, row.statusText]), [['rpt-latest', '财务复核中'], ['rpt-review', '总部审核中']]);
 });
 
 test('a successful notice destination issues only a read command and preserves access to completed history', async t => {

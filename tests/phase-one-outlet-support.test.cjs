@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const { randomUUID } = require('node:crypto');
 const { readFileSync } = require('node:fs');
 const test = require('node:test');
+const sharp = require('sharp');
 const { createServer } = require('../server/index.cjs');
 const config = require('../miniprogram/config');
 const api = require('../miniprogram/utils/api');
@@ -77,33 +78,148 @@ async function run(work) {
   }
 }
 
-test('outlet details lead with scoped monthly tools and group secondary actions', () => run(async ({ show, routes, reads }) => {
+test('a newly activated partner applies, corrects the original request and returns to the operating workbench', () => run(async ({ show, destination, reads }) => {
+  await api.login('manager');
+  const account = await command('account.create', { name: '首店流程测试主体', managerName: '首店负责人', mobile: '13900211087' });
+  const activation = await api.request('/api/auth/activation', 'POST', { actor: account.actor, username: 'isolated-first-outlet' });
+  const partner = await api.activate(activation.token, randomUUID() + '-Isolation!');
+  const switchBack = () => wx.setStorageSync('jyyc.session', partner);
+  const home = await show('home');
+  assert.equal(home.data.outletCount, 0);
+  assert.equal(home.data.firstOutlet.status, 'empty');
+  home.openOutlets();
+  const form = await destination();
+  assert.equal(form.data.viewMode, 'form');
+  assert.equal(form.data.type, 'newOutlet');
+  const evidence = await sharp({ create: { width: 20, height: 20, channels: 3, background: '#163858' } }).png().toBuffer();
+  const photo = await api.request('/api/files', 'POST', { name: '位置验收.png', type: 'image/png', base64: evidence.toString('base64') });
+  form.setData({ form: { ...form.data.form, countryCode: 'CN', province: '湖南省', city: '长沙市', district: '岳麓区',
+    name: '首店流程测试网点', address: '隔离验收地址', phone: '073112345678', opening: '2026-11-01' },
+  coords: { lat: 28.2, lng: 112.9, source: 'manual', coordinateSystem: 'GCJ-02' }, photo });
+  await form.submit();
+  assert.equal(form.data.error, '');
+  const id = form.data.historyId;
+  assert.ok(id);
+  await home.onShow();
+  assert.equal(home.data.firstOutlet.status, 'pending');
+  assert.equal(home.data.firstOutlet.id, id);
+  await api.login('partnerA');
+  assert.equal((await api.collection('requests', { type: 'newOutlet', limit: 1 })).total, 0);
+  await api.login('ops');
+  await command('review.request', { id, decision: 'return', note: '请确认地点信息', publicNote: '请核对地址并补充说明' });
+  switchBack();
+  await home.onShow();
+  assert.equal(home.data.firstOutlet.status, 'returned');
+  home.openOutlets();
+  const returned = await destination();
+  assert.equal(returned.data.historyId, id);
+  await returned.supplement(tap({ id }));
+  returned.setData({ 'form.reason': '地址已核对' });
+  await returned.submit();
+  assert.equal(returned.data.error, '');
+  assert.equal(returned.data.historyId, id);
+  await api.login('location');
+  await command('location.review', { id, decision: 'approve' });
+  await api.login('ops');
+  const approved = await command('review.request', { id, decision: 'approve' });
+  assert.equal(approved.id, id);
+  assert.ok(approved.data.createdOutletId);
+  switchBack();
+  const start = reads.length;
+  await home.onShow();
+  assert.equal(home.data.outletCount, 1);
+  assert.equal(home.data.firstOutlet, null);
+  assert.ok(!reads.slice(start).some(url => url.pathname === '/api/dashboard'));
+  assert.ok(!reads.slice(start).some(url => url.pathname === '/api/collections/requests'));
+  home.openOutlets();
+  const myOutlets=await destination();
+  assert.equal(myOutlets.data.directory,false);
+  assert.ok(myOutlets.data.rows.some(outlet=>outlet.id===approved.data.createdOutletId));
+}));
+
+test('my outlets keeps address and secondary shortcuts in detail and opens only the prioritized row action', () => run(async ({ show, routes, reads }) => {
+  const page = await show('outlets');
+  assert.equal(page.data.error, '');
+  assert.equal(page.data.directory, false);
+  assert.ok(reads.some(url => url.pathname === '/api/collections/outlets' && url.searchParams.get('includeSummary') === 'true'));
+  const template = markup('outlets');
+  assert.match(template, /wx:if="{{!directory && !isPublic}}" class="[^"\n]*outlet-list-heading[^"\n]*">\s*<view[^>]*>网点列表<\/view>\s*<button wx:if="{{rows.length}}"[^>]*data-query="type=newOutlet"[^>]*>申请新增网点/);
+  assert.match(template, /data-id="{{item.id}}" bindtap="open"[^>]*>[\s\S]*?查看网点详情/);
+  assert.match(template, /wx:if="{{item.nextAction}}"[\s\S]*?data-id="{{item.id}}" bindtap="outletAction"/);
+  assert.doesNotMatch(template, /wx:for="{{(?:item.summaryRows|outletActions)}}"/);
+
+  const priority = [['report', 'returned', 'report'], ['location', 'exception', 'location'], ['report', 'missing', 'report'],
+    ['location', 'missing', 'location'], ['fee', 'unpaid', 'fees'], ['fee', 'partially_paid', 'fees']];
+  for (const outlet of page.data.rows) {
+    assert.deepEqual(outlet.summaryRows.map(row => row.key), ['report', 'location', 'fee']);
+    assert.ok(outlet.summaryRows.every(row => row.monthText && row.statusText));
+    const selected = priority.find(([key, status]) => outlet.summary[key].status === status);
+    const count = routes.length;
+    page.outletAction(tap({ id: outlet.id }));
+    if (!selected) {
+      assert.equal(outlet.nextAction, null);
+      assert.equal(routes.length, count);
+      page.open(tap({ id: outlet.id }));
+      assert.equal(routes.at(-1), '/pages/outlet/index?id=' + outlet.id);
+      continue;
+    }
+    const [key, , name] = selected;
+    const url = new URL(routes.at(-1), 'https://native.invalid');
+    assert.equal(routes.length, count + 1);
+    assert.equal(url.pathname, '/pages/' + name + '/index');
+    assert.equal(url.searchParams.get('outlet'), outlet.id);
+    assert.equal(url.searchParams.get('month'), outlet.summary[key].month);
+  }
+  const count = routes.length;
+  page.outletAction(tap({ id: 'outside-my-outlets' }));
+  assert.equal(routes.length, count);
+}));
+
+test('outlet details display scoped monthly tools, verification and operating requests in separate sections', () => run(async ({ show, routes, reads }) => {
   const page = await show('outlet', { id: 'zz' });
   assert.equal(page.data.error, '');
   const month = page.data.state.today.slice(0, 7);
   const priorMonth = fmt.addMonth(month, -1);
+  const list = await show('outlets');
+  const ownRow = list.data.rows.find(row => row.id === 'zz');
+  assert.ok(ownRow);
+  assert.deepEqual(Object.values(page.data.businessSections), ownRow.summaryRows);
+  assert.ok(reads.some(url => url.pathname === '/api/collections/outlets/zz' && url.searchParams.get('includeSummary') === 'true'));
+  const template = markup('outlet');
+  assert.match(template, />月报与账单<\/view>[\s\S]*?data-page="report"[\s\S]*?data-page="fees"[\s\S]*?>本月经营情况<\/view>[\s\S]*?{{summary.revenueText}}[\s\S]*?>位置核验<\/view>/);
+  assert.match(template, />位置核验<\/view>[\s\S]*?{{businessSections.location.statusText}}[\s\S]*?data-page="location" data-month="{{businessScope.location.month}}" bindtap="action">[\s\S]*?月度位置核验[\s\S]*?data-page="location" data-history="true" bindtap="action">位置核验记录[\s\S]*?>营业状态与申请<\/view>/);
+  assert.match(template, />营业状态与申请<\/view>[\s\S]*?{{outlet.statusNote}}[\s\S]*?data-type="statusChange" data-status="paused"[\s\S]*?data-type="statusChange" data-status="open"[\s\S]*?bindtap="toggleMatters"[\s\S]*?wx:if="{{mattersExpanded}}"[\s\S]*?data-type="pauseFee"[\s\S]*?data-history="true" bindtap="action">其他申请及进度<\/button>/);
+  assert.match(template, /data-page="requests" bindtap="action">办理网点事项/);
+  assert.match(template, /网点资料[\s\S]*?data-page="agreements" bindtap="action">查看服务协议/);
   assert.equal(page.data.mattersExpanded, false);
-  assert.match(markup('outlet'), /bindtap="toggleMatters"[\s\S]*?wx:if="{{mattersExpanded}}"[\s\S]*?data-page="location"/);
   page.toggleMatters();
   assert.equal(page.data.mattersExpanded, true);
-  for (const [name, expectedMonth] of [['report', priorMonth], ['fees', null], ['location', month]]) {
+  for (const [name, expectedMonth] of [['report', priorMonth], ['fees', null], ['location', month], ['requests', null], ['support', null], ['agreements', null]]) {
     page.action(tap({ page: name }));
     const url = new URL(routes.at(-1), 'https://native.invalid');
     assert.equal(url.pathname, '/pages/' + name + '/index');
     assert.equal(url.searchParams.get('outlet'), 'zz');
     assert.equal(url.searchParams.get('month'), expectedMonth);
+    assert.equal(url.searchParams.get('filterOutlet'), name === 'requests' ? 'zz' : null);
   }
-  assert.match(markup('outlets'), /wx:if="{{!directory && !isPublic}}"[^>]*data-query="type=newOutlet"[^>]*>申请新增网点/);
+  page.action(tap({ page: 'fees', month: '2026-10' }));
+  assert.equal(routes.at(-1), '/pages/fees/index?outlet=zz&month=2026-10');
+  page.action(tap({ page: 'location', history: true }));
+  const verificationHistory = new URL(routes.at(-1), 'https://native.invalid');
+  assert.equal(verificationHistory.pathname, '/pages/location/index');
+  assert.equal(verificationHistory.searchParams.get('outlet'), 'zz');
+  assert.equal(verificationHistory.searchParams.get('section'), 'history');
 
   await api.login('manager');
   await command('public.profile', { outlet: 'zz', title: '公开验收网点', description: '公开摘要', services: ['网点服务'], address: '公开验收地址', published: true, reason: '隔离验证' });
+  await api.login('partnerA');
   const start = reads.length;
   const publicPage = await show('outlet', { id: 'zz', scope: 'public' });
   assert.equal(publicPage.data.error, '');
   assert.equal(publicPage.data.internal, false);
   publicPage.toggleMatters();
   const routeCount = routes.length;
-  publicPage.action(tap({ page: 'location' }));
+  for (const name of ['report', 'fees', 'location', 'requests', 'support', 'agreements']) publicPage.action(tap({ page: name }));
   assert.equal(publicPage.data.mattersExpanded, false);
   assert.equal(routes.length, routeCount);
   assert.ok(reads.slice(start).some(url => url.pathname === '/api/collections/outlets/zz' && url.searchParams.get('scope') === 'public'));

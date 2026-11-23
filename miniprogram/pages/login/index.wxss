@@ -1,12 +1,23 @@
 /* Shared visual system is defined in app.wxss. */
-.page.login{padding-top:40rpx}
-.login .brand-mark{width:76rpx;height:76rpx;font-size:38rpx;margin-bottom:25rpx}
-.login .title{font-size:52rpx;letter-spacing:0}
-.login-subtitle{margin-bottom:28rpx}
-.login-entry,.login-methods{display:flex;align-items:center;flex-wrap:wrap;gap:4rpx 14rpx;margin-top:12rpx}
+.page.login{padding-top:var(--space-xl);max-width:580px}
+.login-heading{display:flex;align-items:center;gap:var(--space-lg);min-height:144rpx;padding:0 var(--space-lg);border-radius:var(--radius-card);background:repeating-linear-gradient(135deg,transparent 0 24rpx,var(--surface) 25rpx 26rpx,transparent 27rpx 52rpx),linear-gradient(120deg,var(--brand-soft),var(--surface))}
+.login .brand-mark{width:88rpx;height:88rpx;flex-shrink:0;font-size:38rpx;margin:0;background:var(--brand-deep);color:var(--surface);border:0}
+.login-brand-name{color:var(--muted);font-size:var(--font-caption)}
+.login .title{font-size:var(--font-title);margin:var(--space-2xs) 0 0;letter-spacing:0}
+.login .card > .primary{width:100%;margin-top:var(--space-md)}
+.login-entry{display:flex;align-items:center;flex-wrap:wrap;gap:4rpx 14rpx;margin-top:12rpx}
+.login-methods{display:grid;gap:var(--space-sm)}
+.login-methods button{width:100%}
 .login-entry button,.login-methods button{margin:0;min-height:88rpx}
 .login-footer{justify-content:center}
 .login-error{margin:14rpx 0}
 .login .sms-actions{margin-top:0}
 .login .sms-code{flex:1;min-width:0}
 .login .sms-actions button{flex:0 0 auto}
+.auth-control{display:block;min-width:0;margin:var(--space-md) 0;border:1rpx solid var(--border);border-radius:var(--radius-control);overflow:hidden;--td-input-bg-color:var(--background);--td-input-vertical-padding:16rpx;--td-input-label-text-color:var(--brand-deep);--td-input-default-text-color:var(--text);--td-input-placeholder-text-color:var(--muted)}
+.auth-submit{display:block;margin-top:var(--space-lg)}
+.staff-handoff{display:grid;gap:var(--space-sm)}
+.staff-handoff-title{color:var(--text);font-size:var(--font-section);font-weight:700;line-height:1.45}
+.staff-portal-url{display:block;min-width:0;color:var(--muted);font-size:var(--font-caption);word-break:break-all}
+.login .card > .staff-handoff-button{width:100%;min-height:44px;margin:0;white-space:normal}
+.staff-handoff .login-error{margin:0}

@@ -1,3 +1,6 @@
 {
-  "navigationBarTitleText": "网点详情"
+  "navigationBarTitleText": "网点详情",
+  "usingComponents": {
+    "t-icon": "/vendor/tdesign/icon/icon"
+  }
 }

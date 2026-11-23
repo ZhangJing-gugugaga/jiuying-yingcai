@@ -6,7 +6,7 @@
     <button class="link top-gap" bindtap="refresh" disabled="{{busy || loading || switching}}">重试</button>
   </view>
 
-  <view wx:if="{{searchExpanded || (!outlets.length && outletSearch)}}" class="card">
+  <view wx:if="{{!linkedVersion && !versionUnavailable && (searchExpanded || (!outlets.length && outletSearch))}}" class="card">
     <view class="row">
       <input class="grow" placeholder="搜索网点名称或地区" value="{{searchDraft === undefined ? outletSearch : searchDraft}}" bindinput="searchInput" bindconfirm="searchOutlets" confirm-type="search" disabled="{{busy || inlineConfirmation || loading || switching}}"/>
       <button class="outline small" bindtap="searchOutlets" disabled="{{busy || inlineConfirmation || loading || switching}}">搜索</button>
@@ -14,8 +14,12 @@
   </view>
   <view wx:if="{{!outlets.length && !loading && !error}}" class="empty">未找到符合条件的网点，请调整搜索内容。</view>
   <block wx:if="{{outlets.length}}">
-    <view class="card">
-      <view class="two-col report-scope">
+    <view class="card report-context">
+      <view wx:if="{{linkedVersion || versionUnavailable}}" class="report-identity">
+        <text class="card-title report-outlet-name">{{outletNames[outletIndex + 1]}}</text>
+        <text class="muted">{{monthDisplay || month}} · 经营月报</text>
+      </view>
+      <view wx:else class="two-col report-scope">
         <view wx:if="{{outlets.length}}" class="field">
           <label>网点</label>
           <picker range="{{outletNames}}" value="{{outletIndex + 1}}" bindchange="chooseOutletFromPicker" disabled="{{busy || inlineConfirmation || loading || switching}}">
@@ -34,7 +38,7 @@
         <text wx:if="{{linkedVersion && linkedVersion.id!==latestSubmittedVersion.id}}" class="muted">历史月报</text>
         <text wx:if="{{dueDisplay}}" class="muted">截止 {{dueDisplay}}</text>
       </view>
-      <view wx:if="{{currentApprovedVersion && latestSubmittedVersion && currentApprovedVersion.id!==latestSubmittedVersion.id}}" class="hint">当前有效 V{{currentApprovedVersion.version}} · 最近提交 V{{latestSubmittedVersion.version}}</view>
+      <view wx:if="{{!returnedReason && currentApprovedVersion && latestSubmittedVersion && currentApprovedVersion.id!==latestSubmittedVersion.id}}" class="hint">原已审核月报仍然有效。</view>
       <view wx:if="{{!outletId && !error}}" class="hint">选择要填报的网点后继续。</view>
       <view wx:if="{{outletId && returnedReason}}" class="notice">
         <view class="card-title">总部退回原因</view>
@@ -57,21 +61,28 @@
       <button wx:elif="{{canCorrect && !correctionExpanded}}" class="primary top-gap" bindtap="showCorrection" disabled="{{busy || loading || switching}}">申请更正</button>
       <button wx:if="{{outletId && !canEdit && !formExpanded && !versionUnavailable && !linkedVersion.summaryOnly && (linkedVersion || latestSubmittedVersion || currentApprovedVersion || hasDraft)}}" class="link" bindtap="showReportFields">查看月报数据</button>
       <button wx:if="{{versions.length && !historyExpanded}}" class="link" bindtap="showVersions" disabled="{{busy || loading || switching}}">查看版本记录</button>
-      <button wx:if="{{outlets.length > 1 || pagers.outlets.hasMore || outletSearch}}" class="link" bindtap="toggleOutletSearch">{{searchExpanded ? '收起网点搜索' : '搜索其他网点'}}</button>
-      <view wx:if="{{pagers.outlets.hasMore}}" class="pagination">
+      <button wx:if="{{!linkedVersion && !versionUnavailable && (outlets.length > 1 || pagers.outlets.hasMore || outletSearch)}}" class="link" bindtap="toggleOutletSearch">{{searchExpanded ? '收起网点搜索' : '搜索其他网点'}}</button>
+      <view wx:if="{{!linkedVersion && !versionUnavailable && pagers.outlets.hasMore}}" class="pagination">
         <button class="outline small" data-collection="outlets" bindtap="more" loading="{{pagers.outlets.loading}}" disabled="{{busy || loading || switching || pagers.outlets.loading}}">加载更多网点</button>
       </view>
     </view>
 
     <view wx:if="{{formExpanded && outletId && !versionUnavailable && !linkedVersion.summaryOnly}}">
       <view class="card" id="report-edit">
+        <view class="report-form-context">
+          <view class="report-identity">
+            <text class="card-title report-outlet-name">{{outletNames[outletIndex + 1]}}</text>
+            <text class="muted">{{monthDisplay || month}} · 经营月报</text>
+          </view>
+          <view wx:if="{{canEdit && returnedReason}}" class="notice">总部退回原因：{{returnedReason}}</view>
+        </view>
         <view class="field" id="report-field-revenue">
           <label>营业收入 <text class="unit">元</text></label>
           <input disabled="{{!editableFields.revenue || busy || inlineConfirmation || loading || switching}}" type="digit" name="revenue" data-field="revenue" value="{{form.revenue}}" bindinput="input" bindblur="blurField" placeholder="填入金额"/>
           <view wx:if="{{fieldErrors.revenue}}" class="field-error">{{fieldErrors.revenue}}</view>
           <view wx:else class="hint">请按集团财务确认口径填写。</view>
         </view>
-        <view class="two-col">
+        <view class="two-col report-count-fields">
           <view class="field" id="report-field-orders">
             <label>有效完成订单 · 单</label>
             <input disabled="{{!editableFields.orders || busy || inlineConfirmation || loading || switching}}" type="number" name="orders" data-field="orders" value="{{form.orders}}" bindinput="input" bindblur="blurField" placeholder="填入订单数"/>

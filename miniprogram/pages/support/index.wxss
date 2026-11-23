@@ -34,6 +34,7 @@
 .support-contact .actions {
   margin-top: var(--space-sm);
 }
+.support-contact { border-top: 4rpx solid var(--brand); }
 
 .support-recent {
   min-height: 88rpx;

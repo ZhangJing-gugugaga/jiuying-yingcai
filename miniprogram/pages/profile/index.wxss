@@ -1,9 +1,22 @@
 /* Shared visual system is defined in app.wxss. */
-.profile-login{flex-shrink:0;margin:0;min-height:88rpx}
+.profile-account{flex-wrap:wrap;background:var(--brand-deep);color:var(--surface);border:0}
+.profile-account .muted{color:var(--brand-on-dark)}
+.profile-account .avatar{width:82rpx;height:82rpx;flex-shrink:0;background:var(--brand-soft);color:var(--brand-deep)}
+.profile-account .grow{flex-basis:170rpx}
+.profile-account .profile-login {
+  flex-shrink: 0;
+  width: auto;
+  min-height: 88rpx;
+  min-height: max(88rpx, 44px);
+  margin: 0;
+  background: var(--surface);
+  color: var(--brand-deep);
+}
+.profile-menu{display:block;padding:var(--space-xs) 0;overflow:hidden;--td-cell-left-icon-color:var(--brand);--td-cell-title-color:var(--text);--td-cell-border-color:var(--border)}
 .profile-retry{gap:10rpx;margin:0 0 16rpx}
 .profile-retry button{flex-shrink:0}
-.profile-link,.profile-favorites-button,.profile-favorite{display:flex;align-items:center;justify-content:space-between;gap:12rpx;width:100%;min-height:88rpx;margin:0;background:transparent;color:var(--text,#1c3048);text-align:left;line-height:1.45;padding:12rpx 0}
-.profile-link + .profile-link{border-top:1rpx solid var(--border,#dfe7f2);border-radius:0}
+.profile-favorites-button,.profile-favorite{display:flex;align-items:center;justify-content:space-between;gap:12rpx;width:100%;min-height:88rpx;margin:0;background:transparent;color:var(--text,#1c3048);text-align:left;line-height:1.45;padding:12rpx 0}
+.profile-favorites-button::after{content:"";position:static;width:11rpx;height:11rpx;flex-shrink:0;border-radius:0;border-right:2rpx solid var(--brand);border-top:2rpx solid var(--brand);transform:rotate(45deg)}
 .profile-favorite{border-bottom:1rpx solid var(--border,#dfe7f2);border-radius:0;overflow-wrap:anywhere}
 .profile-favorites-button{font-weight:650}
 .profile-version{font-size:24rpx;margin:4rpx 0 10rpx}

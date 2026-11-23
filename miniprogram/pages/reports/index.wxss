@@ -5,10 +5,11 @@
 .report-heading picker{flex:0 1 260rpx;min-width:0}
 .report-heading .picker{padding-left:16rpx}
 .report-list-scope .filter{margin:16rpx 0 8rpx}
-.report-new{width:100%;margin:16rpx 0}
+button.report-new:not([size="mini"]) { width: 100%; margin: 16rpx 0; }
 .report-filter{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8rpx}
 .report-filter .pill{padding:0 8rpx}
 .coverage{padding:0 8rpx 8rpx}
+.report-coverage-detail{display:flex;flex-wrap:wrap;gap:8rpx 20rpx;margin-top:8rpx}
 .report-progress{height:6rpx;background:#e5edf5;border-radius:6rpx;margin:12rpx 0 4rpx;overflow:hidden}
 .report-progress-fill{height:100%;background:#0e65b7;background:var(--brand)}
 .report-return-note{white-space:pre-wrap;overflow-wrap:anywhere}

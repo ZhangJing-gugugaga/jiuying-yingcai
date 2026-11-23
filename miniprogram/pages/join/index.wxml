@@ -1,0 +1,96 @@
+<view class="page join-screen">
+  <view class="page-heading"><view class="title">加盟申请</view></view>
+  <!-- DEV_ONLY_START -->
+  <view wx:if="{{roleTrial}}" class="card row between">
+    <text class="muted">隔离试用 · 无真实付款</text>
+    <button class="link" bindtap="trialNotices">{{trialHasUnread ? '审批通知 · 有未读' : '查看审批通知'}}</button>
+  </view>
+  <!-- DEV_ONLY_END -->
+  <view wx:if="{{loading}}" class="card" aria-role="status">正在查看申请…</view>
+  <block wx:else>
+    <view wx:if="{{loadError}}" class="error" aria-role="alert">
+      {{loadError}}
+      <button class="link" bindtap="refresh">重试</button>
+    </view>
+    <view wx:if="{{guest && formMode==='choose' && !showRecovery}}" class="card join-section join-intro">
+      <view class="join-intro-mark" aria-hidden="true"><t-icon name="user-add" size="44rpx"/></view>
+      <view class="section-title">首次申请加盟</view>
+      <view class="muted">查看集团收款信息，按要求上传付款截图并提交总部审核。</view>
+      <button class="primary" bindtap="startApplication" disabled="{{busy}}">开始申请</button>
+    </view>
+    <view wx:if="{{record}}" class="card join-section join-record join-record-{{record.status}}">
+      <view class="join-record-head">
+        <text class="muted">{{record.organization}}</text>
+        <view class="section-title">{{statusLabels[record.status]}}</view>
+      </view>
+      <view wx:if="{{record.reviewNote}}" class="join-note"><text>总部意见</text><view>{{record.reviewNote}}</view></view>
+      <view wx:if="{{formMode==='supplement'}}" class="muted">原收款方：{{record.payee}}</view>
+      <view wx:if="{{record.status==='pending'}}" class="muted">总部核对到账后，会在消息中告知结果。</view>
+      <block wx:if="{{record.status==='approved'}}">
+        <view wx:if="{{record.activationStatus==='activated'}}" class="muted">加盟商账号已激活。登录后可以办理网点业务。</view>
+        <view wx:elif="{{record.activationStatus==='unavailable'}}" class="muted">账号暂不可用，请联系总部核实。</view>
+        <view wx:elif="{{record.activationStatus==='expired'}}" class="muted">付款审核已通过，原激活码已过期。请联系总部重新领取。</view>
+        <view wx:elif="{{record.activationStatus==='issued'}}" class="muted">付款审核已通过。请用总部发给您的激活码完成首次开通。</view>
+        <view wx:else class="muted">付款审核已通过，等待总部签发激活码。领取后可在此开通账号。</view>
+        <button wx:if="{{guest && record.activationStatus!=='unavailable'}}" class="primary" bindtap="login">{{record.activationStatus==='activated' ? '登录加盟商账号' : '前往首次激活'}}</button>
+        <button wx:elif="{{!guest && record.activationStatus==='activated'}}" class="primary" bindtap="openWorkbench">进入加盟商工作台</button>
+      </block>
+      <button wx:if="{{record.trackingCode}}" class="link" bindtap="showTracking">复制申请查询码</button>
+      <view wx:if="{{record.trackingCode}}" class="muted">换设备时可用查询码找回申请，请妥善保存。</view>
+      <button wx:if="{{guest && !showRecovery}}" class="link" bindtap="toggleRecovery" disabled="{{busy || uploading}}">查询其他申请</button>
+    </view>
+    <view wx:if="{{!record && applications.length}}" class="card join-section">
+      <view class="section-title">我的申请</view>
+      <button wx:for="{{applications}}" wx:key="id" class="outline" data-id="{{item.id}}" bindtap="openRecord">{{item.organization}} · {{statusLabels[item.status]}}</button>
+    </view>
+    <view wx:if="{{(!record || showRecovery) && (guest || loadError)}}" class="card join-recovery">
+      <t-cell wx:if="{{!showRecovery}}" title="已有申请" description="查询进度或补交付款截图" arrow hover bind:click="toggleRecovery"/>
+      <view wx:else class="join-recovery-form">
+        <view class="field join-field"><label for="join-tracking">申请查询码</label><input id="join-tracking" aria-label="申请查询码" value="{{trackingCode}}" bindinput="recoveryInput" maxlength="100" placeholder="粘贴申请查询码" disabled="{{busy}}" /></view>
+        <view wx:if="{{recoveryError}}" class="error" aria-role="alert">{{recoveryError}}</view>
+        <button class="primary" bindtap="recover" loading="{{busy}}" disabled="{{busy || uploading}}">找回申请</button>
+        <button class="link" bindtap="toggleRecovery" disabled="{{busy}}">取消查询</button>
+      </view>
+    </view>
+    <block wx:if="{{guest && !loadError && !showRecovery}}">
+      <view wx:if="{{formMode==='closed'}}" class="card join-section">
+        <view class="section-title">加盟申请暂未开放</view>
+        <view class="muted">如需了解办理方式，请联系总部。</view>
+      </view>
+      <view wx:if="{{formMode==='payment_changed'}}" class="card join-section">
+        <view class="section-title">集团收款信息已更新</view>
+        <view class="muted">如果您已付款，请保留原截图并联系总部核对原收款。</view>
+        <button wx:if="{{photo}}" class="link" data-image="proof" bindtap="preview">查看已选截图</button>
+        <button class="outline" bindtap="contact">联系总部核对</button>
+        <button class="link" bindtap="restartUnpaidApplication" disabled="{{busy || uploading}}">我尚未付款，查看最新收款信息</button>
+      </view>
+      <view wx:if="{{formMode==='new'}}" class="card join-section">
+          <view class="section-title">集团收款码</view>
+          <view>收款方：{{config.payee}}</view>
+          <button wx:if="{{qrImage}}" class="join-qr" data-image="qr" bindtap="preview" aria-label="查看集团收款码大图">
+            <image src="{{qrImage}}" mode="aspectFit" />
+          </button>
+          <view wx:if="{{qrImage}}" class="muted">付款前请核对收款方，付款后保留截图。</view>
+          <view wx:elif="{{qrError}}" class="error" aria-role="alert">收款码暂时无法查看。<button class="link" bindtap="refresh">重新加载</button></view>
+      </view>
+      <view wx:if="{{formMode==='supplement' || (formMode==='new' && qrImage)}}" class="card join-section">
+          <view class="section-title">{{formMode==='supplement' ? '补交原付款截图' : '填写申请'}}</view>
+          <view wx:if="{{formMode==='supplement'}}" class="hint">请补充这笔付款的凭证，已付金额无需再次支付。</view>
+          <view class="field join-field"><label for="join-name">申请人姓名</label><input id="join-name" data-field="name" value="{{form.name}}" bindinput="input" maxlength="80" disabled="{{busy}}" /></view>
+          <view class="field join-field"><label for="join-mobile">手机号</label><input id="join-mobile" data-field="mobile" type="number" value="{{form.mobile}}" bindinput="input" maxlength="11" disabled="{{busy}}" /></view>
+          <view class="field join-field"><label for="join-organization">申请加盟的单位或主体</label><input id="join-organization" data-field="organization" value="{{form.organization}}" bindinput="input" maxlength="120" disabled="{{busy}}" /></view>
+          <view class="field join-field"><label for="join-note">补充说明（选填）</label><textarea id="join-note" data-field="note" value="{{form.note}}" bindinput="input" maxlength="500" auto-height disabled="{{busy}}" /></view>
+          <view class="muted">请遮盖截图里与本次付款无关的个人信息。</view>
+          <button class="outline" bindtap="choosePhoto" loading="{{uploading}}" disabled="{{busy || uploading}}">{{photo ? '更换付款截图' : '从相册上传付款截图'}}</button>
+          <!-- DEV_ONLY_START -->
+          <button wx:if="{{roleTrial && formMode==='supplement'}}" class="outline" bindtap="choosePhoto" data-sample="1" disabled="{{busy || uploading}}">使用试用补交图片</button>
+          <!-- DEV_ONLY_END -->
+          <button wx:if="{{photo}}" class="link" data-image="proof" bindtap="preview">查看已选截图</button>
+          <view wx:if="{{formError}}" class="error" aria-role="alert">{{formError}}</view>
+          <button class="primary" bindtap="submit" loading="{{busy}}" disabled="{{busy || uploading}}">{{formMode==='supplement' ? '提交补充资料' : '提交总部审核'}}</button>
+      </view>
+    </block>
+    <view wx:if="{{!guest && !record && !applications.length && !loadError}}" class="card join-section">当前账号没有可查看的加盟申请。</view>
+    <button class="link" bindtap="contact">联系总部</button>
+  </block>
+</view>

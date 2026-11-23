@@ -1,10 +1,17 @@
 'use strict';
 const core=require('../shared/core.cjs');
 function supportUpload(store,id){return store.db.prepare('SELECT ticket_id FROM support_ticket_files WHERE file_id=?').get(id);}
+function onboardingUpload(store,id){return store.db.prepare('SELECT purpose,application_id FROM onboarding_files WHERE file_id=?').get(id);}
 function sameUploader(file,who){return file.subject===who.subject&&file.owner===(core.own(who.actor)||null);}
-function registerUploadPurpose(store,id,purpose){
- core.check(purpose==='support-ticket','INPUT','附件用途无效');
- store.db.prepare('INSERT INTO support_ticket_files(file_id) VALUES(?)').run(id);
+function checkUploadPurpose(purpose,who){
+ core.check(purpose===undefined||['support-ticket','onboarding-proof','onboarding-qr'].includes(purpose),'INPUT','附件用途无效');
+ if(purpose==='onboarding-qr')core.check(who.actor==='manager','FORBIDDEN','仅总管理员可上传集团收款码',403);
+ if(purpose==='onboarding-proof')core.check(who.actor==='public','FORBIDDEN','请在本人加盟申请中上传付款凭证',403);
+}
+function registerUploadPurpose(store,id,purpose,target){
+ if(purpose==='support-ticket')store.db.prepare('INSERT INTO support_ticket_files(file_id) VALUES(?)').run(id);
+ else store.db.prepare('INSERT INTO onboarding_files(file_id,purpose,target_application_id,target_application_version) VALUES(?,?,?,?)')
+  .run(id,purpose,target?.id??null,target?.version??null);
 }
 function supportTicketEvidence(store,who,value){
  const ids=core.supportAttachmentIds(value);
@@ -24,6 +31,15 @@ function bindSupportTicketFiles(store,ticketId,ids){
 }
 function fileAccess(store,file,who,repo){
  core.check(file,'NOT_FOUND','附件不存在',404);
+ const joining=onboardingUpload(store,file.id);
+ if(joining){
+  const application=joining.application_id&&store.db.prepare('SELECT applicant_subject,account_actor FROM onboarding_applications WHERE id=?').get(joining.application_id);
+  const visible=who.actor==='manager'||(joining.purpose==='onboarding-qr'
+   ?store.db.prepare('SELECT 1 FROM onboarding_config WHERE enabled=1 AND qr_file_id=?').get(file.id)
+   :application?application.applicant_subject===who.subject||application.account_actor===who.principal:sameUploader(file,who));
+  core.check(visible,'FORBIDDEN','当前账号无权查看该加盟附件',403);
+  return joining.purpose;
+ }
  const scope=supportUpload(store,file.id);
  if(scope){
   const permitted=scope.ticket_id
@@ -48,6 +64,6 @@ function publicImageEvidence(store,command,p){
  if(!id)return;
  const file=store.db.prepare('SELECT id,owner,subject FROM files WHERE id=?').get(id);
  const uploader=file&&store.db.prepare('SELECT role FROM users WHERE actor=?').get(file.subject);
- core.check(file&&!supportUpload(store,id)&&!file.owner&&(uploader?.role==='manager'||file.subject==='manager'),'FORBIDDEN','公开素材须由总部管理账号独立上传，不能使用私有附件',403);
+ core.check(file&&!supportUpload(store,id)&&!onboardingUpload(store,id)&&!file.owner&&(uploader?.role==='manager'||file.subject==='manager'),'FORBIDDEN','公开素材须由总部管理账号独立上传，不能使用私有附件',403);
 }
-module.exports={fileAccess,publicImageEvidence,registerUploadPurpose,supportTicketEvidence,bindSupportTicketFiles};
+module.exports={fileAccess,publicImageEvidence,checkUploadPurpose,registerUploadPurpose,supportTicketEvidence,bindSupportTicketFiles};

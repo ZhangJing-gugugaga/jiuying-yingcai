@@ -172,8 +172,16 @@ async function run(){
   await partner.getByRole('button',{name:'申请暂停收费',exact:true}).click();
   await partner.locator('form[data-command="request.submit"] [name=outlet]').selectOption(outlet);
   const pause=await submit(partner,'request.submit',{from:'2026-11-10',to:'2026-11-19',reason:'隔离演练暂停十天，不授权自动折算'});
+  async function requestStage(tab,label){
+   await nav(tab,'requests','业务申请与审批');
+   const card=tab.locator('.record').filter({hasText:pause.id});
+   await card.getByText(label,{exact:true}).waitFor();
+   return card;
+  }
   await nav(finance,'requests','业务申请与审批');
   await submit(finance,'review.request',{note:'审批暂停申请，金额须后续核算'});
+  await requestStage(finance,'待核算费用');
+  await requestStage(partner,'待核算费用');
   const adjustment=app.store.load().adjustments.find(row=>row.requestId===pause.id);
   assert.equal(adjustment.status,'待财务核算调整');assert.equal(adjustment.amount,null);assert.equal(adjustment.serviceUntil,null);
   await ops.goto(base+'/#queue=hq&kind=fee_calculation');
@@ -181,18 +189,28 @@ async function run(){
   await ops.getByRole('button',{name:'提出费用调整',exact:true}).click();
   const proposal=await submit(ops,'fee.adjust.propose',{amount:'30.25',offsetMonth:'2026-12',reason:'隔离凭据样例已核准抵扣 30.25 元，不按暂停天数计算'});
   assert.equal(proposal.adjustmentId,adjustment.id);
+  await requestStage(partner,'待财务复核');
   await finance.goto(base+'/#queue=finance&kind=fee_proposal_review');
   await finance.getByRole('link',{name:'查看业务',exact:true}).click();
   await finance.getByRole('button',{name:'复核处理',exact:true}).click();
   await submit(finance,'fee.adjust.review',{note:'独立核对隔离核准抵扣金额和账期'});
   await finance.getByText('复核服务费核算',{exact:true}).waitFor();
   await shot(finance,'07-费用复核历史');
+  await requestStage(partner,'待抵扣入账');
   app.store.db.prepare("UPDATE settings SET value=? WHERE key='today'").run(JSON.stringify('2026-12-01'));
   await nav(finance,'contracts','协议与定价');
   await openForm(finance,'billing.generate');
   const adjustedBill=await submit(finance,'billing.generate',{agreementId:agreement.id,month:'2026-12'});
   assert.equal(adjustedBill.grossAmount,315.25);assert.equal(adjustedBill.creditAmount,30.25);assert.equal(adjustedBill.amount,285);
   assert.deepEqual(adjustedBill.adjustmentIds,[adjustment.id]);
+  const credited=await requestStage(partner,'已抵扣入账');
+  await shot(partner,'08a-加盟商暂停收费实效');
+  const [creditDetail]=await Promise.all([
+   partner.waitForResponse(response=>new URL(response.url()).pathname==='/api/finance/bills/'+adjustedBill.id),
+   credited.getByRole('button',{name:'查看原抵扣账单'}).click(),
+  ]);
+  assert.equal(creditDetail.status(),200);
+  await partner.locator('dialog [data-action=close]').click();
   for(const [tab,actor,label] of [[partner,'partnerA','08-加盟商抵扣账单'],[finance,'finance','09-总部抵扣账单']]){
    await tab.reload();
    await nav(tab,'billing','服务费管理');

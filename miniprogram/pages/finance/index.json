@@ -1,1 +1,6 @@
-{"navigationBarTitleText":"付款与凭证"}
+{
+  "navigationBarTitleText": "付款与凭证",
+  "usingComponents": {
+    "t-empty": "/vendor/tdesign/empty/empty"
+  }
+}

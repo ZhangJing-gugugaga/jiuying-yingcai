@@ -1,1 +1,7 @@
-{"navigationBarTitleText":"联系总部","enablePullDownRefresh":true}
+{
+  "navigationBarTitleText": "联系总部",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "t-empty": "/vendor/tdesign/empty/empty"
+  }
+}

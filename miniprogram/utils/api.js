@@ -9,8 +9,11 @@ const pageIds=new WeakMap();
 let nextPageId=0;
 const genericError='操作未成功，请稍后重试；如问题持续，请联系总部客服。';
 const publicErrorVariants={
- INPUT:new Set(['请填写营业收入。','请输入登录名和密码','请输入有效手机号','请先上传现场照片','仅支持PNG/JPEG/WebP图片','附件须在5MB内','请重新选择照片后上传','工单最多可添加 3 张不同的图片','请使用原工单涉及的网点重新提交','评价为1—5分','不能核验未来月份','结束不得早于开始','招生不适用不能改值','请选择单字段更正或整份月报更正。','请填写单行学员姓名或培训编号']),
- CONFLICT:new Set(['线下实收正在核验，请先完成核验','费用调整待核算，暂不可付款','该账单已有待确认支付订单','该支付尝试已结束，请刷新账单','账单不是待支付状态或已有实收','仅已核验的实收凭证可办理退款或开票','退款金额超出可退余额','请先申请更正有效版本','当前有效版本已变化，请重新发起核实','负责人身份已变化，请重新登录','密码已变更，请重新登录']),
+ INPUT:new Set(['请填写营业收入。','请输入登录名和密码','请输入有效手机号','请先上传现场照片','仅支持PNG/JPEG/WebP图片','附件须在5MB内','请重新选择照片后上传','工单最多可添加 3 张不同的图片','请使用原工单涉及的网点重新提交','评价为1—5分','不能核验未来月份','结束不得早于开始','招生不适用不能改值','请选择单字段更正或整份月报更正。','请填写单行学员姓名或培训编号',
+  '申请人姓名格式无效','加盟主体格式无效','手机号格式无效','申请说明格式无效','请填写有效的手机号']),
+ CONFLICT:new Set(['线下实收正在核验，请先完成核验','费用调整待核算，暂不可付款','该账单已有待确认支付订单','该支付尝试已结束，请刷新账单','账单不是待支付状态或已有实收','仅已核验的实收凭证可办理退款或开票','退款金额超出可退余额','请先申请更正有效版本','当前有效版本已变化，请重新发起核实','负责人身份已变化，请重新登录','密码已变更，请重新登录',
+  '收款信息已更新，请重新核对后提交','该手机号已有加盟申请或账号，请联系总部核实','这张凭证已用于另一笔申请，请核对',
+  '加盟申请暂未开放','原申请状态已更新，请重新查看']),
  INVALID_CREDENTIALS:new Set(['当前密码不正确','当前个人账号密码不正确','登录名或密码不正确','凭证已变化，请重新登录']),
  DUPLICATE:new Set(['已有待审核版本']),
 };
@@ -70,7 +73,7 @@ function expireSession(token,stayPublic=false){
 }
 function base(){if(!config.apiBase)throw new Error('暂时无法获取信息，请稍后重试。');if((!config.development||config.target==='device')&&(!/^https:\/\//.test(config.apiBase)||/^https:\/\/(localhost|127\.|0\.|\[::1\])/.test(config.apiBase)))throw new Error('暂时无法获取信息，请稍后重试。');return config.apiBase;}
 function key(){return 'wx-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2)+'-'+Math.random().toString(36).slice(2);}
-const guestReadPath=/^\/api\/(?:context|state|config|collections\/(?:outlets|publicContents|faqEntries)(?:\/[^?]*)?)(?:\?|$)/;
+const guestReadPath=/^\/api\/(?:context|state|config|onboarding\/(?:config|applications)|collections\/(?:outlets|publicContents|faqEntries)(?:\/[^?]*)?)(?:\?|$)/;
 const sharedReadPath=/^\/api\/(?:context|config|collections\/[^?]+|dashboard|tasks)(?:\?|$)/;
 const activePage=()=>typeof getCurrentPages==='function'?getCurrentPages().at(-1):null;
 function publicReadView(path,page){
@@ -153,7 +156,21 @@ async function command(command,payload,{retryKey}={}){
   try{const result=await request('/api/commands','POST',{command,payload},{'Idempotency-Key':id});pending.delete(fingerprint);trackCommand(command,result);return result;}
   catch(e){if(e.status>=400&&e.status<500)pending.delete(fingerprint);throw e;}
 }
-async function logout(){try{await request('/api/auth/logout','POST',{});}catch(e){wx.showToast({title:'已退出此设备。',icon:'none'});}finally{pending.clear();wx.removeStorageSync('jyyc.session');clearLocalDrafts();reLaunch('/pages/login/index');}}
+async function logout({navigate=true,token=session()?.token}={}){
+  if(session()?.token!==token)return {loggedOut:false,cleared:false};
+  let loggedOut=false;
+  try{
+    if(token)loggedOut=(await request('/api/auth/logout','POST',{}, {Authorization:'Bearer '+token})).loggedOut===true;
+  }catch{
+    if(navigate&&session()?.token===token)wx.showToast?.({title:'已退出此设备。',icon:'none'});
+  }
+  if(session()?.token!==token)return {loggedOut,cleared:false};
+  pending.clear();
+  wx.removeStorageSync('jyyc.session');
+  clearLocalDrafts();
+  if(navigate)reLaunch('/pages/login/index');
+  return {loggedOut,cleared:true};
+}
 function query(values){return Object.keys(values).filter(k=>values[k]!==undefined&&values[k]!==null&&values[k]!=='').map(k=>encodeURIComponent(k)+'='+encodeURIComponent(values[k])).join('&');}
 function sendPhoto(filePath,fields,onProgress){
   const token=session()?.token;
@@ -181,25 +198,34 @@ function readPhoto(filePath){
   return new Promise((resolve,reject)=>wx.getFileSystemManager().readFile({filePath,encoding:'base64',
     success:result=>resolve(result.data),fail:()=>reject(new Error('照片读取失败，请重新选择'))}));
 }
-async function uploadPhoto({purpose,onProgress}={}){
+async function uploadPhoto({purpose,onProgress,sourceType=['camera','album'],applicationId,applicationVersion,selected}={}){
   const start=session()?.token;
-  const selection=await new Promise((resolve,reject)=>wx.chooseMedia({
-    count:1,mediaType:['image'],sourceType:['camera','album'],sizeType:['compressed'],success:resolve,
-    fail:()=>reject(new Error('未选择照片，相机或相册权限可能未授权。')),
-  }));
-  const photo=selection.tempFiles?.[0];
+  const proof=purpose==='onboarding-proof';
+  const photo=selected||await new Promise((resolve,reject)=>{
+    const fail=()=>reject(new Error(proof?'未选择付款截图，请检查相册权限后重试。':'未选择照片，相机或相册权限可能未授权。'));
+    if(proof&&typeof wx.chooseImage==='function'){
+      wx.chooseImage({count:1,sourceType:['album'],sizeType:['original'],success:selection=>{
+        const selected=selection.tempFiles?.[0];
+        resolve({tempFilePath:selected?.path||selection.tempFilePaths?.[0],size:selected?.size});
+      },fail});
+    }else{
+      wx.chooseMedia({count:1,mediaType:['image'],sourceType,sizeType:[proof?'original':'compressed'],
+        success:selection=>resolve(selection.tempFiles?.[0]),fail});
+    }
+  });
   if(!photo?.tempFilePath||photo.size>5*1024*1024)throw new Error('请使用5MB以内的照片。');
   if(session()?.token!==start)throw new Error('账号已切换，请重新选择照片。');
-  const format=/\.(png|webp)(?:\?|$)/i.exec(photo.tempFilePath)?.[1].toLowerCase()||'jpeg';
-  const label=purpose==='support-ticket'?'工单照片':'现场照片';
+  const format=photo.type=== 'image/png'?'png':/\.(png|webp)(?:\?|$)/i.exec(photo.tempFilePath)?.[1].toLowerCase()||'jpeg';
+  const label=purpose==='support-ticket'?'工单照片':purpose==='onboarding-proof'?'付款凭证':'现场照片';
   const fields={name:label+'.'+(format==='jpeg'?'jpg':format),type:'image/'+format,...(purpose?{purpose}:{})};
+  const target=applicationId?{applicationId,applicationVersion}:{};
   let file;
   if(typeof wx.uploadFile==='function'){
-    file=await sendPhoto(photo.tempFilePath,fields,onProgress);
+    file=await sendPhoto(photo.tempFilePath,{...fields,...(applicationId?{...target,applicationVersion:String(applicationVersion)}:{})},onProgress);
   }else{
     const base64=await readPhoto(photo.tempFilePath);
     if(session()?.token!==start)throw new Error('账号已切换，请重新选择照片。');
-    file=await request('/api/files','POST',{...fields,base64});
+    file=await request('/api/files','POST',{...fields,...target,base64});
   }
   if(session()?.token!==start)throw new Error('账号已切换，无法使用这张照片。');
   return {file,preview:photo.tempFilePath};
@@ -265,6 +291,7 @@ module.exports={session,base,request,passwordLogin,activate,visitor,ensureVisito
 
 /* DEV_ONLY_START */
 module.exports.login=login;
+module.exports.trialApplicant=()=>authenticate('/api/role-trial/applicant',{});
 /* DEV_ONLY_END */
 function wxCode(){return new Promise((resolve,reject)=>wx.login({timeout:15000,success:r=>r.code?resolve(r.code):reject(new Error('微信登录未完成，请重试。')),fail:()=>reject(new Error('微信登录失败，请检查网络后重试'))}));}
 async function wechatLogin(){return authenticate('/api/auth/wechat',{code:await wxCode()});}

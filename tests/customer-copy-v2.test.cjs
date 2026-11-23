@@ -56,7 +56,8 @@ test('production native templates physically omit developer identities and payme
  const out=path.resolve(__dirname,'../execution/customer-copy-release-'+crypto.randomUUID());
  const result=build({environment:'production',target:'device',out,appId:'wx1234567890abcdef',apiBase:'https://miniprogram-acceptance.example.test'});
  assert.equal(result.developmentRemoved,true);
- assert.equal(result.checks.pages,20);
+ assert.equal(result.checks.pages,21);
+ assert.ok(result.checks.routeManifest.routes.includes('pages/join/index'));
  assert.ok(result.checks.routeManifest.routes.includes('pages/training/index'));
  assert.ok(fs.existsSync(path.join(out,'pages/training/index.wxml')));
  assert.equal(fs.existsSync(path.join(out,'development')),false);

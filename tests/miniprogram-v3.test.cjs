@@ -62,7 +62,7 @@ test('service directory shows the unpublished notice only when no service is pub
  for(const [publicContents,empty] of [[[],true],[[{id:'service-test',key:'service-1',title:'样例'}],false]]) {
   await catalog.renderContent({publicContents});
   assert.equal(catalog.data.serviceRows.filter(row=>row.available).length,publicContents.length);
-  const notice=markup.match(/wx:if="{{state && (\w+) && !loading && !error}}" class="empty">该栏目内容暂未发布/);
+  const notice=markup.match(/<t-empty wx:if="{{state && (\w+) && !loading && !error}}"[^>]+description="该栏目内容暂未发布/);
   assert.ok(notice);
   assert.equal(catalog.data[notice[1]],empty);
  }
@@ -78,8 +78,9 @@ test('V3.3 five-service publication reaches native visitor details, isolates dra
  const one=(await save(1,'测试栏目一',true,imageV1)).result;
  for(let slot=2;slot<=5;slot++)await save(slot,'测试栏目'+slot,true);
  await save(1,'内部草稿内容',false,imageV2);
- const manage=page('discover',{section:'services'});await manage.onShow();
- assert.deepEqual(manage.data.serviceRows.map(x=>x.title),['测试栏目一','测试栏目2','测试栏目3','测试栏目4','测试栏目5']);
+ await api.login('partnerA');
+ const partnerCatalog=page('discover',{section:'services'});await partnerCatalog.onShow();
+ assert.deepEqual(partnerCatalog.data.serviceRows.map(x=>x.title),['测试栏目一','测试栏目2','测试栏目3','测试栏目4','测试栏目5']);
  await api.visitor();const visitor=api.session();
  const catalog=page('discover',{section:'services'});await catalog.onShow();
  assert.equal(catalog.data.error,'');
@@ -152,12 +153,11 @@ test('V3.3 native workbench and tasks share the persisted current responsibility
  app.store.db.prepare("UPDATE businessTasks SET status='in_progress',data=json_set(data,'$.status','in_progress') WHERE id=?").run(location.id);
  const home=page('home');await home.onShow();
  assert.equal(home.data.error,'');
- assert.equal(home.data.todoTotal,current.total);
- assert.equal(home.data.todos.find(row=>row.id===location.id).category,'处理中');
- assert.match(home.data.todos.find(row=>row.id===bill.id).detail,/应付/);
+ assert.equal(home.data.openTotal,current.total-1);
  const tasks=page('tasks');await tasks.onShow();
+ assert.match(tasks.data.taskRows.find(row=>row.id===bill.id).amountText,/应付/);
  await tasks.status({currentTarget:{dataset:{status:'in_progress'}}});
- assert.ok(tasks.data.taskRows.some(row=>row.id===location.id));
+ assert.match(tasks.data.taskRows.find(row=>row.id===location.id).statusText,/处理中/);
  assert.equal(tasks.data.pagers.businessTasks.total,1);
  const inbox=page('messages');await inbox.onShow();
  const message=inbox.data.state.messages.find(row=>row.taskId===location.id);
@@ -235,8 +235,9 @@ test('native workspace reads only persisted task records and does not synthesize
  app.store.save(state);
  const home=page('home');await home.onShow();
  assert.equal(home.data.error,'');
- assert.equal(home.data.todoTotal,0);
- assert.deepEqual(home.data.todos,[]);
+ assert.equal(home.data.openTotal,0);
+ const matters=page('tasks');await matters.onShow();
+ assert.deepEqual(matters.data.taskRows,[]);
  assert.ok(!calls.some(x=>x.url?.includes('/api/state')));
 }));
 
@@ -291,13 +292,10 @@ test('V3.2 native draft, headquarters routing, read message, correction and effe
  assert.equal((await overview()).items.find(x=>x.queue==='partner').total,before.items.find(x=>x.queue==='partner').total+1);
  assert.equal((await inQueue('ops')).items.some(t=>t.recordId===v2.id),false);
 
- const home=page('home');await home.onShow();
- const todoIndex=home.data.todos.findIndex(t=>t.id===todo.id);
- assert.notEqual(todoIndex,-1);
- await home.openTodo({currentTarget:{dataset:{id:home.data.todos[todoIndex].id}}});
- assert.ok(calls.some(x=>x.navigate==='/pages/report/index?outlet=cs&month=2026-10&id='+v2.id));
  const taskList=page('tasks');await taskList.onShow();
  assert.ok(taskList.data.state.businessTasks.some(t=>t.id===todo.id));
+ await taskList.open({currentTarget:{dataset:{id:todo.id}}});
+ assert.ok(calls.some(x=>x.navigate==='/pages/report/index?outlet=cs&month=2026-10&id='+v2.id));
  const inbox=page('messages');await inbox.onShow();
  const notice=inbox.data.state.messages.find(m=>m.taskId===todo.id||m.recordId===v2.id);
  assert.ok(notice);
@@ -358,13 +356,15 @@ test('native report list groups operations and finance review and opens an exact
  await list.changeMonth({detail:{value:month}});
  assert.equal(list.data.error,'');
  await list.filter({currentTarget:{dataset:{value:'reviewing'}}});
- assert.equal(list.data.pagers.reports.total,2);
- assert.deepEqual(list.data.reportRows.map(r=>[r.id,r.statusText]),[['rpt-finance','财务复核中'],['rpt-ops','总部审核中']]);
- assert.ok(calls.some(c=>c.url&&new URL(c.url).pathname==='/api/collections/reports'&&new URL(c.url).searchParams.get('latestOnly')==='true'));
+ assert.equal(list.data.worklist.total,3);
+ assert.deepEqual(list.data.reportRows.map(r=>[r.reportId,r.statusText]),[
+  ['rpt-finance','财务复核中'],[null,'免报待核实'],['rpt-ops','总部审核中'],
+ ]);
+ assert.ok(calls.some(c=>c.url&&new URL(c.url).pathname==='/api/reports/worklist'&&new URL(c.url).searchParams.get('status')==='reviewing'));
  assert.match(template,/data-value="reviewing"[^>]*>审核中</);
  const current=list.data.reportRows[0];
- assert.ok(!list.data.reportRows.some(r=>r.id==='rpt-old'||r.id==='rpt-private'));
- list.open({currentTarget:{dataset:{outlet:current.outlet,month:current.month,id:current.id}}});
+ assert.ok(!list.data.reportRows.some(r=>r.reportId==='rpt-old'||r.reportId==='rpt-private'));
+ list.open({currentTarget:{dataset:{outlet:current.outletId,month:current.month,reportId:current.reportId}}});
  const route=calls.at(-1).navigate;
  assert.equal(route,'/pages/report/index?outlet=cs&month=2026-10&id=rpt-finance');
  const record=page('report',Object.fromEntries(new URLSearchParams(route.split('?')[1])));
@@ -375,8 +375,8 @@ test('native report list groups operations and finance review and opens an exact
  await record.selectVersion({currentTarget:{dataset:{id:'rpt-old'}}});
  assert.equal(record.data.linkedVersion.id,'rpt-old');
  assert.equal(record.data.latestSubmittedVersion.id,'rpt-finance');
- list.open({currentTarget:{dataset:{outlet:'cs',month}}});
- assert.equal(calls.at(-1).navigate,'/pages/report/index?outlet=cs&month=2026-10');
+ list.newReport();
+ assert.equal(calls.at(-1).navigate,'/pages/report/index?month=2026-10');
 }));
 
 test('native home uses the service month and links to the latest valid settlement in the viewer scope',()=>harness(async({app,api,calls})=>{
@@ -395,21 +395,13 @@ test('native home uses the service month and links to the latest valid settlemen
  settlement(own,'2027-02','invalidated');
  settlement(own,'2027-04');
  app.store.save(state);
- const home=page('home');await home.onShow();
- assert.equal(home.data.error,'');
- assert.equal(home.data.period,'2027-03');
- assert.equal(home.data.hasCurrentSettlement,false);
- assert.equal(home.data.latestSettledMonth,'2026-09');
- assert.deepEqual(home.data.metrics,[]);
- assert.ok(home.data.latestMetrics.some(metric=>metric.value!=='—'));
- const template=fs.readFileSync(path.join(root,'pages/home/index.wxml'),'utf8');
- assert.match(template,/本月数据尚未结算/);
- assert.match(template,/wx:if="\{\{latestSettledMonth\}\}"[^>]*bindtap="openSettled"/);
- home.openSettled();
- assert.equal(calls.at(-1).navigate,'/pages/dashboard/index?period=2026-09');
- const dashboard=page('dashboard',{period:'2026-09'});await dashboard.onShow();
+ const list=page('reports');await list.onShow();
+ list.nav({currentTarget:{dataset:{page:'dashboard'}}});
+ assert.equal(calls.at(-1).navigate,'/pages/dashboard/index');
+ const dashboard=page('dashboard');await dashboard.onShow();
  assert.equal(dashboard.data.error,'');
  assert.equal(dashboard.data.period,'2026-09');
+ assert.match(dashboard.data.dataStatus,/最近有已结算数据/);
  assert.ok(dashboard.data.metrics.some(m=>m.value!=='—'));
  const current=await api.request('/api/dashboard?period=2026-09&includeSettlementMonths=true');
  assert.deepEqual(current.settlementMonths,{hasCurrent:true,latestPriorMonth:'2026-08'});
@@ -419,16 +411,17 @@ test('native home uses the service month and links to the latest valid settlemen
  await assert.rejects(()=>api.request('/api/dashboard?period=2027-03&owner=p2&includeSettlementMonths=true'),{status:403});
  const base=await api.request('/api/dashboard?period=2027-03');
  assert.ok(!Object.hasOwn(base,'settlementMonths'));
- await api.login('partnerB');await home.onShow();
- assert.equal(home.data.latestSettledMonth,'2026-12');
+ await api.login('partnerB');
+ const nextDashboard=page('dashboard');await nextDashboard.onShow();
+ assert.equal(nextDashboard.data.period,'2026-12');
  state.settlements.forEach(s=>{s.status='invalidated';});app.store.save(state);
- await home.onShow();
- assert.equal(home.data.latestSettledMonth,'');
- assert.deepEqual(home.data.latestMetrics,[]);
- const before=calls.length;home.openSettled();assert.equal(calls.length,before);
- await api.visitor();await home.onShow();
- assert.equal(home.data.isPublic,true);
- assert.equal(home.data.latestSettledMonth,'');
+ await nextDashboard.onShow();
+ assert.equal(nextDashboard.data.period,'2027-03');
+ assert.equal(nextDashboard.data.hasData,false);
+ assert.deepEqual(nextDashboard.data.rows,[]);
+ await api.visitor();
+ const publicHome=page('home');await publicHome.onShow();
+ assert.equal(publicHome.data.isPublic,true);
 }));
 
 test('native affiliate finance switches from all authorized outlets to a scoped bill ledger',()=>harness(async({app,calls})=>{
@@ -470,14 +463,15 @@ test('native monthly list keeps effective and latest numbers independent of disp
    status:version===1?'approved':version===205?'finance':'returned',revoked:false});
  }
  app.store.save(state);
- const list=page('reports');
+ const list=page('reports',{outlet:'cs'});
  await list.changeMonth({detail:{value:month}});
  assert.equal(list.data.error,'');
- assert.equal(list.data.pagers.reports.total,1);
- assert.equal(list.data.reportRows.length,1);
- assert.deepEqual(list.data.reportRows[0].versionNumbers,{effective:1,latest:205});
- assert.equal(list.data.reportRows[0].statusText,'财务复核中');
- const detail=page('report',{outlet:'cs',month,id:list.data.reportRows[0].id});
+ await list.filter({currentTarget:{dataset:{value:'reviewing'}}});
+ assert.equal(list.data.worklist.total,1);
+ const report=list.data.reportRows.find(row=>row.outletId==='cs');
+ assert.deepEqual([report.effectiveVersion,report.latestVersion],[1,205]);
+ assert.equal(report.statusText,'财务复核中');
+ const detail=page('report',{outlet:'cs',month,id:report.reportId});
  await detail.onShow();
  assert.equal(detail.data.currentApprovedVersion.version,1);
  assert.equal(detail.data.versions.length,205);
@@ -571,6 +565,7 @@ test('visitor entry opens published organization and services, with published ne
  const login=page('login');
  const destinations=[];
  wx.reLaunch=options=>{destinations.push(options.url);options.success?.();};
+ await api.login('partnerA');
  const existing=api.session();
  await login.visitor();
  assert.equal(api.session().token,existing.token);

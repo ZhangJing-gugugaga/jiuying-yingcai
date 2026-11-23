@@ -132,10 +132,12 @@ const editor = define({
     const returned = shownVersion?.status === 'returned' && !shownVersion.revoked && shownVersion.id === latestSubmittedVersion?.id;
     const returnedReason = returned ? shownVersion.review || '总部未填写说明，可联系总部了解详情。' : '';
     // An identified version is a read-only snapshot. Editing is a separate monthly view.
-    const currentAction = linkedVersion
-      ? editAllowed ? (returned ? '修改并重新提交' : '前往当前月报')
-        : correctionAllowed ? '办理月报更正' : ''
-      : '';
+    let currentAction = '';
+    if (linkedVersion) {
+      if (latestSubmittedVersion && linkedVersion.id !== latestSubmittedVersion.id) currentAction = '查看当前月报';
+      else if (editAllowed) currentAction = returned ? '修改并重新提交' : '前往当前月报';
+      else if (correctionAllowed) currentAction = '办理月报更正';
+    }
     const canEdit = !linkedId && editAllowed;
     const canSubmit = !linkedId && submitAllowed;
     const canCorrect = !linkedId && correctionAllowed;
@@ -429,10 +431,12 @@ const editor = define({
   },
 
   async continueReport() {
-    if (!this.data.currentAction) return;
+    const { currentAction } = this.data;
+    if (!currentAction) return;
     await this.changeScope({});
-    if (this.data.canEdit) this.showReportFields();
-    else if (this.data.canCorrect) this.showCorrection();
+    if (this.data.linkedVersion || this.data.error || this.data.recoveryAvailable) return;
+    if (this.data.canEdit || currentAction === '查看当前月报') this.showReportFields();
+    else if (this.data.canCorrect && currentAction === '办理月报更正') this.showCorrection();
   },
 
   showReportFields() {

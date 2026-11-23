@@ -12,6 +12,7 @@ const { validate } = require('../scripts/wechat-validate.cjs');
 
 const tap = dataset => ({ currentTarget: { dataset } });
 const command = async (name, input) => (await api.command(name, input)).result;
+const worklist = (params = {}) => api.request('/api/reports/worklist?' + api.query({ month: '2026-10', ...params }));
 const pageFile = name => require.resolve('../miniprogram/pages/' + name + '/index');
 const markup = name => readFileSync(pageFile(name).replace(/\.js$/, '.wxml'), 'utf8');
 
@@ -235,6 +236,65 @@ test('a returned report leads with its reason and edit action, and full versions
   assert.equal(scrolls.at(-1), '#report-edit');
 }));
 
+test('a real return notice reaches the right monthly editor and stays usable after a single resubmission', () => run(async ({ app, show, destination }) => {
+  const scope = { outlet: 'zz', month: '2026-10' };
+  const initial = await command('report.submit', { ...scope, revenue: 1245.61, orders: 12, traffic: 25, enroll: null, note: '隔离验收' });
+  await api.login('ops');
+  await command('review.report', { id: initial.id, decision: 'return', note: '请核对本月客流' });
+  await api.login('partnerA');
+
+  const messages = await api.collection('messages', { limit: 200 });
+  const notice = messages.items.find(row => row.title === '月报退回' && row.recordId === initial.id);
+  assert.ok(notice);
+  const inbox = await show('tasks', { section: 'notices', id: notice.id });
+  await inbox.open(tap({ id: notice.id }));
+  const editor = await destination();
+  assert.ok(editor.data.outlets.length >= 3);
+  assert.equal(editor.data.linkedVersion.id, initial.id);
+  assert.equal(editor.data.returnedReason, '请核对本月客流');
+  assert.equal(editor.data.canEdit, false);
+  assert.match(markup('report'), /class="report-identity"/);
+
+  await editor.continueReport();
+  assert.equal(editor.data.outletId, scope.outlet);
+  assert.equal(editor.data.month, scope.month);
+  assert.equal(editor.data.canEdit, true);
+  editor.input({ ...tap({ field: 'traffic' }), detail: { value: '26' } });
+  editor.submit();
+  await editor.confirmSubmit();
+  await editor.confirmSubmit();
+  const lineage = app.store.load().reports.filter(row => row.outlet === scope.outlet && row.month === scope.month);
+  assert.deepEqual(lineage.map(row => [row.version, row.status, row.traffic]), [[1, 'returned', 25], [2, 'pending', 26]]);
+  await api.login('ops');
+  assert.equal((await api.detail('reports', lineage[1].id)).status, 'pending');
+  assert.ok(app.store.load().businessTasks.some(row => row.recordId === lineage[1].id && row.kind === 'report_review' && row.status === 'open'));
+  await api.login('partnerA');
+
+  const oldNotice = await show('report', { ...scope, id: initial.id });
+  assert.equal(oldNotice.data.linkedVersion.id, initial.id);
+  assert.equal(oldNotice.data.canEdit, false);
+  assert.equal(oldNotice.data.currentAction, '查看当前月报');
+  await oldNotice.continueReport();
+  assert.equal(oldNotice.data.latestSubmittedVersion.id, lineage[1].id);
+  assert.equal(oldNotice.data.canEdit, false);
+  assert.equal(oldNotice.data.formExpanded, true);
+  assert.equal(oldNotice.data.form.traffic, 26);
+}));
+
+test('completed matters open as a separate view and return to the original notice filter', () => run(async ({ show }) => {
+  const page = await show('tasks', { section: 'notices', status: 'read' });
+  await page.status(tap({ status: 'resolved' }));
+  const template = markup('tasks');
+  assert.match(template, /class="title"[^>]*>[^<]*已完成的事项/);
+  assert.match(template, /section==='notices'\?'active':''/);
+  assert.doesNotMatch(template, /section==='notices'\s*\|\|\s*status==='resolved'/);
+  assert.equal(page.data.section, 'tasks');
+  assert.equal(page.data.status, 'resolved');
+  await page.selectSection(tap({ section: 'notices' }));
+  assert.equal(page.data.section, 'notices');
+  assert.equal(page.data.statusFilter, 'read');
+}));
+
 test('returned report filter finds the latest actionable version beyond a page of historical returns', () => run(async ({ app, show }) => {
   const month = '2026-10';
   const pendingChange = await command('report.submit', { outlet: 'zz', month, revenue: 452, orders: 12, traffic: 25, enroll: null });
@@ -261,14 +321,146 @@ test('returned report filter finds the latest actionable version beyond a page o
   assert.equal(historical.status, 'returned');
 
   const list = await show('reports');
-  assert.ok(!list.data.reportRows.some(row => row.id.startsWith('rpt-historical-return-')));
-  await list.filter(tap({ value: 'todo' }));
-  assert.deepEqual(list.data.rows.map(row => row.id), [pendingChange.id]);
-  assert.equal(list.data.pagers.reports.total, 1);
+  assert.ok(!list.data.reportRows.some(row => row.reportId?.startsWith('rpt-historical-return-')));
+  await list.filter(tap({ value: 'action' }));
+  assert.deepEqual(list.data.reportRows.map(row => row.reportId), [pendingChange.id]);
+  assert.equal(list.data.worklist.total, 1);
 
   await api.login('partnerB');
   assert.equal((await api.collection('reports', { month, status: 'returned', latestOnly: 'true' })).total, 0);
   await assert.rejects(api.detail('reports', pendingChange.id), { status: 404 });
+}));
+
+test('the report worklist and its summary include all scoped outlets before jobs run', () => run(async ({ show, destination, routes }) => {
+  const rows = await worklist();
+  assert.equal(rows.month, '2026-10');
+  assert.deepEqual(rows.summary, { expected: 3, submitted: 0, exempt: 0, actionable: 2, awaitingExemption: 1, inReview: 0 });
+  assert.equal(rows.total, 3);
+  assert.deepEqual(rows.items.map(row => [row.outletId, row.status, row.canSubmit]), [
+    ['cs', 'missing', true], ['hy', 'exemption_pending', false], ['zz', 'missing', true],
+  ]);
+  assert.ok(rows.items.every(row => row.dueOn === '2026-11-05'));
+  assert.equal(rows.items[1].reason, 'full_pause');
+
+  const page = await show('reports');
+  assert.deepEqual(page.data.reportRows.map(row => row.outletId), ['cs', 'hy', 'zz']);
+  page.open(tap({ outlet: 'zz', month: rows.month }));
+  assert.equal(routes.at(-1).url, '/pages/report/index?outlet=zz&month=2026-10');
+  const editor = await destination();
+  assert.equal(editor.data.outletId, 'zz');
+  assert.equal(editor.data.canEdit, true);
+  page.open(tap({ outlet: 'hy', month: rows.month }));
+  const pause = await destination();
+  assert.equal(pause.data.outletId, 'hy');
+  assert.match(pause.data.editNotice, /整月暂停营业/);
+  assert.equal(pause.data.canSubmit, false);
+}));
+
+test('the report worklist preserves returned and effective versions without exposing finance fields or audit', () => run(async ({ app, show, destination, routes }) => {
+  const month = '2026-10';
+  const scope = { outlet: 'cs', month };
+  const values = { ...scope, revenue: 254.3, orders: 5, traffic: 8, enroll: 0 };
+  const original = await command('report.submit', values);
+  await api.login('ops');
+  await command('review.report', { id: original.id, decision: 'approve' });
+  await api.login('partnerA');
+  await command('report.correct', { id: original.id, reason: '测试更正' });
+  const revised = await command('report.submit', { ...values, revenue: 255.3 });
+
+  const pending = (await worklist({ outlet: 'cs', status: 'reviewing' })).items[0];
+  assert.deepEqual([pending.status, pending.reportId, pending.latestVersion, pending.effectiveVersion], ['pending', revised.id, 2, 1]);
+  await api.login('ops');
+  await command('review.report', { id: revised.id, decision: 'approve' });
+  await api.login('partnerA');
+  const finance = (await worklist({ outlet: 'cs', status: 'reviewing' })).items[0];
+  assert.deepEqual([finance.status, finance.reason, finance.canSubmit], ['finance', 'reviewing', false]);
+  await api.login('finance');
+  await command('review.report', { id: revised.id, decision: 'return', note: '请核对营业收入' });
+  await api.login('partnerA');
+
+  const list = await show('reports', { outlet: 'cs', month });
+  const returned = list.data.reportRows[0];
+  assert.deepEqual([returned.status, returned.reportId, returned.latestVersion, returned.effectiveVersion, returned.returnNote],
+    ['returned', revised.id, 2, 1, '请核对营业收入']);
+  list.open(tap({ outlet: 'cs', month, reportId: revised.id }));
+  assert.equal(routes.at(-1).url, `/pages/report/index?outlet=cs&month=${month}&id=${revised.id}`);
+  const editor = await destination();
+  assert.equal(editor.data.returnedReason, '请核对营业收入');
+  assert.equal(editor.data.currentApprovedVersion.id, original.id);
+
+  await command('report.draft', { ...scope, orders: 6 });
+  const draft = (await worklist({ outlet: 'cs', status: 'action' })).items[0];
+  assert.deepEqual([draft.status, draft.reportId, draft.effectiveVersion, draft.returnNote], ['draft', null, 1, '请核对营业收入']);
+  assert.ok(!['trail', 'revenue', 'orders', 'traffic', 'enroll'].some(key => Object.hasOwn(draft, key)));
+  await list.onShow();
+  list.open(tap({ outlet: 'cs', month }));
+  const draftEditor = await destination();
+  assert.equal(draftEditor.data.hasDraft, true);
+  assert.equal(draftEditor.data.form.orders, 6);
+
+  const state = app.store.load();
+  state.drafts = state.drafts.filter(row => row.outlet !== 'cs' || row.month !== month);
+  const revoked = state.reports.find(row => row.id === revised.id);
+  Object.assign(revoked, { status: 'approved', revoked: true, current: false });
+  app.store.save(state);
+  const approved = (await worklist({ outlet: 'cs', status: 'approved' })).items[0];
+  assert.deepEqual([approved.status, approved.reportId, approved.latestVersion, approved.effectiveVersion], ['approved', original.id, 2, 1]);
+  await list.onShow();
+  list.open(tap({ outlet: 'cs', month, reportId: original.id }));
+  const approvedEditor = await destination();
+  assert.equal(approvedEditor.data.linkedVersion.id, original.id);
+  approvedEditor.showVersions();
+  await approvedEditor.selectVersion(tap({ id: revised.id }));
+  assert.equal(approvedEditor.data.linkedVersion.revoked, true);
+
+  Object.assign(state.reports.find(row => row.id === original.id), { revoked: true, current: false });
+  app.store.save(state);
+  const missing = await worklist({ outlet: 'cs', status: 'action' });
+  assert.deepEqual([missing.summary.submitted, missing.items[0].status, missing.items[0].reportId], [0, 'missing', null]);
+}));
+
+test('report worklist filters and paginates within owner scope while coverage keeps full scope', () => run(async ({ app }) => {
+  const state = app.store.load(), source = state.outlets.find(row => row.id === 'cs');
+  for (let index = 0; index < 26; index++) {
+    const id = 'report-worklist-' + String(index).padStart(2, '0');
+    state.outlets.push({ ...source, id, outlet: id });
+  }
+  const future = state.outlets.find(row => row.id === 'report-worklist-00');
+  future.events = [{ date: '2026-11-10', status: 'open' }];
+  const enrollment = state.outlets.find(row => row.id === 'report-worklist-01');
+  enrollment.enrollmentStatus = 'pending';
+  app.store.save(state);
+
+  const first = await worklist();
+  const second = await worklist({ offset: 25 });
+  assert.deepEqual([first.items.length, first.total, first.offset, first.limit, first.hasMore], [25, 29, 0, 25, true]);
+  assert.deepEqual([second.items.length, second.total, second.offset, second.hasMore], [4, 29, 25, false]);
+  assert.equal(new Set([...first.items, ...second.items].map(row => row.outletId)).size, 29);
+  assert.deepEqual(second.summary, first.summary);
+  const dashboard = await api.request('/api/dashboard?period=2026-10&outlet=all&kind=month&mode=process&limit=1');
+  for (const key of ['expected', 'submitted', 'exempt']) assert.equal(first.summary[key], dashboard.reportingCoverage[key]);
+
+  const reviewing = await worklist({ status: 'reviewing' });
+  assert.deepEqual(reviewing.items.map(row => row.outletId), ['hy']);
+  assert.deepEqual(reviewing.summary, first.summary);
+  const onlyFuture = await worklist({ outlet: future.id });
+  assert.deepEqual([onlyFuture.items[0].status, onlyFuture.items[0].reason, onlyFuture.summary.expected], ['not_required', 'no_operation', 0]);
+  const onlyEnrollment = await worklist({ outlet: enrollment.id, status: 'action' });
+  assert.deepEqual([onlyEnrollment.items[0].status, onlyEnrollment.items[0].reason, onlyEnrollment.items[0].canSubmit], ['missing', 'enrollment_pending', false]);
+  assert.deepEqual((await worklist({ outlet: 'cs', month: '2026-11' })).items.map(row => [row.status, row.reason]), [['not_open', 'current_month']]);
+  assert.deepEqual((await worklist({ outlet: 'cs', month: '2026-12' })).items.map(row => [row.status, row.reason]), [['not_open', 'future_month']]);
+
+  await assert.rejects(worklist({ outlet: 'gz' }), { status: 403 });
+  for (const query of [{ month: '2026-13' }, { status: 'pending' }, { limit: 51 }, { offset: -1 }, { offset: '1.5' }]) {
+    await assert.rejects(worklist(query), { status: 400 });
+  }
+  await api.login('manager');
+  await command('report.exempt', { outlet: 'hy', month: '2026-10', reason: '测试核实整月停业' });
+  await assert.rejects(worklist(), { status: 403 });
+  await api.login('partnerA');
+  const exempt = await worklist({ outlet: 'hy' });
+  assert.equal(exempt.items[0].status, 'exempt');
+  assert.deepEqual(exempt.summary, { expected: 0, submitted: 0, exempt: 1, actionable: 0, awaitingExemption: 0, inReview: 0 });
 }));
 
 test('the exact report-list outlet remains visibly selected beyond the first outlet page', () => run(async ({ app, show, routes }) => {

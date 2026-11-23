@@ -117,6 +117,10 @@ test('T07: a configured 5th marks late filing, whole-month exemption and mid-mon
  assert.equal(stats.totals.enroll,null);
  assert.equal(f.row('exemptions',exempt.id).status,'approved');
  assert.equal(f.row('requests',exception.id).policyPending,true);
+ const pendingRule=await f.get(partner,'/api/collections/requests/'+exception.id);
+ assert.equal(pendingRule.status,'approved');
+ assert.equal(pendingRule.progress.stage,'awaiting_policy');
+ assert.equal(pendingRule.progress.label,'待确认生效规则');
  assert.equal((await f.get(partner,'/api/collections/reports?outlet=hy&month=2026-10')).total,0);
 }));
 
@@ -177,18 +181,32 @@ test('T09 and T10: independent receivable, cancelled and duplicate mock payments
  assert.equal(receipts[0].amount_cents,10010);
  assert.equal(JSON.parse(receipts[0].data).adapterMode,'mock');
  const pause=(await f.command(partner,'request.submit',{outlet:'hy',type:'pauseFee',data:{from:'2026-12-01',to:'2026-12-15',reason:'验收暂停收费'}})).result;
- await f.command(finance,'review.request',{id:pause.id,...approved});
+ await f.command(finance,'review.request',{id:pause.id,...approved,publicNote:'同意暂停申请'});
+ const pausePath='/api/collections/requests/'+pause.id;
+ const stage=async token=>(await f.get(token,pausePath)).progress.stage;
+ assert.equal(await stage(partner),'awaiting_calculation');
+ assert.equal(await stage(finance),'awaiting_calculation');
+ await f.get(other,pausePath,404);
+ const approvalNotice=(await f.get(partner,'/api/collections/messages')).items
+  .find(message=>message.recordId===pause.id&&message.body.includes('核算'));
+ assert.ok(approvalNotice,'the original approval notice explains the remaining fee calculation');
  const pending=(await f.get(finance,'/api/collections/adjustments?outlet=hy')).items.find(x=>x.requestId===pause.id);
  assert.deepEqual([pending.amount,pending.offsetMonth,pending.serviceUntil],[null,null,null]);
  assert.equal(f.row('bills',bill.id).amount,100.10);
  assert.equal(f.row('outlets','hy').agreementEnd,'2027-12-31');
  const proposed=(await f.command(manager,'fee.adjust.propose',{adjustmentId:pending.id,amount:'10.01',offsetMonth:'2027-01',serviceUntil:null,reason:'验收专用人工核算'})).result;
+ assert.equal(await stage(partner),'awaiting_finance_review');
  await f.command(finance,'fee.adjust.review',{id:proposed.id,...approved});
+ assert.equal(await stage(partner),'awaiting_credit_bill');
  f.businessDate('2027-01-01');
  const next=(await f.command(finance,'billing.generate',{...data,month:'2027-01'})).result;
  assert.equal(next.amount,90.09);
  assert.equal(f.app.store.db.prepare('SELECT amount_cents FROM bills WHERE id=?').get(next.id).amount_cents,9009);
  assert.equal(f.row('adjustments',pending.id).appliedBillId,next.id);
+ const requestAfter=(await f.get(partner,'/api/collections/requests?outlet=hy')).items.find(row=>row.id===pause.id);
+ assert.deepEqual([requestAfter.status,requestAfter.progress.stage,requestAfter.progress.billId,requestAfter.progress.month],
+  ['approved','credited',next.id,'2027-01']);
+ assert.equal((await f.get(partner,'/api/collections/messages/'+approvalNotice.id)).body,approvalNotice.body);
  assert.equal(f.row('outlets','hy').agreementEnd,'2027-12-31');
 }));
 

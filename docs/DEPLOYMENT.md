@@ -1,5 +1,7 @@
 # 配置、迁移与部署
 
+四入口版部署前备份 SQLite 数据库，使用项目迁移命令依次应用 029（加盟申请）和 030（补件关联申请及版本）。小程序随源码提供 TDesign 组件，安装锁定依赖后可用 `npm run wechat:vendor -- --check` 校验。
+
 Node >=24.19.0 <25，首次npm ci；pdfkit/sharp锁定，字体与许可证随包保留。默认开发样本只用于本机，不能复用为正式库。npm start不读取.env，使用start.ps1或node --env-file=.env server/index.cjs。
 
 当前部署基线采用持久化 SQLite、Node.js 常驻服务与 HTTPS 反向代理。仓库交付的运行方式依赖常驻进程和持久磁盘。V4.1 验收范围与未完成项见[当前待办](../TODO.md)和[交接验收](handoff/05-验收与开发协作.md)。

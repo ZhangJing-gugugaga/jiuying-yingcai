@@ -2,6 +2,7 @@
   "pages": [
     "pages/home/index",
     "pages/login/index",
+    "pages/join/index",
     "pages/outlets/index",
     "pages/outlet/index",
     "pages/reports/index",
@@ -27,13 +28,13 @@
     "navigationBarTitleText": "九盈英才",
     "navigationBarBackgroundColor": "#ffffff",
     "navigationBarTextStyle": "black",
-    "backgroundColor": "#f6f9fd",
+    "backgroundColor": "#f3f6fb",
     "enablePullDownRefresh": false
   },
   "tabBar": {
     "custom": true,
-    "color": "#52677e",
-    "selectedColor": "#0e65b7",
+    "color": "#4f627c",
+    "selectedColor": "#1555c0",
     "backgroundColor": "#ffffff",
     "borderStyle": "white",
     "list": [

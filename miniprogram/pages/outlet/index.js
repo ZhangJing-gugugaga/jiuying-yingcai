@@ -2,6 +2,7 @@ const {define,go,api,fmt}=require('../../utils/page');
 const {workContactBehavior}=require('../../utils/work-contacts');
 const {publicShare,outletShare}=require('../../utils/public-share');
 const {favorites,changeFavorite}=require('../../utils/public-outlet-preferences');
+const {outletSummaryRows}=require('../../utils/outlet-summary');
 
 const statusNotes={
   preparing:'网点正在筹备，开业后由总部确认营业状态。',
@@ -9,15 +10,16 @@ const statusNotes={
   paused:'网点当前暂停营业。恢复营业请按流程提交申请。',
   closed:'网点已关闭，历史经营和财务记录仍可查看。'
 };
+const internalPages=new Set(['report','fees','location','requests','support','agreements']);
 
 const page=define({
-  data:{outlet:null,history:[],locationHistory:[],historyExpanded:false,internal:false,publicRecord:false,favorite:false,organizationName:'',summary:null,summaryError:false,workContact:null,workContactLoading:false,workContactDialing:false,mattersExpanded:false},
+  data:{outlet:null,history:[],locationHistory:[],historyExpanded:false,internal:false,publicRecord:false,favorite:false,organizationName:'',businessSections:{},businessScope:null,summary:null,summaryError:false,workContact:null,workContactLoading:false,workContactDialing:false,mattersExpanded:false},
   ...publicShare(function(){return outletShare(this._publicOutlet);},function(){return this.data.publicRecord;}),
   async loaded(s){
     const serial=this._serial;
     const directory=this.data.isPublic||this.query.scope==='public';
     if(!this.query.id&&directory)return;
-    const raw=await api.detail('outlets',this.query.id,directory?{scope:'public'}:undefined);
+    const raw=await api.detail('outlets',this.query.id,directory?{scope:'public'}:{includeSummary:true});
     if(serial!==this._serial)return;
     wx.setNavigationBarTitle?.({title:raw.name||'网点详情'});
     if(directory){
@@ -45,7 +47,8 @@ const page=define({
     const locationHistory=internal?(raw.locationHistory||[]).map((change,index)=>({
       index,at:fmt.dateText(change.at),before:change.before?.address,after:change.after?.address
     })):[];
-    this.setData({outlet,internal,history,locationHistory});
+    const businessSections=Object.fromEntries(outletSummaryRows(raw.summary).map(row=>[row.key,row]));
+    this.setData({outlet,internal,history,locationHistory,businessSections,businessScope:raw.summary||null});
     if(!internal)return;
 
     const period=s.today?.slice(0,7)||fmt.month();
@@ -89,10 +92,13 @@ const page=define({
   },
   action(e){
     const outlet=this.data.outlet;
-    if(!outlet||!this.data.internal)return;
-    const {page,history,type,status}=e.currentTarget.dataset;
-    const period=this.data.state.today.slice(0,7);
-    const month=page==='report'?fmt.addMonth(period,-1):page==='location'?period:undefined;
+    const session=api.session();
+    const {page,history,type,status,month:requestedMonth}=e.currentTarget.dataset;
+    if(!outlet||!this.data.internal||this.data.isPublic||this.data.publicRecord||this.data.error||
+      session?.role!=='partner'||session.token!==this.data.session?.token||!internalPages.has(page))return;
+    const period=this.data.state.today?.slice(0,7)||fmt.month();
+    const month=fmt.monthText(requestedMonth)&&['report','location','fees'].includes(page)?requestedMonth:
+      page==='report'?fmt.addMonth(period,-1):page==='location'?period:undefined;
     go(page,api.query({outlet:outlet.id,month,type,status,filterOutlet:page==='requests'?outlet.id:undefined,section:history?'history':undefined}));
   },
   copy(){
@@ -118,7 +124,7 @@ const page=define({
 const refresh=page.refresh;
 page.refresh=function(){
   this._publicOutlet=null;
-  this.setData({outlet:null,history:[],locationHistory:[],internal:false,publicRecord:false,favorite:false,organizationName:'',summary:null,summaryError:false,workContact:null,workContactLoading:false,workContactDialing:false});
+  this.setData({outlet:null,history:[],locationHistory:[],internal:false,publicRecord:false,favorite:false,organizationName:'',businessSections:{},businessScope:null,summary:null,summaryError:false,workContact:null,workContactLoading:false,workContactDialing:false});
   this.updatePublicShareMenu();
   return refresh.call(this);
 };

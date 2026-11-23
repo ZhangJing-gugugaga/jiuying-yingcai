@@ -21,6 +21,7 @@ function pick(row,keys){
 function defaultNote(row){
  if(row.type==='reportRevoke')return ({pending:'撤销申请待复核，当前月报仍有效。',approved:'原月报审批已撤销，请查看月报版本。',returned:'复核保留原有效月报。'})[row.status]||'请查看月报版本。';
  if(row.policyPending===true&&row.status==='approved')return '待集团确认生效规则，原数据未改变。';
+ if(row.type==='pauseFee'&&row.status==='approved')return '停费申请已通过，费用仍待核算。';
  if(row.type==='accountChange'&&row.status==='approved'){
   if(row.identityChanged===false)return '账号登记信息未变化。';
   if(row.data?.change==='mobile')return '登记手机号已更新，请重新激活账号。';
@@ -92,6 +93,9 @@ function requestNotice(message,row){
  const knownTitles=['总部已发起撤销复核','总部已撤销月报审批','总部保留原有效月报','位置核验通过','位置异常，请解释补件'];
  view.title=submitted?'申请已提交':knownTitles.includes(message.title)?message.title:'业务申请处理进度已更新';
  view.body=submitted?'申请已提交，请关注处理进度。':recorded&&typeof recorded.publicNote==='string'?recorded.publicNote:message.title==='位置核验通过'?'位置核验通过，申请进入后续处理。':safeSnapshot?defaultNote(safeSnapshot):'请打开业务申请查看处理进度。';
+ if(!submitted&&status==='approved'&&recorded?.publicNote&&(safeSnapshot?.type==='pauseFee'||safeSnapshot?.policyPending)){
+  view.body=defaultNote(safeSnapshot)+'\n'+recorded.publicNote;
+ }
  return view;
 }
 

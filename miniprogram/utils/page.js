@@ -1,6 +1,6 @@
 const api=require('./api');const fmt=require('./format');
 const {track}=require('./track');
-const {go,reLaunch,requiresMember,memberLoginUrl,isTabPage,syncTabBar}=require('./navigation');
+const {go,reLaunch,requiresMember,memberLoginUrl,isTabPage,syncTabBar,nativeSessionLoginUrl}=require('./navigation');
 const publicPages = new Set(['home', 'outlets', 'outlet', 'support', 'profile', 'discover', 'service-detail', 'messages']);
 const targets={
  report:'report',report_missing:'report',report_returned:'report',exemption_review:'report',reports:'reports',
@@ -8,49 +8,53 @@ const targets={
  location:'location',location_missing:'location',requests:'requests',support:'support',support_sla:'support',
  agreements:'agreements',refundRequests:'finance',invoiceRequests:'finance',offlinePayments:'finance',
  metric_anomaly:'dashboard',no_data:'dashboard',dashboard:'dashboard',outlets:'outlet',outlet:'outlet',cooperation:'discover',
- training:'training',training_material_returned:'training'
+ training:'training',training_material_returned:'training',join:'join'
 };
 function canOpenRecord(record){return !record.linkUnavailable&&record.title!=='消费者投诉待协助核实'&&(!!record.taskId||Object.hasOwn(targets,record.target||record.kind||record.type));}
 function pageName(page) {
  const route = page.route || (typeof getCurrentPages === 'function' ? getCurrentPages().at(-1)?.route : '');
  return route?.split('/')[1] || '';
 }
+function redirectBeforeLoad(page, url, session, isPublic) {
+ if(page._loadScope){
+  page._serial=(page._serial||0)+1;
+  page._loadScope=null;
+  page.setData({loading:false,hasLoaded:false,state:null,pagers:{},session,isPublic});
+ }
+ reLaunch(url);
+}
 function define(options){const specs=(options.collections||[]).map(c=>typeof c==='string'?{name:c}:c);return {
   data:{busy:false,loading:false,hasLoaded:false,error:'',state:null,session:null,isPublic:false,pagers:{},outletSearch:'',...options.data},
   onLoad(query){this.query=query||{};if(options.load)options.load.call(this,query||{});},
   async onShow(){
     const name = pageName(this);
+    const current = api.session();
+    syncTabBar(this, current);
+    const nativeLogin = nativeSessionLoginUrl(current);
+    if (nativeLogin) return redirectBeforeLoad(this, nativeLogin, null, false);
     const pending = isTabPage(name) ? wx.getStorageSync('jyyc.route.' + name) : null;
     if (pending) {
       wx.removeStorageSync('jyyc.route.' + name);
       this.query = pending;
       options.load?.call(this, pending);
     }
-    const current = api.session();
-    syncTabBar(this, current);
     const query = this.query || {};
     const visitor = !current || current.role === 'public';
     const redirect = name === 'reports' && visitor ? '/pages/home/index' :
       requiresMember(name, query) && visitor ? memberLoginUrl(name, query) :
       !current && !publicPages.has(name) ? '/pages/login/index' : '';
-    if (redirect) {
-      if(this._loadScope){
-        this._serial=(this._serial||0)+1;
-        this._loadScope=null;
-        this.setData({loading:false,hasLoaded:false,state:null,pagers:{},session:current,isPublic:visitor});
-      }
-      reLaunch(redirect);
-      return;
-    }
+    if (redirect) return redirectBeforeLoad(this, redirect, current, visitor);
     if(name==='home')track('open_home','opened');
     await this.refresh();
   },
   onUnload(){this._serial=(this._serial||0)+1;this._mutation=null;options.onUnload?.call(this);},
   async onPullDownRefresh(){try{await this.refresh();}finally{wx.stopPullDownRefresh?.();}},
   async refresh(){
+    const current=api.session();
+    const nativeLogin=nativeSessionLoginUrl(current);
+    if(nativeLogin)return redirectBeforeLoad(this,nativeLogin,null,false);
     const serial=(this._serial||0)+1;
     this._serial=serial;
-    const current=api.session();
     const scope=JSON.stringify([current?.role==='public'?'':current?.token||'',current?.role==='public'?'':current?.role||'',this.query?.scope||'']);
     const scopeChanged=this._loadScope&&this._loadScope!==scope;
     this._loadScope=scope;
@@ -61,6 +65,8 @@ function define(options){const specs=(options.collections||[]).map(c=>typeof c==
       this.setData({ isPublic: true });
       const session = await api.ensureVisitor();
       if (serial !== this._serial) return;
+      const nativeLogin = nativeSessionLoginUrl(api.session());
+      if (nativeLogin) return redirectBeforeLoad(this, nativeLogin, null, false);
       this.setData({ session });
     }
     const meta=await api.request(options.summary?'/api/state':'/api/context','GET',undefined,{},true,this);if(serial!==this._serial)return;
@@ -84,11 +90,12 @@ function define(options){const specs=(options.collections||[]).map(c=>typeof c==
     finally{if(serial===this._serial)this.setData({loading:false,...(!this.data.error?{hasLoaded:true}:{})});}
   },
   async fetchCollection(name,reset=false,serial=this._serial,notify=true){const spec=specs.find(x=>x.name===name);if(!spec)return;const prior=this.data.pagers[name];if(!reset&&(prior?.loading||prior&&!prior.hasMore))return;
+    const errorKey=spec.errorKey||'error';
     this.setData({['pagers.'+name]:{...prior,loading:true}});try{const filters=typeof spec.filters==='function'?spec.filters.call(this):spec.filters||{};const offset=reset?0:prior?.nextOffset||0;const result=await api.collection(name,{...filters,...(name==='outlets'&&this.data.outletSearch?{q:this.data.outletSearch}:{}),limit:spec.limit??50,offset},this);if(serial!==this._serial)return;
       const state={...this.data.state};const old=name==='supportChats'?state.support.chats:name==='supportTickets'?state.support.tickets:state[name]||[];const items=reset?result.items:[...old,...result.items.filter(x=>!old.some(y=>y.id===x.id))];
       if(name==='supportChats'||name==='supportTickets')state.support={...state.support,[name==='supportChats'?'chats':'tickets']:items};else state[name]=items;
-      this.setData({state:fmt.decorate(state),['pagers.'+name]:{total:result.total,loaded:result.offset+result.items.length,nextOffset:result.offset+result.limit,hasMore:result.hasMore,loading:false},error:''});spec.metadata?.call(this,result);if(notify&&options.loaded)await options.loaded.call(this,this.data.state);
-    }catch(e){if(serial===this._serial)this.setData({['pagers.'+name]:{...prior,loading:false},error:e.message});throw e;}},
+      this.setData({state:fmt.decorate(state),['pagers.'+name]:{total:result.total,loaded:result.offset+result.items.length,nextOffset:result.offset+result.limit,hasMore:result.hasMore,loading:false},[errorKey]:''});spec.metadata?.call(this,result);if(notify&&options.loaded)await options.loaded.call(this,this.data.state);
+    }catch(e){if(serial===this._serial)this.setData({['pagers.'+name]:{...prior,loading:false},[errorKey]:e.message});throw e;}},
   async more(e){try{await this.fetchCollection(e.currentTarget.dataset.collection);}catch{}},
   async reloadCollection(name){try{await this.fetchCollection(name,true);}catch{}},
   async outletSearch(e){this.setData({outletSearch:e.detail.value});await this.refresh();},
@@ -132,6 +139,11 @@ async function openRecord(record,{returnStatus,returnPage,onSuccess,onSettled,is
  let r=record;
  if(r.taskId&&(!notice||!r.target||!(r.recordId||r.outlet&&r.month)))r=await api.detail('businessTasks',r.taskId);
  let target=r.target||r.kind||r.type,id=r.recordId||r.ticketId;
+ if(target==='join'&&id){
+   const result=await api.request('/api/onboarding/applications?'+api.query({id}));
+   if(!result.items.some(item=>item.id===id))throw new Error('当前账号无法查看这份加盟申请。');
+   return open('join',api.query({id}));
+ }
  if (targets[target] === 'training') {
    id = id || r.businessId;
    if (!id || !r.outlet) throw new Error('此培训记录暂时无法打开，请从培训页重新查看。');

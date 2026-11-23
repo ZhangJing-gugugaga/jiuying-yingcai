@@ -6,10 +6,11 @@ const tabEntries = [
   { key: 'profile', label: '我的', icon: 'profile' },
 ];
 const pages = new Set([
-  ...tabs, 'login', 'outlet', 'support', 'report', 'fees', 'requests', 'location', 'dashboard',
+  ...tabs, 'login', 'join', 'outlet', 'support', 'report', 'fees', 'requests', 'location', 'dashboard',
   'messages', 'finance', 'agreements', 'tasks', 'discover', 'service-detail', 'security', 'training'
 ].map(page => 'pages/' + page + '/index'));
 const memberPages = new Set(['reports', 'report', 'fees', 'requests', 'location', 'dashboard', 'finance', 'agreements', 'tasks', 'security', 'training']);
+const staffRoles = new Set(['manager', 'ops', 'finance', 'location', 'support', 'regional']);
 const resumeFields = new Set(['outlet', 'month', 'id', 'reportId', 'billId', 'receiptId', 'ledgerBillId', 'ledgerRecordId', 'feeProposalId', 'section', 'status', 'period', 'type', 'change', 'scope', 'filterOutlet']);
 const pendingByRuntime = new WeakMap();
 const retryMessage = '暂时无法打开该页面，请重试。';
@@ -108,7 +109,7 @@ function isTabPage(name) {
 }
 
 function tabBarView(name, session) {
-  const member = Boolean(session && session.role !== 'public');
+  const member = session?.role === 'partner';
   const items = tabEntries.filter(item => member || !item.memberOnly).map(item => ({
     key: item.key,
     label: member ? item.memberLabel || item.label : item.label,
@@ -134,6 +135,14 @@ function reLaunch(url, onSuccess) {
 
 function requiresMember(page, query) {
   return memberPages.has(page) || (page === 'outlets' && query.scope === 'private');
+}
+
+function isStaffRole(role) {
+  return staffRoles.has(role);
+}
+
+function nativeSessionLoginUrl(session) {
+  return session && session.role !== 'partner' && session.role !== 'public' ? '/pages/login/index' : '';
 }
 
 function resumeDestination(page, query) {
@@ -174,4 +183,4 @@ function recordErrorText(error) {
   return error.message || retryMessage;
 }
 
-module.exports = { go, reLaunch, recordErrorText, requiresMember, memberLoginUrl, resumeAfterLogin, isTabPage, tabBarView, syncTabBar };
+module.exports = { go, reLaunch, recordErrorText, requiresMember, memberLoginUrl, resumeAfterLogin, isTabPage, tabBarView, syncTabBar, isStaffRole, nativeSessionLoginUrl };

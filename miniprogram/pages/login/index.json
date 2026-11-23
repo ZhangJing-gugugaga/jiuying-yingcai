@@ -1,1 +1,8 @@
-{"navigationBarTitleText":"九盈英才","enablePullDownRefresh":false}
+{
+  "navigationBarTitleText": "九盈英才",
+  "enablePullDownRefresh": false,
+  "usingComponents": {
+    "t-button": "/vendor/tdesign/button/button",
+    "t-input": "/vendor/tdesign/input/input"
+  }
+}

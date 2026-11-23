@@ -146,8 +146,8 @@ test('public home exposes directory and login, with a guest login action in prof
   assert.match(homeMarkup, /<block wx:if="{{publicView}}">\s*<button wx:if="{{!session \|\| session.role==='public'}}"[^>]*data-page="login"[^>]*>加盟商登录/);
   home.nav(tap({ page: 'login' }));
   assert.deepEqual(routes.at(-1), { method: 'navigateTo', url: '/pages/login/index' });
-  assert.match(homeMarkup, /data-page="outlets" data-query="scope=public&mode=list"[^>]*>查找服务网点/);
-  assert.ok(homeMarkup.indexOf('查找服务网点') < homeMarkup.indexOf('class="section-title">五大业务'));
+  assert.match(homeMarkup, /data-page="outlets" data-query="scope=public&mode=list"[^>]*>[\s\S]*?class="home-feature-label">公开网点/);
+  assert.ok(homeMarkup.indexOf('class="home-feature-label">公开网点') < homeMarkup.indexOf('class="section-title">五大业务'));
   home.nav(tap({ page: 'outlets', query: 'scope=public&mode=list' }));
   assert.deepEqual(routes.at(-1), { method: 'switchTab', url: '/pages/outlets/index' });
   assert.equal(requests.filter(row => row.path === '/api/auth/visitor').length, 1);

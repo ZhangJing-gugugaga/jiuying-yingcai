@@ -1,3 +1,6 @@
 {
-  "navigationBarTitleText": "办理事项"
+  "navigationBarTitleText": "办理事项",
+  "usingComponents": {
+    "t-empty": "/vendor/tdesign/empty/empty"
+  }
 }

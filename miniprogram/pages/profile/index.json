@@ -1,1 +1,7 @@
-{"navigationBarTitleText":"我的"}
+{
+  "navigationBarTitleText": "我的",
+  "usingComponents": {
+    "t-cell": "/vendor/tdesign/cell/cell",
+    "t-cell-group": "/vendor/tdesign/cell-group/cell-group"
+  }
+}

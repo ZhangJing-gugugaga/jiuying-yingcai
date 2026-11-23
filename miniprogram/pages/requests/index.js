@@ -61,11 +61,13 @@ async loaded(s){
     this.setData({'state.requests':requests});
   }
   const requestRows=requests.map(row=>({
-    id:row.id,type:row.type,status:row.status,statusText:fmt.label(row.status,'request'),statusTone:fmt.statusTone(row.status,'request'),
+    id:row.id,type:row.type,status:row.status,
+    statusText:row.progress?.label||fmt.label(row.status,'request'),
+    statusTone:row.progress?(row.progress.stage==='credited'?'ok':'wait'):fmt.statusTone(row.status,'request'),
     typeText:['statusChange','accountChange'].includes(row.type)?types.find(t=>t.id===row.type&&(row.type==='statusChange'?t.status===row.data?.status:t.change===(row.data?.change||'manager')))?.name||row.typeText:row.typeText,
     outletName:row.data?.name||(row.outletName!==row.outlet&&row.outlet?row.outletName:''),
     submittedText:fmt.timeText(row.createdAt),result:row.review,canApplyPauseFee:canApplyPauseFee(row),
-    feeApproved:row.type==='pauseFee'&&row.status==='approved',
+    progress:row.progress,progressMonth:fmt.monthText(row.progress?.month),
     canApplyPauseBusiness:canApplyPauseBusiness(row,outlets)
   }));
   this.setData({requestRows},()=>{
@@ -85,6 +87,12 @@ async loaded(s){
   const record=id&&this.data.state?.requests?.find(row=>row.id===id);
   return record?.outlet?{outlet:record.outlet,recordType:'requests',recordId:id}:null;
 }),
+openCreditBill(e){
+  const row=this.data.state?.requests?.find(item=>item.id===e.currentTarget.dataset.id);
+  if(row?.outlet&&row.progress?.billId){
+    return go('fees',api.query({id:row.progress.billId,outlet:row.outlet,month:row.progress.month}));
+  }
+},
 applyPauseFee(e){
   const row=this.data.state?.requests?.find(item=>item.id===e.currentTarget.dataset.id);
   if(!this.data.busy&&row&&canApplyPauseFee(row))go('requests',api.query({type:'pauseFee',outlet:row.outlet,filterOutlet:row.outlet}));

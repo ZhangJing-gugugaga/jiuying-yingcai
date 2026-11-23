@@ -1,6 +1,23 @@
 .outlet-address-text{font-size:30rpx;line-height:1.55;overflow-wrap:anywhere}
 .outlet-address-card button{margin-left:0}
-.outlet-actions{margin-top:14rpx}
-.outlet-matter-actions{display:flex;flex-wrap:wrap;gap:12rpx;margin-top:14rpx}
-.outlet-matter-actions button{flex:1 1 220rpx;min-width:0;width:auto;margin:0}
+.outlet-section{padding:var(--space-lg)}
+.outlet-section-heading{flex-wrap:wrap;gap:var(--space-xs) var(--space-md)}
+.outlet-actions{gap:var(--space-sm);margin-top:var(--space-md)}
+.outlet-actions button{width:100%;min-width:0}
+.outlet-subsection{margin-top:var(--space-md);padding-top:var(--space-md);border-top:1rpx solid var(--border)}
+.outlet-subheading{color:var(--brand-deep);font-size:var(--font-body);font-weight:650}
 .outlet-history-change{padding:16rpx 0 0;overflow-wrap:anywhere}
+.outlet-work-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  min-width: 0;
+  padding: var(--space-sm);
+  border-radius: var(--radius-control);
+  background: var(--surface-muted);
+  color: var(--brand-deep);
+}
+.outlet-work-item > button { margin-top: auto; }
+.outlet-work-title { font-weight: 650; color: var(--text); }
+.outlet-work-state, .outlet-location-state { overflow-wrap: anywhere; color: var(--muted); font-size: var(--font-caption); }
+.outlet-location-state { display: flex; align-items: center; gap: var(--space-xs); margin-top: var(--space-sm); }

@@ -1,3 +1,14 @@
+.finance-bill-hero {
+  margin-bottom: var(--space-md);
+  padding: var(--space-lg);
+  border-radius: var(--radius-control);
+  background: radial-gradient(ellipse at top right, #dbeaff, transparent 72%), var(--surface-muted);
+  overflow-wrap: anywhere;
+}
+.finance-bill-outlet { margin-top: var(--space-sm); font-size: var(--font-title); font-weight: 650; color: var(--text); }
+.finance-bill-period { margin-top: var(--space-xs); color: var(--muted); font-size: var(--font-caption); }
+.finance-bill-hero .metric-value { margin-top: var(--space-md); color: var(--brand-deep); text-align: left; }
+
 .finance-sheet-overlay {
   position: fixed;
   z-index: 12;

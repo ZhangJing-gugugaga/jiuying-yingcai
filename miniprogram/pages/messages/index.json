@@ -1,3 +1,6 @@
 {
-  "navigationBarTitleText": "我的事项"
+  "navigationBarTitleText": "我的事项",
+  "usingComponents": {
+    "t-empty": "/vendor/tdesign/empty/empty"
+  }
 }

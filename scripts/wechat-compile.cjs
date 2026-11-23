@@ -2,6 +2,7 @@
 // Run the official compiler binaries supplied by an installed Tencent DevTools package.
 // This proves WXML/WXSS compilation only, never IDE login, simulator or device behavior.
 const fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process'),crypto=require('node:crypto');
+const {collectComponentEntries,collectTemplateImports,collectTemplateScripts}=require('./wechat-components.cjs');
 const ROOT=path.resolve(__dirname,'..');
 
 function collectStyleImports(project, pageStyles) {
@@ -34,13 +35,15 @@ function compile({project=path.join(ROOT,'miniprogram'),toolDir=process.env.WECH
  const staticCheck=require('./wechat-validate.cjs').validate(project);if(!staticCheck.valid)throw Error(staticCheck.errors.join('; '));
  fs.mkdirSync(out,{recursive:true});
  const app=JSON.parse(fs.readFileSync(path.join(project,'app.json')));
- const pages=staticCheck.routeManifest.routes, components=app.tabBar?.custom?['custom-tab-bar/index']:[];
+ const pages=staticCheck.routeManifest.routes, customTab=app.tabBar?.custom?['custom-tab-bar/index']:[];
+ const components=[...customTab,...collectComponentEntries(project,[...pages,...customTab])];
  const entries=[...pages,...components];
  const rel=file=>path.relative(project,path.join(out,file)).split(path.sep).join('/');
  const pageStyles = ['app.wxss', ...entries.map(entry => entry + '.wxss')];
  const styleImports = collectStyleImports(project, pageStyles);
+ const templates = collectTemplateImports(project,entries.map(entry => entry + '.wxml'));
  const commands = [
-   { name: 'wcc.exe', output: 'wxml-compiled.js', args: [...entries.map(entry => entry + '.wxml'), '-o', rel('wxml-compiled.js')] },
+   { name: 'wcc.exe', output: 'wxml-compiled.js', args: [...templates, ...collectTemplateScripts(project,templates), '-o', rel('wxml-compiled.js')] },
    { name: 'wcsc.exe', output: 'wxss-compiled.js', args: ['-js', '-pc', String(pageStyles.length), ...pageStyles, ...styleImports, '-o', rel('wxss-compiled.js')] }
  ];
  const results=commands.map(c=>{const executable=path.join(bin,c.name),run=cp.spawnSync(executable,c.args,{cwd:project,encoding:'utf8',windowsHide:true,timeout:60000,maxBuffer:5*1024*1024});const version=cp.spawnSync(executable,['--help'],{encoding:'utf8',windowsHide:true,timeout:10000}).stdout?.split(/\r?\n/)[0];const output=path.join(out,c.output);return {compiler:c.name,version,compilerSha256:crypto.createHash('sha256').update(fs.readFileSync(executable)).digest('hex'),arguments:c.args,exitCode:run.status,error:run.error?.message||null,stdout:run.stdout,stderr:run.stderr,output:c.output,outputBytes:fs.existsSync(output)?fs.statSync(output).size:0,passed:run.status===0&&fs.existsSync(output)&&fs.statSync(output).size>0};});

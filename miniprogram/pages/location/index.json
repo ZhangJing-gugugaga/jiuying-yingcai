@@ -1,3 +1,6 @@
 {
-  "navigationBarTitleText": "网点位置核验"
+  "navigationBarTitleText": "网点位置核验",
+  "usingComponents": {
+    "t-empty": "/vendor/tdesign/empty/empty"
+  }
 }

@@ -1,6 +1,26 @@
-.fees-heading .section-title {
-  margin-right: auto;
-  font-size: var(--font-title);
+.fees-overview {
+  background: var(--brand-deep);
+  color: var(--surface);
+  border: 0;
+}
+
+.fees-scope {
+  color: var(--brand-on-dark);
+  overflow-wrap: anywhere;
+}
+
+.fees-overview .metric-value {
+  text-align: left;
+  font-size: var(--font-display);
+}
+
+.fees-overview .hint { color: var(--brand-on-dark); }
+
+.fees-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-lg);
+  margin-bottom: var(--space-sm);
 }
 
 .mock-payment-overlay {

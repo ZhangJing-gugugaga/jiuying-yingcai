@@ -82,7 +82,46 @@ test('P0-06 pending enrollment never becomes applicable by boolean fallback',asy
 test('P1-09 dashboard exposes exact server coverage counts and never treats missing as zero',()=>harness(async()=>{const p=page('dashboard',{period:'2026-10'});await p.onShow();assert.equal(p.data.error,'');assert.equal(typeof p.data.coverage.expected,'number');assert.equal(typeof p.data.coverage.pendingReview,'number');assert.equal(typeof p.data.coverage.overdue,'number');}));
 
 
-test('P0-02 native SMS and wx.login bridge use real HTTP identity storage and authenticated binding',()=>harness(async({api,storage,calls})=>{global.wx.login=o=>o.success({code:'contract-only-wx-code'});const login=page('login');await login.onShow();login.setData({mobile:'13800000001'});await login.sendSms();login.onUnload();assert.equal(login.data.error,'');assert.equal(login.data.smsMode,'mock');assert.match(login.data.devCode,/^\d{6}$/);login.setData({smsCode:login.data.devCode});await login.smsLogin();assert.equal(api.session().actor,'partnerA');assert.equal(login.data.smsCode,'');const security=page('security');await security.onShow();assert.equal(security.data.bindings.wechatBound,false);await security.bindWechat();assert.equal(security.data.error,'');assert.equal(security.data.bindings.wechatBound,true);storage.delete('jyyc.session');await login.wechatLogin();assert.equal(api.session().actor,'partnerA');assert.ok(calls.some(c=>c.url?.includes('/api/auth/wechat')));login.onUnload();},{env:{WECHAT_AUTH_MODE:'real',WECHAT_APP_ID:'wx-contract-only',WECHAT_APP_SECRET:'contract-only-secret'},integrationFetch:async()=>new Response(JSON.stringify({openid:'contract-only-openid',session_key:'not-for-client'}),{status:200})}));
+test('P0-02 native SMS and wx.login bridge use real HTTP identity storage and authenticated binding', t => harness(async ({api,storage,calls}) => {
+  global.wx.login = options => options.success({code:'contract-only-wx-code'});
+  storage.delete('jyyc.session');
+  const sms = page('login');
+  t.after(() => sms.onUnload());
+  await sms.onShow();
+  assert.equal(sms.data.smsEnabled,true);
+  sms.mode({currentTarget:{dataset:{mode:'sms'}}});
+  assert.equal(sms.data.mode,'sms');
+  sms.setData({mobile:'13800000001'});
+  await sms.sendSms();
+  assert.equal(sms.data.error,'');
+  assert.equal(sms.data.smsMode,'mock');
+  assert.match(sms.data.devCode,/^\d{6}$/);
+  sms.setData({smsCode:sms.data.devCode});
+  await sms.smsLogin();
+  assert.equal(api.session().actor,'partnerA');
+  assert.equal(sms.data.smsCode,'');
+  assert.equal(sms.data.devCode,'');
+  sms.onUnload();
+
+  const security = page('security');
+  await security.onShow();
+  assert.equal(security.data.bindings.wechatBound,false);
+  await security.bindWechat();
+  assert.equal(security.data.error,'');
+  assert.equal(security.data.bindings.wechatBound,true);
+
+  storage.delete('jyyc.session');
+  const wechat = page('login');
+  t.after(() => wechat.onUnload());
+  await wechat.onShow();
+  assert.equal(wechat.data.wechatEnabled,true);
+  await wechat.wechatLogin();
+  assert.equal(api.session().actor,'partnerA');
+  assert.ok(calls.some(call=>call.url?.includes('/api/auth/wechat')));
+}, {
+  env:{WECHAT_AUTH_MODE:'real',WECHAT_APP_ID:'wx-contract-only',WECHAT_APP_SECRET:'contract-only-secret'},
+  integrationFetch:async()=>new Response(JSON.stringify({openid:'contract-only-openid',session_key:'not-for-client'}),{status:200}),
+}));
 
 test('P0-01 static validation rejects HTML entities inside native WXML expressions',()=>{const {validate}=require('../scripts/wechat-validate.cjs');const dir=path.join(root,'execution','wechat-static-fixture-'+Date.now());assert.ok(dir.startsWith(path.join(root,'execution')+path.sep));try{fs.cpSync(native,dir,{recursive:true});const file=path.join(dir,'pages/report/index.wxml');fs.writeFileSync(file,fs.readFileSync(file,'utf8').replace('{{loading}}','{{loading &amp;&amp; busy}}'));const result=validate(dir);assert.equal(result.valid,false);assert.ok(result.errors.some(x=>/HTML实体/.test(x)));}finally{fs.rmSync(dir,{recursive:true,force:true});}});
 

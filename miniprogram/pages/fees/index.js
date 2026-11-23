@@ -100,15 +100,33 @@ const page=define({
   this.setData({section,filtersOpen:false,historyOpen:false});
   return this.refresh();
  },
- toggleFilters(){this.setData({filtersOpen:!this.data.filtersOpen});},
- toggleHistory(){this.setData({historyOpen:!this.data.historyOpen});},
+ toggleFilters(){
+  if(this.data.section!=='bills'||this.data.exactBill||this.data.loading||this.data.busy)return;
+  this.setData({filtersOpen:!this.data.filtersOpen,historyOpen:false});
+ },
+ toggleHistory(){
+  if(!this.data.scopeReady||this.data.section!=='bills'||this.data.exactBill||this.data.loading||this.data.busy)return;
+  this.setData({historyOpen:!this.data.historyOpen,filtersOpen:false});
+ },
  openFinance(){
-  if(this.data.scopeReady===false)return;
-  return go('finance',api.query({outlet:this.data.selected,month:this.data.filterMonthValue}));
+  if(this.data.scopeReady===false||this.data.loading)return;
+  const month=this.data.section==='records'?undefined:this.data.filterMonthValue;
+  return go('finance',api.query({outlet:this.data.selected,month}));
  },
  openAgreements(){
   if(this.data.scopeReady===false)return;
   return go('agreements',api.query({outlet:this.data.selected}));
+ },
+ openBillLedger(scope){
+  const open=()=>go('finance',api.query(scope));
+  const previous=typeof getCurrentPages==='function'?getCurrentPages().at(-2):null;
+  const existingBill=previous?.data?.ledgerBill;
+  const plainDetail=!scope.section&&!scope.type&&!scope.ledgerRecordId;
+  if(plainDetail&&previous?.route==='pages/finance/index'&&previous.data.financeView==='bill'&&
+   !previous.data.sourceLocked&&existingBill?.id===scope.ledgerBillId&&typeof wx.navigateBack==='function'){
+   return wx.navigateBack({delta:1,fail:open});
+  }
+  return open();
  },
  openBill(e){
   const {id,section,type,record}=e.currentTarget.dataset;
@@ -122,9 +140,9 @@ const page=define({
   if(fromReceipt&&(row.status!=='success'||row.adapterMode==='mock'))return;
   const ledgerBillId=record||receiptRecord?row.billId:row.id;
   if(!ledgerBillId)return;
-  return go('finance',api.query({outlet:row.outlet,month:row.month,ledgerBillId,section,type,
+  return this.openBillLedger({outlet:row.outlet,month:row.month,ledgerBillId,section,type,
    billId:type==='offline'?ledgerBillId:undefined,receiptId:fromReceipt?row.id:undefined,
-   ledgerRecordId:record||receiptRecord?row.id:undefined}));
+   ledgerRecordId:record||receiptRecord?row.id:undefined});
  },
  setFilters(patch){
   if(this.data.busy||(this.data.exactBill&&this.data.scopeReady===false&&patch.selected===undefined))return;
@@ -140,9 +158,10 @@ const page=define({
   return this.refresh();
  },
  async filterOutlet(e){
-  const outlet=this.data.outlets[Number(e.detail.value)];
+  const outletIndex=Number(e.detail.value);
+  const outlet=this.data.outlets[outletIndex];
   if(!outlet||outlet.id===null)return;
-  await this.setFilters({selected:outlet.id});
+  await this.setFilters({selected:outlet.id,outletIndex});
  },
  async filterMonth(e){
   await this.setFilters({filterMonthValue:e.detail.value});
@@ -183,7 +202,7 @@ const page=define({
  openConfirmedBill(){
   const payment=this.data.payment;
   if(this.data.scopeReady&&payment?.status==='success'&&payment.billId)
-   return go('finance',api.query({ledgerBillId:payment.billId,outlet:payment.outlet||this.data.selected,month:payment.month||this.data.filterMonthValue}));
+   return this.openBillLedger({ledgerBillId:payment.billId,outlet:payment.outlet||this.data.selected,month:payment.month||this.data.filterMonthValue});
  },
  /* DEV_ONLY_START */
  confirmSimulation(e){

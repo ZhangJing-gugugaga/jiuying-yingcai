@@ -11,7 +11,7 @@
       <image wx:if="{{item.coverPath}}" class="article-cover top-gap" src="{{item.coverPath}}" mode="aspectFit" lazy-load data-id="{{item.id}}" binderror="coverFailed" aria-label="{{item.title}}封面" />
       <view class="article top-gap">{{item.body || item.text || item.intro}}</view>
     </view>
-    <view wx:if="{{state && !articles.length && !loading && !error}}" class="empty">该栏目内容暂未发布，欢迎联系总部了解。</view>
+    <t-empty wx:if="{{state && !articles.length && !loading && !error}}" class="native-empty" icon="file" description="该栏目内容暂未发布，欢迎联系总部了解。"/>
   </block>
   <block wx:elif="{{section==='services'}}">
     <block wx:for="{{serviceRows}}" wx:key="slot">
@@ -22,7 +22,7 @@
         <button class="outline top-gap" data-id="{{item.id}}" bindtap="openService">查看业务详情</button>
       </view>
     </block>
-    <view wx:if="{{state && noPublishedServices && !loading && !error}}" class="empty">该栏目内容暂未发布，欢迎联系总部了解。</view>
+    <t-empty wx:if="{{state && noPublishedServices && !loading && !error}}" class="native-empty" icon="file" description="该栏目内容暂未发布，欢迎联系总部了解。"/>
   </block>
   <view wx:if="{{(showArticles || section==='services') && pagers.publicContents.hasMore}}" class="pagination">
     <button class="outline small" data-collection="publicContents" bindtap="more" loading="{{pagers.publicContents.loading}}">加载更多公开资料</button>
@@ -90,7 +90,7 @@
         <button class="link" bindtap="showCooperation">查看留言进度</button>
       </view>
     </block>
-    <view wx:if="{{!cooperationRows.length && !loading && !error}}" class="empty">当前暂无符合条件的合作留言。</view>
+    <t-empty wx:if="{{!cooperationRows.length && !loading && !error}}" class="native-empty" icon="file" description="当前暂无符合条件的合作留言。"/>
     <view wx:if="{{pagers.cooperationRequests.hasMore}}" class="pagination">
       <button class="outline small" data-collection="cooperationRequests" bindtap="more" loading="{{pagers.cooperationRequests.loading}}">加载更多合作留言</button>
     </view>
@@ -101,7 +101,7 @@
       <view class="card-title">{{item.question}}</view>
       <view class="article top-gap">{{item.answer}}</view>
     </view>
-    <view wx:if="{{state && !faqs.length && !loading && !error}}" class="empty">暂未发布常见问题，您可以联系总部客服。</view>
+    <t-empty wx:if="{{state && !faqs.length && !loading && !error}}" class="native-empty" icon="file" description="暂未发布常见问题，您可以联系总部客服。"/>
     <view wx:if="{{pagers.faqEntries.hasMore}}" class="pagination">
       <button class="outline small" data-collection="faqEntries" bindtap="more" loading="{{pagers.faqEntries.loading}}">加载更多常见问题</button>
     </view>

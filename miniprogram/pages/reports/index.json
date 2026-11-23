@@ -1,4 +1,7 @@
 {
   "navigationBarTitleText": "经营月报",
-  "enablePullDownRefresh": true
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "t-empty": "/vendor/tdesign/empty/empty"
+  }
 }

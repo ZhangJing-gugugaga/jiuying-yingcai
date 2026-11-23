@@ -1,15 +1,17 @@
-page {
-  --brand: #0e65b7;
-  --brand-deep: #174a80;
-  --brand-soft: #eaf4ff;
-  --brand-on-dark: #d9eaff;
-  --background: #f6f9fd;
+page, .activity-tabs {
+  --brand: #1555c0;
+  --brand-deep: #122e5d;
+  --brand-soft: #eaf1ff;
+  --brand-on-dark: #e2ecff;
+  --background: #f3f6fb;
   --surface: #ffffff;
-  --text: #1c3048;
-  --muted: #52677e;
-  --border: #dfe7f2;
-  --border-strong: #afc5db;
-  --surface-muted: #f0f5fb;
+  --text: #132541;
+  --muted: #4f627c;
+  --border: #dce5f1;
+  --border-strong: #a6b8d2;
+  --surface-muted: #f0f4fa;
+  --panel-shadow: rgba(19, 43, 84, .055);
+  --focus-ring: rgba(21, 85, 192, .18);
   --neutral-bg: #edf1f5;
   --neutral-text: #526377;
   --success-bg: #e8f5ee;
@@ -24,9 +26,9 @@ page {
 
   --font-caption: 24rpx;
   --font-body: 28rpx;
-  --font-section: 32rpx;
+  --font-section: 31rpx;
   --font-metric: 36rpx;
-  --font-title: 40rpx;
+  --font-title: 44rpx;
   --font-display: 48rpx;
   --font-hero: 56rpx;
 
@@ -39,7 +41,11 @@ page {
   --space-2xl: 64rpx;
 
   --radius-badge: 8rpx;
-  --radius-control: 12rpx;
-  --radius-card: 24rpx;
-  --tab-bar-height: 110rpx;
+  --radius-control: 16rpx;
+  --radius-card: 28rpx;
+  --tab-bar-height: 116rpx;
+  --td-button-primary-bg-color: var(--brand);
+  --td-button-primary-border-color: var(--brand);
+  --td-button-primary-active-bg-color: var(--brand-deep);
+  --td-button-primary-color: var(--surface);
 }

@@ -4,6 +4,9 @@ const test = require('node:test');
 test.before(() => { global.wx = {}; });
 test.after(() => { delete global.wx; });
 
+const partnerSession = {actor:'partnerA',role:'partner',token:'property-partner'};
+const visitorSession = {actor:'public',role:'public',token:'property-visitor'};
+
 function page(name, query = {}) {
   let instance;
   const module = require.resolve('../miniprogram/pages/' + name + '/index');
@@ -31,7 +34,7 @@ test('private outlet list sends the chosen status while public browsing ignores 
   let actor = 'partnerA';
   let filters;
   t.mock.method(api, 'request', async () => ({actor}));
-  t.mock.method(api, 'session', () => ({actor}));
+  t.mock.method(api, 'session', () => actor==='public'?visitorSession:partnerSession);
   t.mock.method(api, 'collection', async (name, params) => {
     assert.equal(name, 'outlets');
     filters = params;
@@ -53,7 +56,7 @@ test('outlet details use the scoped settled summary and hide business data from 
   const api = require('../miniprogram/utils/api');
   const calls = [];
   let actor = 'partnerA';
-  t.mock.method(api, 'session', () => ({actor}));
+  t.mock.method(api, 'session', () => actor==='public'?visitorSession:partnerSession);
   t.mock.method(api, 'request', async path => {
     if(path === '/api/context')return {actor,today:'2026-11-18'};
     calls.push(path);
@@ -104,14 +107,15 @@ test('a revised outlet status keeps the original application being supplemented'
 test('location page shows only a configured GPS distance and distinguishes exception from pending', async t => {
   const api = require('../miniprogram/utils/api');
   t.mock.method(api, 'request', async () => ({actor:'partnerA', today:'2026-11-18'}));
-  t.mock.method(api, 'session', () => ({actor:'partnerA'}));
-  t.mock.method(api, 'collection', async name => {
+  t.mock.method(api, 'session', () => partnerSession);
+  t.mock.method(api, 'collection', async (name, filters) => {
     const items = ({outlets:[{id:'cs',name:'授权网点',owner:'p1',status:'open'}],verifications:[
       {id:'loc-1',outlet:'cs',status:'pending',month:'2026-11',coords:{source:'gps',accuracy:3},assessment:{result:'unconfigured',distanceMeters:5,thresholdMeters:null}},
       {id:'loc-2',outlet:'cs',status:'exception',month:'2026-10',coords:{source:'gps',accuracy:8},assessment:{result:'outside_threshold',distanceMeters:123.4,thresholdMeters:100}},
       {id:'loc-3',outlet:'cs',status:'pending',month:'2026-09',coords:{source:'manual'},assessment:{result:'manual',distanceMeters:4,thresholdMeters:100}}
     ]})[name] || [];
-    return {items,total:items.length,offset:0,limit:50,hasMore:false};
+    const scoped = filters?.month ? items.filter(item=>item.month===filters.month) : items;
+    return {items:scoped,total:scoped.length,offset:0,limit:50,hasMore:false};
   });
   const location = page('location', {outlet:'cs'});
   await location.refresh();
@@ -125,16 +129,22 @@ test('location page shows only a configured GPS distance and distinguishes excep
 test('customer task cards show business dates and avoid internal queue descriptions', async t => {
   const api = require('../miniprogram/utils/api');
   t.mock.method(api, 'request', async () => ({actor:'partnerA'}));
-  t.mock.method(api, 'session', () => ({actor:'partnerA'}));
-  t.mock.method(api, 'collection', async () => ({total:2,limit:50,offset:0,hasMore:false,items:[
+  t.mock.method(api, 'session', () => partnerSession);
+  t.mock.method(api, 'collection', async (name, filters) => {
+    if(name==='messages')return {total:0,limit:50,offset:0,hasMore:false,items:[]};
+    assert.equal(name,'businessTasks');
+    assert.equal(filters.status,'all');
+    return {total:2,limit:50,offset:0,hasMore:false,items:[
     {id:'1',kind:'report_missing',status:'open',outlet:'cs',outletName:'授权网点',month:'2026-10',dueAt:'2026-11-05',description:'内部队列',createdAt:'2026-11-01T00:00:00Z'},
     {id:'2',kind:'request_supplement',status:'resolved',outlet:null,dueAt:'2026-02-31'}
-  ]}));
-  const tasks = page('tasks');
+    ]};
+  });
+  const tasks = page('tasks', {status:'all'});
   await tasks.refresh();
   const [report, request] = tasks.data.taskRows;
   assert.equal(report.title, '请填写2026年10月经营月报');
   assert.equal(report.dueText, '2026年11月05日');
+  assert.doesNotMatch(JSON.stringify(report), /内部队列/);
   assert.equal(request.title, '新增网点申请补件');
   assert.equal(request.dueText, '');
   assert.equal(request.statusText, '已完成');

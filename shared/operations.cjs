@@ -167,6 +167,11 @@ function reportMonthStatus(s,o,m){
  if(initial?.status==='paused'&&!events.some(row=>row.date>start&&row.status!=='paused'))return 'full_pause';
  return initial?.status==='open'||events.some(row=>row.date>=start&&row.status==='open')?null:'no_operation';
 }
+function reportVersions(versions){
+ const newest=versions.reduce((recent,row)=>!recent||row.version>recent.version?row:recent,null);
+ const approved=versions.find(row=>row.current&&row.status==='approved'&&!row.revoked)||null;
+ return {newest,approved,latest:newest?.revoked?approved:newest};
+}
 function coverage(s,outlets,months){
  const counts={expected:0,submitted:0,pendingReview:0,approved:0,exempt:0,overdue:0,lateSubmitted:0,overdueExemptReview:0,notApplicable:0,awaitingEnrollment:0,notRequired:0,settled:0,complete:false};
  const deadlines=reportDeadlines(s,months);
@@ -178,10 +183,7 @@ function coverage(s,outlets,months){
   if(enrollment==='pending')counts.awaitingEnrollment++;
   if(reason==='exempt'){counts.exempt++;continue;}
   counts.expected++;
-  const versions=s.reports.filter(row=>row.outlet===o.id&&row.month===m);
-  const newest=versions.reduce((recent,row)=>!recent||row.version>recent.version?row:recent,null);
-  const approved=versions.find(row=>row.current&&row.status==='approved'&&!row.revoked);
-  const latest=newest?.revoked?approved:newest;
+  const {approved,latest}=reportVersions(s.reports.filter(row=>row.outlet===o.id&&row.month===m));
   if(latest){
    counts.submitted++;
    if(latest.late===true)counts.lateSubmitted++;
@@ -658,4 +660,4 @@ function extendView(s,v,a,ctx={}){
  return v;
 }
 function faqAnswer(s,input){const normalized=String(input).toLowerCase();return (s.faqEntries||[]).filter(x=>x.status==='published').find(x=>x.question===input||x.keywords.some(k=>normalized.includes(k.toLowerCase())))?.answer||'暂未找到相关答复，您可以选择转人工客服。具体费用和办理时限以已确认的协议、账单和规定为准。';}
-module.exports={rankings,enrollmentFor,changeIdentity,locationAssessment,saveContent,publicContent,publicOutlet,publicRefundReference,refundRecordSource,coverage,effectiveGrants,COLLECTIONS,COMMANDS,ensure,context,scopedGrants,execute,extendView,reconcile,faqAnswer,policyFor,reportDueDay,reportDueOn,reportTiming,reportDeadlines,reportMonthStatus,previousMonth,timedReportTask,updateReportTaskTiming,queueResettlement};
+module.exports={rankings,enrollmentFor,changeIdentity,locationAssessment,saveContent,publicContent,publicOutlet,publicRefundReference,refundRecordSource,coverage,effectiveGrants,COLLECTIONS,COMMANDS,ensure,context,scopedGrants,execute,extendView,reconcile,faqAnswer,policyFor,reportDueDay,reportDueOn,reportTiming,reportDeadlines,reportMonthStatus,reportVersions,previousMonth,timedReportTask,updateReportTaskTiming,queueResettlement};

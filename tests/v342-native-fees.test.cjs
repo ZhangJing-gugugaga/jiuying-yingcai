@@ -6,6 +6,34 @@ const api = require('../miniprogram/utils/api');
 
 const tap = dataset => ({ currentTarget: { dataset } });
 
+test('the bill scope and amount lead the page and filters and history open one at a time', () => runTest(async ({fees, bill}) => {
+  const template = require('node:fs').readFileSync(require.resolve('../miniprogram/pages/fees/index.wxml'), 'utf8');
+  assert.ok(template.indexOf('fees-overview') >= 0);
+  assert.ok(template.indexOf('待付合计') < template.indexOf('筛选账单'));
+  assert.match(template, /class="fees-scope"/);
+  const set = { selected: fees.data.selected, month: fees.data.filterMonthValue, status: fees.data.statusFilter };
+  fees.toggleFilters();
+  assert.equal(fees.data.filtersOpen, true);
+  assert.equal(fees.data.historyOpen, false);
+  fees.toggleHistory();
+  assert.equal(fees.data.filtersOpen, false);
+  assert.equal(fees.data.historyOpen, true);
+  fees.toggleFilters();
+  assert.equal(fees.data.filtersOpen, true);
+  assert.equal(fees.data.historyOpen, false);
+  assert.deepEqual({ selected: fees.data.selected, month: fees.data.filterMonthValue, status: fees.data.statusFilter }, set);
+  assert.equal(fees.data.bills.find(row => row.id === bill.id).unpaidText,'120.00');
+  await fees.chooseSection(tap({ section: 'records' }));
+  assert.equal(fees.data.filtersOpen, false);
+  assert.equal(fees.data.historyOpen, false);
+  let opened;
+  wx.navigateTo = ({ url, success }) => { opened = url; success(); };
+  fees.openFinance();
+  assert.equal(opened, '/pages/finance/index?outlet=cs');
+  await fees.chooseSection(tap({ section: 'bills' }));
+  assert.deepEqual({ selected: fees.data.selected, month: fees.data.filterMonthValue, status: fees.data.statusFilter }, set);
+}));
+
 function openFeePage(query = {}) {
   const entry = require.resolve('../miniprogram/pages/fees/index.js');
   let definition;
@@ -29,6 +57,59 @@ function openFeePage(query = {}) {
   page.onLoad(query);
   return page;
 }
+
+test('a failed outlet switch clears the previous bill and amount until the new scope is verified', () => runTest(async ({ fees, bill }) => {
+  const outletIndex = fees.data.outlets.findIndex(outlet => outlet.id === 'zz');
+  assert.ok(outletIndex >= 0);
+  assert.equal(fees.data.ledgerTotals.unpaid, '120.00');
+  const request = wx.request;
+  wx.request = options => {
+    const url = new URL(options.url);
+    if (url.pathname === '/api/context') {
+      options.fail({ errMsg: 'request:fail network unavailable' });
+      return;
+    }
+    return request(options);
+  };
+  try {
+    await fees.filterOutlet({ detail: { value: outletIndex } });
+    assert.equal(fees.data.selected, 'zz');
+    assert.equal(fees.data.outlets[fees.data.outletIndex].id, 'zz');
+    assert.ok(fees.data.error);
+    assert.equal(fees.data.scopeReady, false);
+    assert.deepEqual(fees.data.bills, []);
+    assert.equal(fees.data.ledgerTotals, null);
+  } finally {
+    wx.request = request;
+  }
+  await fees.refresh();
+  assert.equal(fees.data.scopeReady, true);
+  assert.equal(fees.data.selected, 'zz');
+  assert.ok(fees.data.bills.every(row => row.id !== bill.id));
+}));
+
+test('viewing a paid bill returns to the matching ledger page without stacking another copy', () => runTest(async ({ fees, bill }) => {
+  const original = { route: 'pages/finance/index', data: { financeView: 'bill', ledgerBill: bill } };
+  const routes = [];
+  let backs = 0;
+  wx.navigateBack = ({ delta }) => { backs += delta; };
+  wx.navigateTo = ({ url, success }) => { routes.push(url); success(); };
+  global.getCurrentPages = () => [original, fees];
+  fees.setData({ payment: { status: 'success', billId: bill.id, outlet: bill.outlet, month: bill.month } });
+
+  fees.openConfirmedBill();
+  assert.equal(backs, 1);
+  assert.deepEqual(routes, []);
+
+  fees.openBill(tap({ id: bill.id }));
+  assert.equal(backs, 2);
+  assert.deepEqual(routes, []);
+
+  original.data.ledgerBill = { ...bill, id: 'different-bill' };
+  fees.openConfirmedBill();
+  assert.equal(backs, 2);
+  assert.equal(routes[0], '/pages/finance/index?ledgerBillId=' + bill.id + '&outlet=cs&month=2026-09');
+}));
 
 async function runTest(run) {
   const app = createServer({ dbPath: ':memory:', env: { NODE_ENV:'test', ADAPTER_MODE:'mock' } });

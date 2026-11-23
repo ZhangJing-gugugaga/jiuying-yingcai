@@ -68,9 +68,10 @@ button.danger {
 
 .field label {
   display: block;
-  font-size: var(--font-caption);
-  color: var(--muted);
-  margin-bottom: var(--space-md);
+  font-size: var(--font-body);
+  color: var(--text);
+  font-weight: 600;
+  margin-bottom: var(--space-sm);
 }
 
 .field input, .field textarea, .picker {
@@ -107,6 +108,11 @@ button[disabled], button.primary[disabled], button.pill[disabled] {
   color: var(--neutral-text);
   border-color: var(--border);
   opacity: 1;
+}
+
+input:focus, textarea:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 4rpx var(--focus-ring);
 }
 
 .button-hover,

@@ -1,4 +1,7 @@
 {
   "navigationBarTitleText": "服务费",
-  "enablePullDownRefresh": true
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "t-empty": "/vendor/tdesign/empty/empty"
+  }
 }

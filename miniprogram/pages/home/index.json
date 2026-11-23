@@ -1,4 +1,12 @@
 {
   "navigationBarTitleText": "九盈英才",
-  "enablePullDownRefresh": true
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "t-badge": "/vendor/tdesign/badge/badge",
+    "t-button": "/vendor/tdesign/button/button",
+    "t-empty": "/vendor/tdesign/empty/empty",
+    "t-grid": "/vendor/tdesign/grid/grid",
+    "t-grid-item": "/vendor/tdesign/grid-item/grid-item",
+    "t-icon": "/vendor/tdesign/icon/icon"
+  }
 }

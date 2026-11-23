@@ -1,58 +1,78 @@
 <view class="page login">
-  <view class="brand-mark">九</view>
-  <view class="title">九盈英才</view>
-  <view class="subtitle login-subtitle">{{mode==='activate' ? '激活加盟商账号' : mode==='sms' ? '手机验证码登录' : '加盟商登录'}}</view>
+  <view class="login-heading">
+    <view class="brand-mark" aria-hidden="true">九</view>
+    <view class="grow">
+      <view class="login-brand-name">九盈英才</view>
+      <view class="title">{{mode==='staff' ? '总部管理端' : mode==='activate' ? '首次激活账号' : mode==='sms' ? '手机验证码登录' : '账号登录'}}</view>
+    </view>
+  </view>
 
+  <view wx:if="{{mode==='staff'}}" class="card staff-handoff">
+    <view class="staff-handoff-title">总部账号已确认，请在总部管理端办理审批</view>
+    <block wx:if="{{staffPortalUrl}}">
+      <view class="hint">复制地址后在浏览器中打开，使用个人账号登录。</view>
+      <text class="staff-portal-url">{{staffPortalUrl}}</text>
+      <button class="primary staff-handoff-button" bindtap="copyStaffPortal">复制总部管理端地址</button>
+    </block>
+    <view wx:if="{{sessionCleanupPending}}" class="hint" role="status">正在结束本机登录…</view>
+    <view wx:if="{{sessionCleanupError}}" class="error login-error" role="alert">{{sessionCleanupError}}</view>
+    <button wx:if="{{sessionCleanupRequired}}" class="outline staff-handoff-button" bindtap="retrySessionCleanup">重试退出本机</button>
+    <button class="{{staffPortalUrl ? 'outline' : 'primary'}} staff-handoff-button" bindtap="returnToPublic" disabled="{{sessionCleanupPending || sessionCleanupRequired}}">返回公众首页</button>
+  </view>
+
+  <block wx:else>
   <view class="card">
-    <view wx:if="{{error && mode!=='password'}}" class="error login-error" role="alert">{{error}}</view>
+    <view wx:if="{{error}}" class="error login-error" role="alert">{{error}}</view>
+    <view wx:if="{{sessionCleanupError}}" class="error login-error" role="alert">{{sessionCleanupError}}</view>
+    <button wx:if="{{sessionCleanupRequired}}" class="outline staff-handoff-button" bindtap="retrySessionCleanup">重试退出本机</button>
 
-    <block wx:if="{{mode==='password'}}">
-      <view class="field"><label>账号</label><input value="{{username}}" data-field="username" bindinput="input" placeholder="请输入账号" maxlength="100" disabled="{{busy}}"/></view>
-      <view class="field"><label>密码</label><input value="{{password}}" data-field="password" bindinput="input" password="{{true}}" maxlength="128" placeholder="请输入密码" disabled="{{busy}}"/></view>
-      <view wx:if="{{error}}" class="error login-error" role="alert">{{error}}</view>
-      <button class="primary" bindtap="passwordLogin" loading="{{busy}}" disabled="{{busy}}">登录</button>
+    <block wx:if="{{mode==='methods'}}">
+      <view wx:if="{{channelsLoading}}" class="loading">正在获取登录方式…</view>
+      <view class="login-methods">
+        <button wx:if="{{wechatEnabled}}" class="primary" data-mode="wechat" bindtap="wechatLogin" loading="{{busy}}" disabled="{{busy}}">微信登录</button>
+        <button wx:if="{{smsEnabled}}" class="{{wechatEnabled ? 'outline' : 'primary'}}" data-mode="sms" bindtap="mode" disabled="{{busy}}">手机验证码登录</button>
+        <button class="link" data-mode="password" bindtap="mode" disabled="{{busy}}">账号密码登录</button>
+      </view>
+    </block>
+
+    <block wx:elif="{{mode==='password'}}">
+      <t-input class="auth-control" label="账号" layout="vertical" value="{{username}}" data-field="username" bind:change="input" placeholder="请输入账号" maxlength="{{100}}" disabled="{{busy}}" borderless/>
+      <t-input class="auth-control" label="密码" layout="vertical" value="{{password}}" data-field="password" bind:change="input" type="password" maxlength="{{128}}" placeholder="请输入密码" disabled="{{busy}}" borderless/>
+      <t-button class="auth-submit" theme="primary" block bind:tap="passwordLogin" loading="{{busy}}" disabled="{{busy}}">登录</t-button>
     </block>
 
     <block wx:elif="{{mode==='activate'}}">
-      <view class="hint">输入总部发放的一次性激活码，设置您的登录密码。</view>
-      <view class="field">
-        <label>激活码</label>
-        <input value="{{activationToken}}" data-field="activationToken" bindinput="input" placeholder="请输入激活码" password="{{!activationVisible}}" maxlength="128" disabled="{{busy}}"/>
-        <button class="link" bindtap="toggleActivationVisibility" disabled="{{busy}}">{{activationVisible ? '隐藏激活码' : '显示激活码'}}</button>
-      </view>
-      <view class="field"><label>设置密码</label><input value="{{password}}" data-field="password" bindinput="input" password="{{true}}" maxlength="128" placeholder="请输入登录密码" disabled="{{busy}}"/></view>
-      <view class="field"><label>确认密码</label><input value="{{confirmPassword}}" data-field="confirmPassword" bindinput="input" password="{{true}}" maxlength="128" placeholder="再次输入登录密码" disabled="{{busy}}"/></view>
+      <view class="hint">输入总部发给您的一次性激活码并设置密码。加盟商使用小程序办理业务，管理员使用总部管理端。</view>
+      <t-input class="auth-control" label="激活码" layout="vertical" value="{{activationToken}}" data-field="activationToken" bind:change="input" placeholder="请输入激活码" type="{{activationVisible ? 'text' : 'password'}}" maxlength="{{128}}" disabled="{{busy}}" borderless/>
+      <button class="link" bindtap="toggleActivationVisibility" disabled="{{busy}}">{{activationVisible ? '隐藏激活码' : '显示激活码'}}</button>
+      <t-input class="auth-control" label="设置密码" layout="vertical" value="{{password}}" data-field="password" bind:change="input" type="password" maxlength="{{128}}" placeholder="请输入登录密码" disabled="{{busy}}" borderless/>
+      <t-input class="auth-control" label="确认密码" layout="vertical" value="{{confirmPassword}}" data-field="confirmPassword" bind:change="input" type="password" maxlength="{{128}}" placeholder="再次输入登录密码" disabled="{{busy}}" borderless/>
       <view class="hint">{{password.length < 12 ? '登录密码至少12位。' : confirmPassword && password !== confirmPassword ? '两次输入的密码不一致。' : '密码长度符合要求。'}}</view>
-      <button class="primary" bindtap="activate" loading="{{busy}}" disabled="{{busy}}">激活并登录</button>
+      <t-button class="auth-submit" theme="primary" block bind:tap="activate" loading="{{busy}}" disabled="{{busy}}">激活并登录</t-button>
     </block>
 
     <block wx:elif="{{mode==='sms' && smsEnabled}}">
-        <view class="field"><label>总部登记手机号</label><input type="number" value="{{mobile}}" data-field="mobile" bindinput="input" maxlength="11" placeholder="请输入手机号" disabled="{{busy}}"/></view>
-        <view class="field">
-          <label>验证码</label>
+        <t-input class="auth-control" label="总部登记手机号" layout="vertical" type="number" value="{{mobile}}" data-field="mobile" bind:change="input" maxlength="{{11}}" placeholder="请输入手机号" disabled="{{busy}}" borderless/>
+        <view>
           <view class="actions sms-actions">
-            <input class="sms-code" type="number" value="{{smsCode}}" data-field="smsCode" bindinput="input" maxlength="6" placeholder="请输入短信验证码" disabled="{{busy}}"/>
+            <t-input class="auth-control sms-code" label="验证码" layout="vertical" type="number" value="{{smsCode}}" data-field="smsCode" bind:change="input" maxlength="{{6}}" placeholder="请输入短信验证码" disabled="{{busy}}" borderless/>
             <button class="outline small" bindtap="sendSms" disabled="{{busy || resendSeconds}}">{{resendSeconds ? resendSeconds+'秒后重发' : '获取验证码'}}</button>
           </view>
         </view>
         <!-- DEV_ONLY_START -->
         <view wx:if="{{smsMode==='mock'}}" class="notice">测试短信未实际发送。{{devCode ? '测试验证码：'+devCode : ''}}</view>
         <!-- DEV_ONLY_END -->
-        <button class="primary" bindtap="smsLogin" loading="{{busy}}" disabled="{{busy}}">验证并登录</button>
+        <t-button class="auth-submit" theme="primary" block bind:tap="smsLogin" loading="{{busy}}" disabled="{{busy}}">验证并登录</t-button>
     </block>
 
     <view class="login-entry">
-      <button wx:if="{{mode==='password'}}" class="link" data-mode="activate" bindtap="mode" disabled="{{busy}}">首次激活</button>
-      <button wx:else class="link" data-mode="password" bindtap="mode" disabled="{{busy}}">返回登录</button>
+      <button wx:if="{{mode==='methods' || mode==='password'}}" class="link" data-mode="activate" bindtap="mode" disabled="{{busy}}">首次激活</button>
+      <button wx:if="{{mode==='activate' || mode==='sms' || (mode==='password' && (wechatEnabled || smsEnabled))}}" class="link" data-mode="methods" bindtap="mode" disabled="{{busy}}">返回登录</button>
       <button class="link" bindtap="contact" disabled="{{busy}}">{{mode==='password' ? '忘记密码' : '联系总部客服'}}</button>
-      <button wx:if="{{mode==='password' && (smsEnabled || wechatEnabled)}}" class="link" bindtap="toggleMethods" disabled="{{busy}}" aria-expanded="{{methodsExpanded}}">其他登录方式</button>
-    </view>
-    <view wx:if="{{mode==='password' && methodsExpanded}}" class="login-methods">
-      <button wx:if="{{smsEnabled}}" class="outline small" data-mode="sms" bindtap="mode" disabled="{{busy}}">手机验证码</button>
-      <button wx:if="{{wechatEnabled}}" class="outline small" data-mode="wechat" bindtap="wechatLogin" disabled="{{busy}}">微信登录</button>
     </view>
   </view>
   <view class="login-entry login-footer">
+    <button class="link" bindtap="applyForFranchise" disabled="{{busy}}">申请加盟</button>
     <button class="link" bindtap="visitor" disabled="{{busy}}">浏览集团介绍与网点</button>
     <button class="link" bindtap="privacy">隐私保护指引</button>
   </view>
@@ -67,4 +87,5 @@
     </block>
   </view>
   <!-- DEV_ONLY_END -->
+  </block>
 </view>

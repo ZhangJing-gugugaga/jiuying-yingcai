@@ -1,10 +1,10 @@
 .matters-verification {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  padding: 12rpx 0;
-  background: #f6f9fd;
-  background: var(--background);
+  margin: var(--space-md) 0;
+}
+.matters-verification button {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+  color: var(--brand-deep);
 }
 
 .matters-sections {
@@ -21,18 +21,16 @@
 }
 
 .matters-notice {
-  scroll-margin-top: 116rpx;
-  scroll-margin-top: calc(max(88rpx, 44px) + 28rpx);
+  scroll-margin-top: var(--space-md);
 }
 
-.matters-unread{
-  min-width:30rpx;
-  padding:2rpx 8rpx;
-  margin-left:2rpx;
-  border-radius:20rpx;
-  background:var(--brand);
-  color:#fff;
-  font-size:20rpx;
+.matters-unread {
+  width: 14rpx;
+  height: 14rpx;
+  flex-shrink: 0;
+  margin-left: var(--space-xs);
+  border-radius: 50%;
+  background: var(--error-text);
 }
 
 .matters-overdue{background:#fff5f6}

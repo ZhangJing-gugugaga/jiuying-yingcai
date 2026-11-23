@@ -52,7 +52,7 @@
     <block wx:if="{{!ledgerOutlet}}">
       <view class="section-title">网点明细</view>
       <view wx:for="{{ledgerOverview.outlets.items}}" wx:key="outlet" class="row between"><text class="grow">{{item.name}}</text><button class="link" data-outlet="{{item.outlet}}" bindtap="chooseLedgerOutlet" disabled="{{loading}}">查看网点账务</button></view>
-      <view wx:if="{{!ledgerOverview.outlets.items.length && !loading && !error}}" class="empty">当前账期暂无网点账务。</view>
+      <t-empty wx:if="{{!ledgerOverview.outlets.items.length && !loading && !error}}" class="native-empty" icon="wallet" description="当前账期暂无网点账务。"/>
       <view wx:if="{{ledgerOverview.outlets.offset > 0 || ledgerOverview.outlets.hasMore}}" class="actions">
         <button wx:if="{{ledgerOverview.outlets.offset > 0}}" class="outline small" data-offset="{{ledgerOverview.outlets.offset - ledgerOverview.outlets.limit}}" bindtap="ledgerPage">上一页</button>
         <button wx:if="{{ledgerOverview.outlets.hasMore}}" class="outline small" data-offset="{{ledgerOverview.outlets.offset + ledgerOverview.outlets.limit}}" bindtap="ledgerPage">下一页</button>
@@ -67,14 +67,17 @@
         <view class="detail-row"><text>{{item.month}}</text><text class="amount-number">¥ {{item.amountText}}</text></view>
         <button class="link" data-id="{{item.id}}" bindtap="chooseLedgerBill" disabled="{{loading}}">查看账单</button>
       </view>
-      <view wx:if="{{!bills.length && !loading && !error}}" class="empty">这个网点在当前账期暂无账单。</view>
+      <t-empty wx:if="{{!bills.length && !loading && !error}}" class="native-empty" icon="wallet" description="这个网点在当前账期暂无账单。"/>
       <button wx:if="{{pagers.bills.hasMore}}" class="outline small" data-collection="bills" bindtap="more" loading="{{pagers.bills.loading}}">加载更多账单</button>
     </block>
   </view>
   <view wx:if="{{financeView==='bill' && ledgerBill}}" class="card" id="bill-ledger-detail">
-    <view class="row between"><text class="card-title grow">{{ledgerBill.month}} 账单</text><text class="badge {{ledgerBill.statusTone}}">{{ledgerBill.heading}}</text></view>
-    <view class="hint">{{ledgerBill.outletName}}<text wx:if="{{ledgerBill.dueText}}"> · {{ledgerBill.dueText}} 到期</text></view>
-    <view class="metric-value amount-number">{{ledgerBill.amount}}</view>
+    <view class="finance-bill-hero">
+      <text class="badge {{ledgerBill.statusTone}}">{{ledgerBill.heading}}</text>
+      <view class="finance-bill-outlet">{{ledgerBill.outletName}}</view>
+      <view class="finance-bill-period">{{ledgerBill.month}} 账单<text wx:if="{{ledgerBill.dueText}}"> · {{ledgerBill.dueText}} 到期</text></view>
+      <view class="metric-value amount-number">{{ledgerBill.amount}}</view>
+    </view>
     <view wx:if="{{paymentMessage}}" class="notice">{{paymentMessage}}</view>
     <view wx:if="{{paymentError}}" class="error">{{paymentError}}</view>
     <view wx:if="{{payment.status==='pending' || ledgerBill.pendingPayment}}" class="actions">
@@ -119,7 +122,7 @@
         <!-- DEV_ONLY_END -->
       </view>
     </view>
-    <view wx:if="{{!ledgerBill.records.length && !loading && !error}}" class="empty">这笔账单暂无所选类型的记录。</view>
+    <t-empty wx:if="{{!ledgerBill.records.length && !loading && !error}}" class="native-empty" icon="wallet" description="这笔账单暂无所选类型的记录。"/>
     <view wx:if="{{ledgerBill.pager.offset > 0 || ledgerBill.pager.hasMore}}" class="actions">
       <button wx:if="{{ledgerBill.pager.offset > 0}}" class="outline small" data-section="{{ledgerSection}}" data-offset="{{ledgerBill.pager.offset - ledgerBill.pager.limit}}" bindtap="ledgerSection">上一页</button>
       <button wx:if="{{ledgerBill.pager.hasMore}}" class="outline small" data-section="{{ledgerSection}}" data-offset="{{ledgerBill.pager.offset + ledgerBill.pager.limit}}" bindtap="ledgerSection">下一页</button>
@@ -196,7 +199,7 @@
       <view wx:if="{{item.refundNote}}" class="hint">{{item.refundNote}}</view>
       <button class="link top-gap" data-id="{{item.id}}" bindtap="openApplication">查看进度</button>
     </view>
-    <view wx:if="{{!group.rows.length && !loading && !error}}" class="empty">{{group.empty}}</view>
+    <t-empty wx:if="{{!group.rows.length && !loading && !error}}" class="native-empty" icon="wallet" description="{{group.empty}}"/>
     <view wx:if="{{pagers[group.name].hasMore}}" class="pagination">
       <button class="outline small" data-collection="{{group.name}}" bindtap="more" loading="{{pagers[group.name].loading}}">加载更多记录</button>
     </view>
