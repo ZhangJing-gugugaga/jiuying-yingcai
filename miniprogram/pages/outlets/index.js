@@ -64,6 +64,13 @@ function groupRows(rows,directory){
   return Array.from(groups.values());
 }
 
+function resultScope(page,session=api.session()){
+  const {search,region,statusFilter,geo,countryCode}=page.data;
+  const directory=!session||session.role==='public'||page.query?.scope==='public';
+  return JSON.stringify([session?.token||'',session?.role||'',page.query?.scope||'',search,region,
+    directory?geo:statusFilter,directory?countryCode:'']);
+}
+
 const page=define({
   collections:[{
     name:'outlets',
@@ -80,7 +87,7 @@ const page=define({
     }
   }],
   data:{
-    directory:false,search:'',searchDraft:'',recentSearches:[],showRecent:false,region:[],showRegionFilters:false,statusFilter:'all',statusFilters,rows:[],groups:[],mode:'list',
+    directory:false,search:'',searchDraft:'',recentSearches:[],showRecent:false,region:[],showRegionFilters:false,statusFilter:'all',statusFilters,rows:[],groups:[],mode:'list',retainingRows:false,
     geography,geo:'all',countryCode:'',availableCountries:[],countryChoices:[allCountries],countryIndex:0,countriesLoaded:false,
     markers:[],center:null,zoom:mapView.minScale,minScale:mapView.minScale,maxScale:mapView.maxScale,
     mapLoading:false,mapError:'',pointCount:0,selectedPoint:null,clusterRows:[],clusterTotal:0
@@ -101,7 +108,22 @@ const page=define({
   },
   async loaded(s){
     const directory=this.data.isPublic||this.query.scope==='public';
+    const scope=resultScope(this,this.data.session);
+    const pending=this._returning;
+    if(pending?.serial===this._serial){
+      this._returning=null;
+      if(!directory&&pending.range.scope===scope){
+        const {serial,range}=pending;
+        while(serial===this._serial&&scope===resultScope(this)&&this.data.pagers.outlets?.hasMore&&
+          this.data.pagers.outlets.loaded<range.loaded){
+          await this.fetchCollection('outlets',false,serial,false);
+        }
+        if(serial!==this._serial||scope!==resultScope(this))return;
+        s=this.data.state;
+      }
+    }
     const rows=s.outlets.map(directory?publicRow:privateRow);
+    this._rowScope=scope;
     this.setData({directory,rows,groups:groupRows(rows,directory),recentSearches:directory?recentSearches():[]});
     this.updatePublicShareMenu();
     wx.setNavigationBarTitle?.({title:directory?'服务网点':'我的网点'});
@@ -290,7 +312,7 @@ const page=define({
   },
   open(e){this.openOutlet(e.currentTarget.dataset.id);},
   openFromPrivateList(page,query){
-    const range={token:this.data.session?.token,scope:this.query.scope,loaded:this.data.pagers.outlets?.loaded||0};
+    const range={scope:this._rowScope,loaded:this.data.pagers.outlets?.loaded||0};
     go(page,query,()=>{this._returnRange=range;});
   },
   privateOutlet(id){
@@ -324,20 +346,17 @@ const refresh=page.refresh;
 page.refresh=async function(){
   const range=this._returnRange;
   this._returnRange=null;
+  const retainingRows=this.data.mode==='list'&&this.data.hasLoaded&&this.data.rows.length>0&&
+    this._rowScope===resultScope(this);
+  if(retainingRows!==this.data.retainingRows)this.setData({retainingRows});
+  this._returning=range?{range,serial:(this._serial||0)+1}:null;
   this.updatePublicShareMenu();
   const pending=refresh.call(this);
   const serial=this._serial;
-  await pending;
-  const canRestore=()=>range&&serial===this._serial&&range.token===api.session()?.token&&range.scope===this.query.scope&&
-    !this.data.directory&&!this.data.isPublic&&!this.data.error&&this.data.pagers.outlets?.hasMore&&this.data.pagers.outlets.loaded<range.loaded;
-  if(!canRestore())return;
-  this.setData({loading:true});
   try{
-    while(canRestore())await this.fetchCollection('outlets',false,serial);
-  }catch{
-    // fetchCollection sets the list’s retry state when a page fails.
+    await pending;
   }finally{
-    if(serial===this._serial)this.setData({loading:false});
+    if(serial===this._serial&&this.data.retainingRows)this.setData({retainingRows:false});
   }
 };
 Page(page);

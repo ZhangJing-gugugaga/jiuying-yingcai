@@ -332,6 +332,7 @@ test('single-field correction preserves approved baseline in draft and submit ev
   assert.equal(editor.data.canCorrect, false);
   assert.match(editor.data.editNotice, /有效完成订单/);
   assert.deepEqual(editor.data.editableFields, { revenue: false, orders: true, traffic: false, enroll: false, note: false });
+  assert.deepEqual(editor.data.nextNumericField, {});
   for (const field of ['revenue', 'orders', 'traffic', 'enroll']) {
     assert.match(markup, new RegExp(`<number-field[^>]*field="${field}"[^>]*disabled="[^"]*!editableFields\\.${field}[^"]*"`));
   }

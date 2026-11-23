@@ -59,8 +59,10 @@ function workbenchTask(row){
   const [name,icon,tone,status]=appearance[row.kind]||[title,'task','blue','待处理'];
   const completed=row.status==='resolved';
   const amount=Number.isFinite(row.amount)&&['bill_unpaid','bill_overdue'].includes(row.kind)?'¥'+fmt.money(row.amount):'';
+  const outletName=row.outlet&&row.outletName!==row.outlet?row.outletName:'';
+  const scopeDetail=[month,amount].filter(Boolean).join(' · ');
   return {id:row.id,title:completed?(taskLabels[row.kind]?.subject||name):name,icon,tone,
-    status:completed?'已完成':status,scope:[row.outlet&&row.outletName!==row.outlet?row.outletName:'',month,amount].filter(Boolean).join(' · '),
+    status:completed?'已完成':status,outletName,scopeDetail,scope:[outletName,scopeDetail].filter(Boolean).join(' · '),
     reason:completed?'':row.returnReason||'',actionText:completed?'查看记录':row.kind==='report_returned'?'立即修改':actionText,canOpen:canOpenRecord(row)};
 }
 

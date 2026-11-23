@@ -68,6 +68,8 @@
   font-size: max(23rpx, 12px);
 }
 .outlets-page button.outlet-quick-filter.active { border-color: var(--brand); color: var(--brand); }
+.outlet-status-filters { display: grid; grid-template-columns: repeat(5, minmax(44px, 1fr)); }
+.outlets-page .outlet-status-filters button.outlet-quick-filter { padding: 0 4rpx; line-height: 1.25; text-wrap: balance; }
 .outlet-toolbar { display: flex; flex-wrap: wrap; gap: 0 var(--space-lg); align-items: center; }
 .outlets-page button.outlet-toolbar-link {
   display: inline-flex;
@@ -95,6 +97,7 @@
   background: linear-gradient(145deg, #d9ebfd, #eff6ff);
   color: var(--brand);
 }
+.outlet-private-entry .outlet-card-icon { width: 70rpx; height: 70rpx; }
 .outlet-card-copy { min-width: 0; flex: 1; overflow-wrap: anywhere; }
 .outlet-heading { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 4rpx var(--space-xs); }
 .outlet-heading .card-title { min-width: 0; margin: 0; line-height: 1.28; }
@@ -103,7 +106,7 @@
 .outlet-detail-label { align-self: center; color: var(--muted); flex-shrink: 0; }
 .outlet-service-tags, .outlet-business-chips { display: flex; gap: 6rpx; flex-wrap: wrap; }
 .outlet-service-tags { margin-top: var(--space-xs); }
-.outlet-business-chips { flex: 1 1 320rpx; min-width: 0; }
+.outlet-business-chips { flex: 1 1 310rpx; min-width: 0; }
 .outlet-service-tag, .outlet-business-chip {
   display: inline-flex;
   flex-wrap: wrap;
@@ -118,13 +121,24 @@
   overflow-wrap: anywhere;
 }
 .outlet-service-tag { background: var(--brand-soft); }
-.outlet-business-chip .badge { margin: 0; }
+.outlet-business-chip {
+  column-gap: 5rpx;
+  padding: 2rpx 6rpx;
+  font-size: max(22rpx, 11px);
+  line-height: 1.35;
+}
+.outlet-business-chip .outlet-business-state {
+  margin: 0;
+  padding: 2rpx 7rpx;
+  font-size: inherit;
+}
+.outlet-settlement { color: var(--muted); }
 .outlet-business-footer {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: var(--space-xs) var(--space-sm);
-  margin-top: var(--space-xs);
+  gap: var(--space-xs);
+  margin-top: var(--space-2xs);
 }
 .outlets-page button.outlet-next-button:not([size="mini"]) {
   display: flex;

@@ -2,8 +2,10 @@
   <label class="number-label" for="number-{{field}}">{{label}}</label>
   <input id="number-{{field}}" class="number-control {{focused ? 'focused' : ''}} {{error ? 'invalid' : ''}}"
     name="{{field}}" type="{{keyboard}}" value="{{value}}" placeholder="{{placeholder}}" disabled="{{disabled}}"
+    focus="{{focus && !disabled}}" confirm-type="{{confirmType}}" confirm-hold="{{confirmType==='next'}}"
     aria-label="{{error ? label + '，' + error : label}}" cursor-spacing="24"
-    bindfocus="handleFocus" bindinput="handleInput" bindblur="handleBlur"/>
+    bindfocus="handleFocus" bindinput="handleInput" bindblur="handleBlur"
+    bindconfirm="handleConfirm" bindkeyboardheightchange="handleKeyboardHeightChange"/>
   <view wx:if="{{error}}" class="number-error" aria-live="polite">{{error}}</view>
   <view wx:elif="{{hint}}" class="number-hint">{{hint}}</view>
 </view>

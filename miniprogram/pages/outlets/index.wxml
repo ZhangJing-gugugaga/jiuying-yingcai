@@ -1,4 +1,4 @@
-<view class="page tab-page outlets-page">
+<view class="page tab-page outlets-page" aria-busy="{{loading}}">
   <view wx:if="{{error}}" class="error">暂时无法获取网点信息，请重试。<button class="link top-gap" bindtap="refresh">重试</button></view>
   <view class="outlet-search-bar">
     <view class="outlet-search">
@@ -22,7 +22,7 @@
       <t-icon name="{{mode==='map' ? 'view-list' : 'map'}}" size="32rpx" aria-hidden="true"/><text>{{mode==='map' ? '返回列表' : '查看地图'}}</text>
     </button>
   </view>
-  <view wx:elif="{{state}}" class="outlet-quick-filters" aria-label="网点营业状态">
+  <view wx:elif="{{state}}" class="outlet-quick-filters outlet-status-filters" aria-label="网点营业状态">
     <button wx:for="{{statusFilters}}" wx:key="value" class="outlet-quick-filter {{statusFilter===item.value ? 'active' : ''}}" data-status="{{item.value}}" bindtap="filterStatus"
       aria-label="{{item.label + (statusFilter===item.value ? '，已选择' : '')}}">{{item.label}}</button>
   </view>
@@ -54,8 +54,9 @@
     <text>正在加载网点信息…</text>
     <view class="content-skeleton-body" aria-hidden="true"/>
   </view>
-  <view wx:elif="{{loading}}" class="loading">正在更新网点信息…</view>
-  <block wx:if="{{hasLoaded && state && !loading && !error}}">
+  <view wx:elif="{{loading && !retainingRows}}" class="loading">正在更新网点信息…</view>
+  <view wx:if="{{loading && retainingRows}}" class="tab-refresh-status" role="status">正在更新网点信息…</view>
+  <block wx:if="{{hasLoaded && state && (!loading || retainingRows) && !error}}">
     <block wx:if="{{mode==='map'}}">
       <button wx:if="{{!directory && !mapError}}" class="link" bindtap="modeUnavailable">返回网点列表</button>
       <view wx:if="{{directory}}" class="row between directory-map-options">
@@ -92,8 +93,8 @@
     <block wx:for="{{groups}}" wx:for-item="group" wx:key="key">
       <view wx:if="{{group.label}}" class="outlet-group">{{group.label}}</view>
       <view wx:for="{{group.rows}}" wx:key="id" class="card outlet-entry {{directory || isPublic ? '' : 'outlet-private-entry'}}">
-        <view class="outlet-card-link" data-id="{{item.id}}" bindtap="open" hover-class="tap-feedback" aria-role="button" aria-label="查看{{item.name}}详情">
-          <view class="outlet-card-icon"><t-icon name="shop" size="46rpx" aria-hidden="true"/></view>
+        <view class="outlet-card-link" data-id="{{item.id}}" bindtap="open" hover-class="tap-feedback" aria-role="button" aria-label="查看{{item.name}}详情" aria-disabled="{{loading}}">
+          <view class="outlet-card-icon" aria-hidden="true"><t-icon name="store" size="43rpx"/></view>
           <view class="outlet-card-copy">
             <view class="outlet-heading"><view class="card-title grow">{{item.name}}</view><text wx:if="{{item.statusText}}" class="badge {{item.statusTone}}">{{item.statusText}}</text></view>
             <view wx:if="{{directory || isPublic}}" class="outlet-location">
@@ -109,11 +110,14 @@
         <block wx:if="{{!directory && !isPublic}}">
           <view wx:if="{{item.businessChips.length || item.nextAction}}" class="outlet-business-footer">
             <view wx:if="{{item.businessChips.length}}" class="outlet-business-chips">
-              <view wx:for="{{item.businessChips}}" wx:for-item="chip" wx:key="key" class="outlet-business-chip">
-                <text>{{chip.label}}</text><text class="badge {{chip.tone}}" aria-label="{{chip.monthText+' '+chip.statusText}}">{{chip.statusText}}</text>
+              <view wx:for="{{item.businessChips}}" wx:for-item="chip" wx:key="key" class="outlet-business-chip"
+                aria-label="{{chip.title+'，'+chip.monthText+'，'+chip.statusText}}">
+                <text>{{chip.label}}</text>
+                <text class="badge outlet-business-state {{chip.tone}}">{{chip.stateText}}</text>
+                <text wx:if="{{chip.settlementText}}" class="outlet-settlement">{{chip.settlementText}}</text>
               </view>
             </view>
-            <button wx:if="{{item.nextAction}}" class="outline small outlet-next-button" data-id="{{item.id}}" bindtap="outletAction"
+            <button wx:if="{{item.nextAction}}" class="outline small outlet-next-button" data-id="{{item.id}}" bindtap="outletAction" aria-disabled="{{loading}}"
               aria-label="{{item.name+'，'+item.nextAction.text+'，'+item.nextAction.label}}">
               <text>{{item.nextAction.label}}</text>
               <text class="outlet-next-period">{{item.nextAction.monthText}}</text>

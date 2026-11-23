@@ -16,10 +16,18 @@ const signInErrors={
   ACCOUNT:'账号暂不可用，请联系总部客服。'
 };
 const activationFields=[
-  {name:'activationToken',label:'激活码',placeholder:'请输入总部发放的激活码'},
+  {name:'activationToken',label:'激活码',placeholder:'请输入激活码'},
   {name:'password',label:'设置登录密码',placeholder:'请设置 12–128 位密码'},
   {name:'confirmPassword',label:'确认登录密码',placeholder:'请再次输入密码'}
 ];
+
+function activationError(field,{activationToken,password,confirmPassword}) {
+  if(field==='activationToken'&&!activationToken.trim())return '请输入总部发放的激活码。';
+  if(field==='password'&&password.length<12)return '登录密码至少12位。';
+  if(field==='password'&&password.length>128)return '登录密码最多128位。';
+  if(field==='confirmPassword'&&password!==confirmPassword)return '两次输入的密码不一致。';
+  return '';
+}
 
 Page({
   data:{
@@ -111,8 +119,10 @@ Page({
     if(this.data.mode!=='activate'||this.data.busy||index<0)return;
     if(typeof e.detail?.value==='string')this.input(e);
     const next=activationFields[index+1];
-    if(next)this.setData({activationFocus:next.name});
-    else return this.activate();
+    if(!next)return this.activate();
+    const error=activationError(field,this.data);
+    if(error)return this.showActivationError(field,error,{keepFocus:true});
+    this.setData({activationFocus:next.name});
   },
   blurActivationField(e) {
     if(this.data.activationFocus===e.currentTarget.dataset.field)this.setData({activationFocus:''});
@@ -122,8 +132,10 @@ Page({
       wx.pageScrollTo?.({selector:'#activation-field-'+field,duration:180});
     }
   },
-  showActivationError(field,error) {
-    this.setData({activationField:field,activationFocus:'',error},()=>this.scrollToActivationError(field));
+  showActivationError(field,error,{keepFocus=false}={}) {
+    this.setData({activationField:field,error,...(keepFocus?{}:{activationFocus:''})},()=>{
+      if(!keepFocus)this.scrollToActivationError(field);
+    });
   },
   async run(action,{browse=false}={}) {
     if(this.data.busy||this.data.sessionCleanupPending||this.data.sessionCleanupRequired||this.data.mode==='staff')return;
@@ -212,13 +224,12 @@ Page({
     await this.run(()=>api.passwordLogin(username.trim(),password));
   },
   async activate() {
-    const {activationToken,password,confirmPassword,busy,sessionCleanupPending,sessionCleanupRequired}=this.data;
+    const {activationToken,password,busy,sessionCleanupPending,sessionCleanupRequired}=this.data;
     if(busy||sessionCleanupPending||sessionCleanupRequired)return;
-    if(!activationToken.trim())return this.showActivationError('activationToken','请输入总部发放的激活码。');
-    if(password.length<12||password.length>128){
-      return this.showActivationError('password',password.length<12?'登录密码至少12位。':'登录密码最多128位。');
+    for(const {name} of activationFields){
+      const error=activationError(name,this.data);
+      if(error)return this.showActivationError(name,error);
     }
-    if(password!==confirmPassword)return this.showActivationError('confirmPassword','两次输入的密码不一致。');
     await this.run(()=>api.activate(activationToken.trim(),password));
   },
   onUnload() {

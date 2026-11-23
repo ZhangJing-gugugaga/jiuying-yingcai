@@ -317,6 +317,30 @@ dialog header h2 { min-width: 0; overflow-wrap: anywhere; }
   margin-top: 12px;
 }
 
+.report-record .record-top > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.report-record .record-top > .pill {
+  flex-shrink: 0;
+}
+
+.report-note {
+  padding: 10px 0;
+  border-bottom: 1px dashed var(--line);
+}
+
+.report-note > span {
+  color: var(--muted);
+}
+
+.report-note-value {
+  margin-top: 4px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .approval-history {
   border-top: 1px solid var(--line);
   margin-top: 18px;
@@ -420,6 +444,9 @@ dialog header + .approval-history > h3 {
   .top-actions .user { display: none; }
   .topbar .iconbtn { flex-shrink: 0; }
   .page-heading { align-items: flex-start; }
+  .report-record form[data-command="review.report"] :is(select, textarea) { font-size: 16px; }
+  .report-record form[data-command="review.report"] :is(select, button[type="submit"]) { min-height: 44px; }
+  .report-record form[data-command="review.report"] button[type="submit"] { width: 100%; }
   .login .login-form { min-height: 100svh; padding: 20px; }
   .login-mobile-mark {
     display: grid;

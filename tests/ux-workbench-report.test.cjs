@@ -112,6 +112,57 @@ test('a slow outlet preview cannot overwrite a newer workbench scope', async t =
   assert.deepEqual(instance.data.activeRows.map(row => row.id), ['task-zz']);
 });
 
+test('same-outlet refresh retains the visible previews but only refreshed rows can open', async t => {
+  const requested = Promise.withResolvers();
+  const pending = Promise.withResolvers();
+  let delay = false;
+  let failContext = false;
+  const task = { id: 'pending-cs', kind: 'report_missing', status: 'open', outlet: 'cs', month: '2027-02' };
+  const record = { id: 'recent-cs', kind: 'report', outlet: 'cs', month: '2027-02', status: 'approved' };
+  const { instance, routes } = page('home', {}, t, {
+    async request(route) {
+      if (route === '/api/context') {
+        if (failContext) throw new Error('网络连接失败');
+        return { actor: 'partnerA', today };
+      }
+      if (route.startsWith('/api/workbench/records')) return entries([record]);
+      if (route.startsWith('/api/training/records')) return entries([{ id: 'training-cs', outletId: 'cs' }]);
+      return {};
+    },
+    async collection(name) {
+      if (name === 'outlets') return entries([outlets[0]]);
+      if (name !== 'businessTasks') return entries([]);
+      if (!delay) return entries([task]);
+      requested.resolve();
+      return pending.promise;
+    },
+  });
+  await instance.onShow();
+  delay = true;
+  const refresh = instance.refresh();
+  await requested.promise;
+  assert.equal(instance.data.openTotal, 1);
+  assert.equal(instance.data.activeRows[0].id, task.id);
+  assert.equal(instance.data.recentRows[0].id, record.id);
+  assert.equal(instance.data.trainingRecord.id, 'training-cs');
+  await instance.openWorkbenchTask(tap({ id: task.id }));
+  await instance.openWorkbenchTask(tap({ key: instance.data.recentRows[0].rowKey }));
+  instance.openTrainingSupplement();
+  assert.deepEqual(routes, []);
+  pending.resolve(entries([]));
+  await refresh;
+  assert.equal(instance.data.openTotal, 0);
+  assert.equal(instance.data.activeRows.length, 0);
+  instance.openTrainingSupplement();
+  assert.equal(routes.at(-1), '/pages/training/index?id=training-cs&outlet=cs');
+
+  failContext = true;
+  await instance.refresh();
+  assert.equal(instance.data.openTotal, null);
+  assert.equal(instance.data.recentRows.length, 0);
+  assert.equal(instance.data.trainingRecord, null);
+});
+
 test('my matters opens a task by ID and ignores the ID of a stale refreshed row', async t => {
   const first = { id: 'task-a', kind: 'report_missing', outlet: 'cs', month: '2027-02', status: 'open' };
   const second = { id: 'task-b', kind: 'report_missing', outlet: 'zz', month: '2027-02', status: 'open' };

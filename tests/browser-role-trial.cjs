@@ -145,7 +145,8 @@ async function run() {
     assert.equal(report.data.outletId,'zz');
     assert.equal(report.data.month,'2026-10');
     assert.equal(report.data.canSubmit,true);
-    report.submit({detail:{value:{...report.data.form,traffic:'26'}}});
+    const resubmitNote='补充经营说明第一行。\n第二行核对客流。\n'+'A'.repeat(180);
+    report.submit({detail:{value:{...report.data.form,traffic:'26',note:resubmitNote}}});
     assert.equal(report.data.inlineConfirmation,true,report.data.error);
     await report.confirmSubmit();
     const submitRequest=native.requests.find(row=>row.command==='report.submit'&&row.status===200)?.id;
@@ -183,7 +184,19 @@ async function run() {
     await switchTo('总管理员');
     assert.equal(await page.locator('.nav [data-page="team"]').count(),1);
     await reportLink.click();
-    await page.locator('.record').filter({hasText:'株洲示范网点B'}).filter({hasText:/V2/}).waitFor();
+    const reviewedRecord=page.locator('.report-record').filter({hasText:'株洲示范网点B'}).filter({hasText:/V2/});
+    await reviewedRecord.waitFor();
+    await page.setViewportSize({width:320,height:844});
+    const noteLayout=await reviewedRecord.locator('.report-note-value').evaluate(element=>({
+      text:element.textContent, width:element.clientWidth, scrollWidth:element.scrollWidth,
+      whitespace:getComputedStyle(element).whiteSpace,
+    }));
+    assert.equal(noteLayout.text,resubmitNote);
+    assert.equal(noteLayout.whitespace,'pre-wrap');
+    assert.equal(noteLayout.scrollWidth,noteLayout.width);
+    const reviewButton=reviewedRecord.getByRole('button',{name:'确认审核',exact:true});
+    assert.ok((await reviewButton.boundingBox()).height>=44);
+    await page.setViewportSize({width:1280,height:850});
 
     const openApplication=()=>bar.getByRole('button',{name:'查看这笔加盟申请',exact:true}).click();
     async function reviewApplication(action,name){

@@ -69,8 +69,10 @@
 .report-actions { padding-top: var(--space-md); }
 .report-action-buttons { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: var(--space-sm); }
 .report-actions.action-dock { padding-top: var(--space-xs); padding-bottom: calc(var(--space-xs) + env(safe-area-inset-bottom, 0px)); }
+.report-actions.action-dock.report-actions-typing { position: static; }
 .report-actions.action-dock .report-action-buttons { grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; }
 .report-page .report-action-buttons button { width: 100%; margin: 0; }
+.report-page .report-actions.action-dock .report-action-buttons button { padding: var(--space-md) var(--space-xs); line-height: 1.25; }
 .version-card.linked-version + .version-grid{margin-top:16rpx}
 #report-history + .version-grid{margin:0 0 20rpx}
 

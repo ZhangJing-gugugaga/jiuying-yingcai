@@ -110,9 +110,65 @@ test('core surfaces present an accessible initial skeleton and keep visible refr
     const file = read('pages/' + page + '/index.wxml');
     assert.match(file, /wx:if="\{\{loading && !hasLoaded[^"]*\}\}" class="card content-skeleton"/, page);
     assert.match(file, /class="content-skeleton-body" aria-hidden="true"/, page);
-    assert.match(file, /class="loading">正在更新/, page);
+    assert.match(file, /class="(?:loading|tab-refresh-status)"(?: role="status")?>正在更新/, page);
   }
   assert.match(read('styles/components.wxss'), /\.content-skeleton-body::before,[\s\S]*?\.content-skeleton-body::after/);
+});
+
+test('directory keeps same-scope cards until returning pages settle and hides them during scope changes', async t => {
+  patchRuntime(t);
+  let definition;
+  global.Page = page => { definition = page; };
+  const file = require.resolve('../miniprogram/pages/outlets/index.js');
+  delete require.cache[file];
+  require(file);
+  let token = 'member-one';
+  api.session = () => ({ role: 'partner', token });
+  api.request = async () => ({ actor: token, today });
+  const row = id => ({ id, name: id, owner: token, status: 'open' });
+  const firstPage = { items: [row('first')], total: 2, offset: 0, limit: 1, hasMore: true };
+  const secondPage = { items: [row('second')], total: 2, offset: 1, limit: 1, hasMore: false };
+  const requested = Promise.withResolvers();
+  const nextResult = Promise.withResolvers();
+  let delaySecond = false;
+  api.collection = async (_name, filters) => {
+    if (filters.q || token === 'member-two') return entries([row(token)]);
+    if (!filters.offset) return firstPage;
+    if (!delaySecond) return secondPage;
+    requested.resolve();
+    return nextResult.promise;
+  };
+  let opens = 0;
+  wx.navigateTo = options => { opens += 1; options.success(); };
+  const page = instance(definition, 'outlets', { scope: 'private' });
+  await page.refresh();
+  await page.more({ currentTarget: { dataset: { collection: 'outlets' } } });
+  assert.deepEqual(page.data.rows.map(item => item.id), ['first', 'second']);
+  page.openOutlet('second');
+  assert.equal(opens, 1);
+
+  delaySecond = true;
+  const returning = page.refresh();
+  await requested.promise;
+  assert.equal(page.data.loading, true);
+  assert.equal(page.data.retainingRows, true);
+  assert.deepEqual(page.data.rows.map(item => item.id), ['first', 'second']);
+  page.openOutlet('second');
+  assert.equal(opens, 1);
+  nextResult.resolve(secondPage);
+  await returning;
+  assert.equal(page.data.retainingRows, false);
+
+  const search = page.search({ detail: { value: 'new search' } });
+  assert.equal(page.data.retainingRows, false);
+  assert.equal(page.data.loading, true);
+  await search;
+  token = 'member-two';
+  const other = page.refresh();
+  assert.equal(page.data.retainingRows, false);
+  assert.equal(page.data.hasLoaded, false);
+  await other;
+  assert.deepEqual(page.data.rows.map(item => item.id), ['member-two']);
 });
 
 test('layout wraps full detail text, separates tab inset from its target, and leaves keyboard room', () => {

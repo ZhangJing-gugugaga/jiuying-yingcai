@@ -50,8 +50,8 @@
         </view>
         <view wx:if="{{activationField===item.name}}" class="activation-field-error" aria-live="polite">{{error}}</view>
       </view>
-      <button class="primary activation-submit" bindtap="activate" loading="{{busy}}" disabled="{{busy || sessionCleanupPending || sessionCleanupRequired}}">立即激活</button>
     </view>
+    <button class="primary activation-submit" bindtap="activate" loading="{{busy}}" disabled="{{busy || sessionCleanupPending || sessionCleanupRequired}}">立即激活</button>
     <view class="activation-return">
       <text>已有账号？</text><button class="link activation-link" data-mode="methods" bindtap="mode" disabled="{{busy}}">立即登录</button>
     </view>

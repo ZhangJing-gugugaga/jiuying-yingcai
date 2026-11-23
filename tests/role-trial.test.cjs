@@ -81,6 +81,41 @@ test('regular development configuration omits the role trial', async t => {
   await response(base,'/role-trial/applicant',{body:{},status:401});
 });
 
+test('prototype preview builds an isolated package with published content and scoped rework samples', async t => {
+  const { startPrototypePreview } = require('../scripts/prototype-preview.cjs');
+  const trial = await startPrototypePreview({ port: 0, appId: 'touristappid' });
+  t.after(async () => {
+    await trial.stop();
+    const dist = path.resolve(__dirname, '../dist');
+    assert.equal(path.dirname(trial.project), dist);
+    assert.match(path.basename(trial.project), /^ui-prototype-preview-/);
+    fs.rmSync(trial.project, { recursive: true, force: true });
+  });
+  const manifest = JSON.parse(fs.readFileSync(path.join(trial.project, 'build-manifest.json'), 'utf8'));
+  assert.equal(manifest.apiBase, trial.url);
+  assert.equal(manifest.checks.pages, 21);
+  assert.equal(trial.app.server.address().address, '127.0.0.1');
+  const get = (route, token) => response(trial.url, route, { token });
+  const visitor = await response(trial.url, '/auth/visitor', { body: {} });
+  const published = (await get('/collections/publicContents', visitor.token)).items;
+  assert.equal(published.filter(row => /^service-/.test(row.key) && row.summary).length, 5);
+  assert.ok(published.find(row => row.key === 'brand')?.imageId);
+  for (const [geo, city] of [['mainland', '长沙'], ['overseas', '新加坡']]) {
+    const { items } = await get('/collections/outlets?scope=public&geo=' + geo, visitor.token);
+    assert.ok(items.some(row => row.city === city && row.publicCoords));
+    assert.ok(items.every(row => !row.summary));
+  }
+  const login = actor => response(trial.url, '/auth/dev', { body: { actor } });
+  const partner = await login('partnerA');
+  const other = await login('partnerB');
+  const tasks = (await get('/tasks?queue=partner&outlet=cs', partner.token)).items;
+  assert.ok(tasks.some(row => row.kind === 'report_returned'));
+  assert.ok(tasks.some(row => row.kind === 'training_material_returned'));
+  const scoped = (await get('/collections/outlets?includeSummary=true', partner.token)).items.find(row => row.id === 'cs');
+  assert.ok(scoped.summary.report.returnedVersionId);
+  await response(trial.url, '/collections/outlets/cs', { token: other.token, status: 404 });
+});
+
 test('trial payment proof is returned and supplemented by the same private applicant', async t => {
   const {startRoleTrial}=require('../scripts/role-trial.cjs');
   const directory=fs.mkdtempSync(path.join(os.tmpdir(),'jiuying-role-trial-onboarding-'));

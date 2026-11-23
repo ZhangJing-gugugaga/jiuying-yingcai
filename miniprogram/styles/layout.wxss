@@ -9,6 +9,22 @@
   padding-bottom: calc(var(--tab-bar-height) + var(--space-xl) + env(safe-area-inset-bottom, 0px));
 }
 
+.tab-refresh-status {
+  position: fixed;
+  bottom: calc(var(--tab-bar-height) + env(safe-area-inset-bottom, 0px) + var(--space-xs));
+  left: 50%;
+  z-index: 2;
+  transform: translateX(-50%);
+  padding: var(--space-xs) var(--space-md);
+  border: 1rpx solid var(--border);
+  border-radius: 999rpx;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: var(--font-caption);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
 .title {
   font-size: var(--font-title);
   font-weight: 650;

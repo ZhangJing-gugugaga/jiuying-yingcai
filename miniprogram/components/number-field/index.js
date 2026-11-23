@@ -8,6 +8,8 @@ Component({
     keyboard: { type: String, value: 'number' },
     placeholder: String,
     disabled: Boolean,
+    focus: Boolean,
+    confirmType: { type: String, value: 'done' },
   },
   data: { focused: false },
   methods: {
@@ -20,6 +22,12 @@ Component({
     handleBlur(event) {
       this.setData({ focused: false });
       this.triggerEvent('fieldblur', event.detail);
+    },
+    handleConfirm(event) {
+      this.triggerEvent('fieldconfirm', event.detail);
+    },
+    handleKeyboardHeightChange(event) {
+      this.triggerEvent('fieldkeyboard', event.detail);
     },
   },
 });

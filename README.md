@@ -19,6 +19,8 @@ powershell -NoProfile -File .\start.ps1
 
 打开 [总部 Web](http://127.0.0.1:8787/) 或检查 [/health](http://127.0.0.1:8787/health)。默认开发库为 `var/local.db`。切换环境时核对 `DB_PATH`、端口与渠道模式。`start.ps1` 加载本地配置；单独使用 `npm start` 时通过进程环境提供配置。
 
+查看带五项业务、国内外网点和退回月报样本的界面，使用[本机原型预览](docs/ui-prototype/implementation-handoff.md#本机原型预览)。
+
 ## 开发入口
 
 | 工作 | 文档 |

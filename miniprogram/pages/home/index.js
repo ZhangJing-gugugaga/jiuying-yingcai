@@ -34,11 +34,13 @@ async function firstOutletProgress(page){
   return firstOutletError;
 }
 
+const emptyWorkbench={activeRows:[],recentRows:[],openTotal:null,trainingRecord:null};
 const viewData={
-  outletCount:null,managerName:'',firstOutlet:null,displayDate:'',openTotal:null,taskError:false,
+  ...emptyWorkbench,
+  outletCount:null,managerName:'',firstOutlet:null,displayDate:'',taskError:false,
   scopeOutlet:'',scopeIndex:0,scopeOutlets:[],scopeLabels:[],scopeName:'',scopeStatus:'',scopeTone:'',
-  activeRows:[],recentRows:[],recentError:false,taskLoading:false,recentLoading:false,openingTask:false,taskOpenError:'',
-  trainingRecord:null,moreBusiness:false,
+  recentError:false,taskLoading:false,recentLoading:false,trainingLoading:false,openingTask:false,taskOpenError:'',
+  moreBusiness:false,
   hasUnreadNotices:false,groupIntro:null,publishedServices:[],headquartersPhone:''
 };
 const home=define({
@@ -158,11 +160,14 @@ const home=define({
   },
   async loadWorkbenchTasks(){
     if(!this.isWorkbenchSession())return;
-    const serial=this._serial,attempt={},outlet=this.data.scopeOutlet||undefined;
+    const scope=this.data.scopeOutlet;
+    const serial=this._serial,attempt={},outlet=scope||undefined;
+    const changed=this._workbenchScope!==scope;
+    this._workbenchScope=scope;
     this._workbenchLoad=attempt;
     this._workbenchRows=[];
-    this.setData({taskLoading:true,recentLoading:true,activeRows:[],recentRows:[],openTotal:null,taskError:false,recentError:false,
-      openingTask:false,taskOpenError:'',trainingRecord:null});
+    this.setData({...(changed?emptyWorkbench:{}),taskLoading:true,recentLoading:true,trainingLoading:true,taskError:false,recentError:false,
+      openingTask:false,taskOpenError:''});
     this._workbenchOpen=null;
     const current=()=>serial===this._serial&&this._workbenchLoad===attempt&&this.isWorkbenchSession();
     await Promise.all([
@@ -176,13 +181,14 @@ const home=define({
         if(current())this.setData({recentLoading:false,recentRows:(result?.items||[]).map(businessRecord),recentError:!result});
       }),
       api.request('/api/training/records?'+api.query({outlet,limit:1,status:'returned'}),'GET',undefined,{},true,this).catch(()=>null).then(result=>{
-        if(current())this.setData({trainingRecord:result?.items?.[0]||null});
+        if(current())this.setData({trainingLoading:false,trainingRecord:result?.items?.[0]||null});
       })
     ]);
   },
   async openWorkbenchTask(e){
-    if(!this.isWorkbenchSession()||this.data.openingTask)return;
     const {id,key}=e.currentTarget.dataset;
+    const {loading,error,openingTask,taskLoading,recentLoading}=this.data;
+    if(!this.isWorkbenchSession()||loading||error||openingTask||(key?recentLoading:taskLoading))return;
     const recent=key&&this.data.recentRows.find(row=>row.rowKey===key);
     const task=id&&this._workbenchRows?.find(row=>row.id===id);
     if(!recent&&(!task||!canOpenRecord(task)))return;
@@ -211,7 +217,7 @@ const home=define({
     go('tasks',api.query({section,status,outlet:this.data.scopeOutlet||undefined}));
   },
   openTrainingSupplement(){
-    if(!this.isWorkbenchSession())return;
+    if(!this.isWorkbenchSession()||this.data.loading||this.data.error||this.data.trainingLoading)return;
     const record=this.data.trainingRecord;
     if(record?.id&&record.outletId)go('training',api.query({id:record.id,outlet:record.outletId}));
   },
@@ -274,7 +280,7 @@ const home=define({
   },
 });
 const refresh=home.refresh;
-home.refresh=function(){
+home.refresh=async function(){
   const session=api.session();
   const publicView=this.data.publicLanding||!session||session.role==='public';
   const token=session?.token;
@@ -283,13 +289,20 @@ home.refresh=function(){
   if(changed){
     this._homeView={publicView,token,role:session?.role};
     this._selectedOutlet=null;
+    this._workbenchScope=null;
   }
   this._workbenchRows=[];
   this._workbenchOpen=null;
   this.setData({publicView,session,...(changed?viewData:this.data.firstOutlet?{firstOutlet:firstOutletLoading}:{}),
-    ...(!publicView?{taskLoading:true,recentLoading:true,activeRows:[],recentRows:[],trainingRecord:null,openingTask:false,taskOpenError:''}:{})});
+    ...(!publicView?{taskLoading:true,recentLoading:true,trainingLoading:true,openingTask:false,taskOpenError:''}:{})});
   this.updatePublicShareMenu();
-  return refresh.call(this);
+  const pending=refresh.call(this);
+  const serial=this._serial;
+  await pending;
+  if(!publicView&&serial===this._serial&&this.data.error){
+    this._workbenchScope=null;
+    this.setData({...emptyWorkbench,taskLoading:false,recentLoading:false,trainingLoading:false});
+  }
 };
 /* DEV_ONLY_START */
 if(roleTrial.enabled){

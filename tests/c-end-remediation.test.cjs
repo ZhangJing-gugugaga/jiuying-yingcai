@@ -103,7 +103,11 @@ test('private outlet cards display authoritative month, review, settlement and m
   assert.deepEqual(current.summaryRows.map(row=>[row.monthText,row.statusText]), [
     ['2026年10月','财务复核中 · 尚未结算'],['2026年11月','待提交位置资料'],['2026年11月','暂无账单']
   ]);
+  assert.deepEqual(current.businessChips.map(row=>[row.stateText,row.settlementText]), [
+    ['财务复核中','尚未结算'],['暂无账单','']
+  ]);
   assert.deepEqual(notRequired.summaryRows.map(row=>row.statusText), ['已免报','本月无需核验','已结清']);
+  assert.ok(notRequired.businessChips.every(row=>row.settlementText===''));
   assert.equal(legacy.summaryRows.length,0);
 });
 

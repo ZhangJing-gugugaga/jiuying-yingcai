@@ -12,8 +12,10 @@ function outletSummaryRows(summary){
     const record=summary?.[key];
     const monthText=labelMonth(record?.month);
     if(!monthText)return [];
-    const settlement=key==='report'?settlementLabels[record.settlementStatus]:'';
-    return [{key,title,monthText,statusText:[labels[record.status]||'暂不可查看',settlement].filter(Boolean).join(' · ')}];
+    const stateText=labels[record.status]||'暂不可查看';
+    const settlementText=key==='report'?(settlementLabels[record.settlementStatus]||''):'';
+    const statusText=[stateText,settlementText].filter(Boolean).join(' · ');
+    return [{key,title,monthText,stateText,settlementText,statusText}];
   });
 }
 

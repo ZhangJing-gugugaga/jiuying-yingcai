@@ -74,7 +74,7 @@ const editor = define({
     currentApprovedVersion: null, latestSubmittedVersion: null, linkedVersion: null,
     versionUnavailable: false, currentAction: '', returnedReason: '', directReturnedEdit: false, submitting: false, inlineConfirmation: false,
     submitConfirmationContent: confirmationContent, showActionError: false, actionNotice: '',
-    missingFields: [], missingFieldsText: '', fieldErrors: {}, confirmationRows: [],
+    missingFields: [], missingFieldsText: '', fieldErrors: {}, confirmationRows: [], nextNumericField: {}, focusField: '', keyboardOpen: false,
     reason: '', correctionError: '', correctionType: 'field', correctionFieldIndex: 0, correctionOptions: [], recoveryAvailable: false,
   },
 
@@ -83,6 +83,7 @@ const editor = define({
   },
 
   onHide() {
+    if (this.data.focusField || this.data.keyboardOpen) this.setData({ focusField: '', keyboardOpen: false });
     if (!this._dirty || !this.data.canEdit || this._recoveryToken !== api.session()?.token) return;
     recovery.save(api.session(), this._recoveryScope, this.data.form, this.data.editableFields);
   },
@@ -159,6 +160,8 @@ const editor = define({
     const editableFields = Object.fromEntries(fields.map(field => [field,
       canEdit && (!correctionFields || correctionFields.includes(field)) && (field !== 'enroll' || applicable),
     ]));
+    const editableNumbers = numericFields.filter(field => editableFields[field]);
+    const nextNumericField = Object.fromEntries(editableNumbers.slice(0, -1).map((field, index) => [field, editableNumbers[index + 1]]));
     this._recoveryScope = { outlet, month, revision: recovery.revision(context, editableFields) };
     if (token !== this._recoveryToken) this._dirty = false;
     this._recoveryToken = token;
@@ -181,7 +184,8 @@ const editor = define({
       monthDisplay:fmt.monthText(month),dueDisplay:fmt.dateText(timing?.dueOn),
       displayStatus:linkedId ? linkedVersion?.statusText || '' : reason==='exempt'?'已免报':latestSubmittedVersion?.statusText||(context.draft?'草稿':canEdit?'待填写':''),
       displayStatusTone:linkedId ? linkedVersion?.statusTone : reason==='exempt'?'ok':latestSubmittedVersion?.statusTone||(canEdit||context.draft?'wait':'gray'),
-      hasDraft: !!context.draft, canEdit, canSubmit, canCorrect, editNotice, editableFields, correctionOptions, correctionFieldIndex, form, recoveryAvailable,
+      hasDraft: !!context.draft, canEdit, canSubmit, canCorrect, editNotice, editableFields, nextNumericField, correctionOptions, correctionFieldIndex, form, recoveryAvailable,
+      focusField: '', keyboardOpen: false,
       ...(canEdit ? missingDetails(form, applicable) : { missingFields: [], missingFieldsText: '' }),
       noteExpanded: !!form.note || this.data.noteExpanded,
       formExpanded: this.data.formExpanded || canEdit && !recoveryAvailable,
@@ -234,7 +238,7 @@ const editor = define({
         currentApprovedVersion: null, latestSubmittedVersion: null, linkedVersion: null, versionUnavailable: false,
         currentAction: '', returnedReason: '', directReturnedEdit: false, reason: '', correctionError: '', showActionError: false, actionNotice: '', displayStatus: '', dueDisplay: '',
         historyExpanded: !!versionId, formExpanded: false, correctionExpanded: false, noteExpanded: false, fieldHintsExpanded: false, hasDraft: false,
-        missingFields: [], missingFieldsText: '', fieldErrors: {}, confirmationRows: [],
+        missingFields: [], missingFieldsText: '', fieldErrors: {}, confirmationRows: [], nextNumericField: {}, focusField: '', keyboardOpen: false,
         correctionType: 'field', correctionFieldIndex: 0, recoveryAvailable: false,
       });
       this.updateLeaveWarning();
@@ -278,7 +282,30 @@ const editor = define({
   blurField(event) {
     const { field } = event.currentTarget.dataset;
     if (!numericFields.includes(field) || !this.data.editableFields[field] || this._confirming) return;
-    this.setData({ ['fieldErrors.' + field]: fieldError(field, this.data.form[field]) });
+    this.setData({
+      ['fieldErrors.' + field]: fieldError(field, this.data.form[field]),
+      ...(this.data.focusField === field ? { focusField: '' } : {}),
+    });
+  },
+
+  confirmField(event) {
+    const { field } = event.currentTarget.dataset;
+    const { busy, loading, switching, editableFields, nextNumericField } = this.data;
+    if (!numericFields.includes(field) || !editableFields[field] || busy || loading || switching || this._confirming) return;
+    const value = typeof event.detail?.value === 'string' ? event.detail.value : this.data.form[field];
+    if (typeof event.detail?.value === 'string') this.input(event);
+    const error = fieldError(field, value);
+    const next = nextNumericField[field];
+    this.setData({
+      ['fieldErrors.' + field]: error,
+      ...(!error && next ? { focusField: next } : {}),
+    });
+  },
+
+  keyboardHeightChanged(event) {
+    if (!this.data.directReturnedEdit) return;
+    const keyboardOpen = event.detail.height > 0;
+    if (keyboardOpen !== this.data.keyboardOpen) this.setData({ keyboardOpen });
   },
 
   toggleNote() {
@@ -397,7 +424,7 @@ const editor = define({
       value: field === 'revenue' ? '¥' + fmt.money(input.revenue) : input[field] == null ? '不适用' : input[field] + ' ' + units[field],
     }));
     if (input.note) confirmationRows.push({ field: 'note', label: fieldNames.note, value: input.note });
-    this.setData({ inlineConfirmation: true, confirmationRows, fieldErrors: {}, error: '', showActionError: false, actionNotice: '' });
+    this.setData({ inlineConfirmation: true, confirmationRows, fieldErrors: {}, focusField: '', keyboardOpen: false, error: '', showActionError: false, actionNotice: '' });
   },
 
   async confirmSubmit() {

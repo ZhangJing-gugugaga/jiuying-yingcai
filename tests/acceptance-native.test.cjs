@@ -158,6 +158,9 @@ test('the activation form reports errors at the corresponding field and redeems 
   const login = page('login', { mode: 'activate' });
   await login.onShow();
   const activationRequests = () => calls.filter(call => call.method === 'POST' && call.url?.endsWith('/api/auth/activate'));
+  login.confirmActivationField({ ...tap({ field: 'activationToken' }), detail: { value: ' ' } });
+  assert.equal(login.data.activationField, 'activationToken');
+  assert.equal(login.data.activationFocus, '');
   await login.activate();
   assert.equal(login.data.activationField, 'activationToken');
   assert.equal(calls.at(-1).scrollTo, '#activation-field-activationToken');
@@ -167,12 +170,16 @@ test('the activation form reports errors at the corresponding field and redeems 
   login.blurActivationField(tap({ field: 'activationToken' }));
   assert.equal(login.data.activationFocus, 'password');
   login.confirmActivationField({ ...tap({ field: 'password' }), detail: { value: 'short' } });
-  assert.equal(login.data.activationFocus, 'confirmPassword');
+  assert.equal(login.data.activationFocus, 'password');
+  assert.equal(login.data.activationField, 'password');
   login.setData({ password: 'short', confirmPassword: 'short' });
   await login.activate();
   assert.equal(login.data.activationField, 'password');
   assert.equal(login.data.activationFocus, '');
   assert.equal(calls.at(-1).scrollTo, '#activation-field-password');
+  login.confirmActivationField({ ...tap({ field: 'password' }), detail: { value: 'Isolated-Activation-24!' } });
+  assert.equal(login.data.activationField, '');
+  assert.equal(login.data.activationFocus, 'confirmPassword');
   login.setData({ password: 'Isolated-Activation-24!', confirmPassword: 'Different-Activation-24!' });
   await login.activate();
   assert.equal(login.data.activationField, 'confirmPassword');

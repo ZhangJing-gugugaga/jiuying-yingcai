@@ -108,25 +108,29 @@
           <number-field field="revenue" data-field="revenue" label="营业收入（元）" keyboard="digit"
             value="{{form.revenue}}" error="{{fieldErrors.revenue}}" hint="{{!directReturnedEdit || fieldHintsExpanded ? '请按集团财务确认口径填写。' : ''}}"
             placeholder="填入金额" disabled="{{!editableFields.revenue || busy || inlineConfirmation || loading || switching}}"
-            bind:fieldinput="input" bind:fieldblur="blurField"/>
+            focus="{{focusField==='revenue'}}" confirm-type="{{nextNumericField.revenue ? 'next' : 'done'}}"
+            bind:fieldinput="input" bind:fieldblur="blurField" bind:fieldconfirm="confirmField" bind:fieldkeyboard="keyboardHeightChanged"/>
         </view>
         <view class="report-field" id="report-field-orders">
           <number-field field="orders" data-field="orders" label="有效完成订单（单）" keyboard="number"
             value="{{form.orders}}" error="{{fieldErrors.orders}}" hint="{{!directReturnedEdit || fieldHintsExpanded ? '按该经营月份实际完成的有效订单统计。' : ''}}"
             placeholder="填入订单数" disabled="{{!editableFields.orders || busy || inlineConfirmation || loading || switching}}"
-            bind:fieldinput="input" bind:fieldblur="blurField"/>
+            focus="{{focusField==='orders'}}" confirm-type="{{nextNumericField.orders ? 'next' : 'done'}}"
+            bind:fieldinput="input" bind:fieldblur="blurField" bind:fieldconfirm="confirmField" bind:fieldkeyboard="keyboardHeightChanged"/>
         </view>
         <view class="report-field" id="report-field-traffic">
           <number-field field="traffic" data-field="traffic" label="到店客流（人次）" keyboard="number"
             value="{{form.traffic}}" error="{{fieldErrors.traffic}}" hint="{{!directReturnedEdit || fieldHintsExpanded ? '按实际到店人次统计。' : ''}}"
             placeholder="填入到店人次" disabled="{{!editableFields.traffic || busy || inlineConfirmation || loading || switching}}"
-            bind:fieldinput="input" bind:fieldblur="blurField"/>
+            focus="{{focusField==='traffic'}}" confirm-type="{{nextNumericField.traffic ? 'next' : 'done'}}"
+            bind:fieldinput="input" bind:fieldblur="blurField" bind:fieldconfirm="confirmField" bind:fieldkeyboard="keyboardHeightChanged"/>
         </view>
         <view class="report-field" id="report-field-enroll">
           <number-field wx:if="{{applicable}}" field="enroll" data-field="enroll" label="实际招生人数（人）" keyboard="number"
             value="{{form.enroll}}" error="{{fieldErrors.enroll}}" hint="{{!directReturnedEdit || fieldHintsExpanded ? '按该经营月份实际入学或正式入读人数统计。' : ''}}"
             placeholder="填入招生人数" disabled="{{!editableFields.enroll || busy || inlineConfirmation || loading || switching}}"
-            bind:fieldinput="input" bind:fieldblur="blurField"/>
+            focus="{{focusField==='enroll'}}"
+            bind:fieldinput="input" bind:fieldblur="blurField" bind:fieldconfirm="confirmField" bind:fieldkeyboard="keyboardHeightChanged"/>
           <block wx:else>
             <view class="report-field-label">实际招生人数（人）</view>
             <view wx:if="{{enrollmentStatus === 'pending'}}" class="notice">
@@ -139,15 +143,17 @@
         <button wx:if="{{canEdit && !noteExpanded}}" class="link" bindtap="toggleNote" disabled="{{busy || loading || switching}}">{{form.note ? '展开经营说明' : '添加经营说明'}}</button>
         <view wx:if="{{noteExpanded && (canEdit || form.note)}}" class="field">
           <label>经营说明（选填）</label>
-          <textarea disabled="{{!editableFields.note || busy || inlineConfirmation || loading || switching}}" name="note" data-field="note" value="{{form.note}}" bindinput="input" maxlength="600" placeholder="可填写本月经营情况、特殊事项或需要总部了解的情况。"/>
+          <textarea disabled="{{!editableFields.note || busy || inlineConfirmation || loading || switching}}" name="note" data-field="note" value="{{form.note}}" bindinput="input"
+            cursor-spacing="24" bindkeyboardheightchange="keyboardHeightChanged" maxlength="600" placeholder="可填写本月经营情况、特殊事项或需要总部了解的情况。"/>
           <button wx:if="{{canEdit}}" class="link" bindtap="toggleNote" disabled="{{busy || loading || switching}}">收起经营说明</button>
         </view>
-        <view id="report-actions" class="report-actions {{directReturnedEdit ? 'action-dock' : ''}}">
+        <view id="report-actions" class="report-actions {{directReturnedEdit ? 'action-dock' : ''}} {{keyboardOpen ? 'report-actions-typing' : ''}}">
           <block wx:if="{{canEdit || submitting}}">
             <view wx:if="{{canSubmit && missingFields.length}}" class="hint">还需填写 {{missingFieldsText}}</view>
             <view class="actions report-action-buttons">
               <button class="outline" bindtap="draft" disabled="{{busy || inlineConfirmation || loading || switching}}">保存草稿</button>
-              <button class="primary" bindtap="submit" loading="{{submitting}}" disabled="{{!canSubmit || missingFields.length || busy || inlineConfirmation || loading || switching}}">{{submitting ? '提交中…' : (returnedReason ? '重新提交月报' : '提交月报')}}</button>
+              <button class="primary" bindtap="submit" loading="{{submitting}}" disabled="{{!canSubmit || missingFields.length || busy || inlineConfirmation || loading || switching}}"
+                aria-label="{{submitting ? '提交中…' : (returnedReason ? '重新提交月报' : '提交月报')}}">{{submitting ? '提交中…' : (directReturnedEdit ? '重新提交' : (returnedReason ? '重新提交月报' : '提交月报'))}}</button>
             </view>
           </block>
           <view wx:if="{{showActionError && error}}" class="error">{{error}}</view>
