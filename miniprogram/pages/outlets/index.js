@@ -89,6 +89,9 @@ const page=define({
       const publicDirectory=api.session()?.role==='public'||q.scope==='public';
       if(publicDirectory!==this.data.directory||q.mode)this.resetScope(publicDirectory);
     }
+    if(q.scope==='public'&&geography.some(option=>option.value===q.geo)){
+      this.setData({geo:q.geo});
+    }
     if(q.mode==='map')this.setData({mode:'map'});
     else if(q.scope==='private'&&this.data.mode==='map')this.modeUnavailable();
   },

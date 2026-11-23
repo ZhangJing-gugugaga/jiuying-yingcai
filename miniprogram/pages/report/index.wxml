@@ -1,5 +1,4 @@
-<view class="page">
-  <view class="title">经营月报</view>
+<view class="page report-page">
   <view wx:if="{{loading}}" class="loading">正在同步最新信息…</view>
   <view wx:if="{{error && !showActionError}}" class="error">
     {{error}}
@@ -14,12 +13,18 @@
   </view>
   <view wx:if="{{!outlets.length && !loading && !error}}" class="empty">未找到符合条件的网点，请调整搜索内容。</view>
   <block wx:if="{{outlets.length}}">
+    <view wx:if="{{outletId && returnedReason && !(canEdit && formExpanded)}}" class="report-return">
+      <view class="report-return-title">月报已退回，请修改后重新提交</view>
+      <view class="report-return-reason">{{returnedReason}}</view>
+      <view wx:if="{{currentApprovedVersion}}" class="report-return-note">原已审核月报仍然有效。</view>
+    </view>
     <view class="card report-context">
+      <view class="report-section-title">填报信息</view>
       <view wx:if="{{linkedVersion || versionUnavailable}}" class="report-identity">
         <text class="card-title report-outlet-name">{{outletNames[outletIndex + 1]}}</text>
         <text class="muted">{{monthDisplay || month}} · 经营月报</text>
       </view>
-      <view wx:else class="two-col report-scope">
+      <view wx:else class="report-scope">
         <view wx:if="{{outlets.length}}" class="field">
           <label>网点</label>
           <picker range="{{outletNames}}" value="{{outletIndex + 1}}" bindchange="chooseOutletFromPicker" disabled="{{busy || inlineConfirmation || loading || switching}}">
@@ -40,11 +45,6 @@
       </view>
       <view wx:if="{{!returnedReason && currentApprovedVersion && latestSubmittedVersion && currentApprovedVersion.id!==latestSubmittedVersion.id}}" class="hint">原已审核月报仍然有效。</view>
       <view wx:if="{{!outletId && !error}}" class="hint">选择要填报的网点后继续。</view>
-      <view wx:if="{{outletId && returnedReason}}" class="notice">
-        <view class="card-title">总部退回原因</view>
-        <view class="top-gap">{{returnedReason}}</view>
-        <view wx:if="{{currentApprovedVersion}}" class="hint">原已审核月报仍然有效。</view>
-      </view>
       <view wx:if="{{linkedVersion.revoked}}" class="hint">该版本已撤销，不再作为当前有效月报。</view>
       <view wx:if="{{linkedVersion.review && !returnedReason}}" class="notice">{{linkedVersion.review}}</view>
       <view wx:if="{{linkedVersion.summaryOnly}}" class="hint">该历史版本仅提供摘要，可查看提交与审核记录。</view>
@@ -74,37 +74,44 @@
             <text class="card-title report-outlet-name">{{outletNames[outletIndex + 1]}}</text>
             <text class="muted">{{monthDisplay || month}} · 经营月报</text>
           </view>
-          <view wx:if="{{canEdit && returnedReason}}" class="notice">总部退回原因：{{returnedReason}}</view>
         </view>
-        <view class="field" id="report-field-revenue">
-          <label>营业收入 <text class="unit">元</text></label>
-          <input disabled="{{!editableFields.revenue || busy || inlineConfirmation || loading || switching}}" type="digit" name="revenue" data-field="revenue" value="{{form.revenue}}" bindinput="input" bindblur="blurField" placeholder="填入金额"/>
-          <view wx:if="{{fieldErrors.revenue}}" class="field-error">{{fieldErrors.revenue}}</view>
-          <view wx:else class="hint">请按集团财务确认口径填写。</view>
+        <view wx:if="{{canEdit && returnedReason}}" class="report-return report-return-inline">
+          <view class="report-return-title">月报已退回，请修改后重新提交</view>
+          <view class="report-return-reason">{{returnedReason}}</view>
+          <view wx:if="{{currentApprovedVersion}}" class="report-return-note">原已审核月报仍然有效。</view>
         </view>
-        <view class="two-col report-count-fields">
-          <view class="field" id="report-field-orders">
-            <label>有效完成订单 · 单</label>
-            <input disabled="{{!editableFields.orders || busy || inlineConfirmation || loading || switching}}" type="number" name="orders" data-field="orders" value="{{form.orders}}" bindinput="input" bindblur="blurField" placeholder="填入订单数"/>
-            <view wx:if="{{fieldErrors.orders}}" class="field-error">{{fieldErrors.orders}}</view>
-            <view wx:else class="hint">按该经营月份实际完成的有效订单统计。</view>
-          </view>
-          <view class="field" id="report-field-traffic">
-            <label>到店客流 · 人次</label>
-            <input disabled="{{!editableFields.traffic || busy || inlineConfirmation || loading || switching}}" type="number" name="traffic" data-field="traffic" value="{{form.traffic}}" bindinput="input" bindblur="blurField" placeholder="填入到店人次"/>
-            <view wx:if="{{fieldErrors.traffic}}" class="field-error">{{fieldErrors.traffic}}</view>
-            <view wx:else class="hint">按实际到店人次统计。</view>
-          </view>
+        <view class="report-section-title">{{canEdit ? '月报填报' : '月报数据'}}</view>
+        <view class="report-field" id="report-field-revenue">
+          <number-field field="revenue" data-field="revenue" label="营业收入（元）" keyboard="digit"
+            value="{{form.revenue}}" error="{{fieldErrors.revenue}}" hint="请按集团财务确认口径填写。"
+            placeholder="填入金额" disabled="{{!editableFields.revenue || busy || inlineConfirmation || loading || switching}}"
+            bind:fieldinput="input" bind:fieldblur="blurField"/>
         </view>
-        <view class="field" id="report-field-enroll">
-          <label>实际招生人数 · 人</label>
-          <input wx:if="{{applicable}}" disabled="{{!editableFields.enroll || busy || inlineConfirmation || loading || switching}}" type="number" name="enroll" data-field="enroll" value="{{form.enroll}}" bindinput="input" bindblur="blurField" placeholder="填入招生人数"/>
-          <view wx:elif="{{enrollmentStatus === 'pending'}}" class="notice">
-            招生业务适用情况待总部确认。<text wx:if="{{canEdit}}">可先保存草稿。</text>
-          </view>
-          <view wx:else class="picker">本网点当前不开展招生业务。</view>
-          <view wx:if="{{fieldErrors.enroll}}" class="field-error">{{fieldErrors.enroll}}</view>
-          <view wx:elif="{{applicable}}" class="hint">按该经营月份实际入学或正式入读人数统计。</view>
+        <view class="report-field" id="report-field-orders">
+          <number-field field="orders" data-field="orders" label="有效完成订单（单）" keyboard="number"
+            value="{{form.orders}}" error="{{fieldErrors.orders}}" hint="按该经营月份实际完成的有效订单统计。"
+            placeholder="填入订单数" disabled="{{!editableFields.orders || busy || inlineConfirmation || loading || switching}}"
+            bind:fieldinput="input" bind:fieldblur="blurField"/>
+        </view>
+        <view class="report-field" id="report-field-traffic">
+          <number-field field="traffic" data-field="traffic" label="到店客流（人次）" keyboard="number"
+            value="{{form.traffic}}" error="{{fieldErrors.traffic}}" hint="按实际到店人次统计。"
+            placeholder="填入到店人次" disabled="{{!editableFields.traffic || busy || inlineConfirmation || loading || switching}}"
+            bind:fieldinput="input" bind:fieldblur="blurField"/>
+        </view>
+        <view class="report-field" id="report-field-enroll">
+          <number-field wx:if="{{applicable}}" field="enroll" data-field="enroll" label="实际招生人数（人）" keyboard="number"
+            value="{{form.enroll}}" error="{{fieldErrors.enroll}}" hint="按该经营月份实际入学或正式入读人数统计。"
+            placeholder="填入招生人数" disabled="{{!editableFields.enroll || busy || inlineConfirmation || loading || switching}}"
+            bind:fieldinput="input" bind:fieldblur="blurField"/>
+          <block wx:else>
+            <view class="report-field-label">实际招生人数（人）</view>
+            <view wx:if="{{enrollmentStatus === 'pending'}}" class="notice">
+              招生业务适用情况待总部确认。<text wx:if="{{canEdit}}">可先保存草稿。</text>
+            </view>
+            <view wx:else class="picker">本网点当前不开展招生业务。</view>
+            <view wx:if="{{fieldErrors.enroll}}" class="field-error">{{fieldErrors.enroll}}</view>
+          </block>
         </view>
         <button wx:if="{{canEdit && !noteExpanded}}" class="link" bindtap="toggleNote" disabled="{{busy || loading || switching}}">{{form.note ? '展开经营说明' : '添加经营说明'}}</button>
         <view wx:if="{{noteExpanded && (canEdit || form.note)}}" class="field">
@@ -112,10 +119,10 @@
           <textarea disabled="{{!editableFields.note || busy || inlineConfirmation || loading || switching}}" name="note" data-field="note" value="{{form.note}}" bindinput="input" maxlength="600" placeholder="可填写本月经营情况、特殊事项或需要总部了解的情况。"/>
           <button wx:if="{{canEdit}}" class="link" bindtap="toggleNote" disabled="{{busy || loading || switching}}">收起经营说明</button>
         </view>
-        <view id="report-actions" class="{{canEdit ? 'action-dock' : ''}}">
+        <view id="report-actions" class="report-actions">
           <block wx:if="{{canEdit || submitting}}">
             <view wx:if="{{canSubmit && missingFields.length}}" class="hint">还需填写 {{missingFieldsText}}</view>
-            <view class="actions">
+            <view class="actions report-action-buttons">
               <button class="outline" bindtap="draft" disabled="{{busy || inlineConfirmation || loading || switching}}">保存草稿</button>
               <button class="primary" bindtap="submit" loading="{{submitting}}" disabled="{{!canSubmit || missingFields.length || busy || inlineConfirmation || loading || switching}}">{{submitting ? '提交中…' : (returnedReason ? '重新提交月报' : '提交月报')}}</button>
             </view>

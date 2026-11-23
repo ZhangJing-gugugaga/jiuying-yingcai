@@ -1,3 +1,6 @@
 {
-  "navigationBarTitleText": "经营月报"
+  "navigationBarTitleText": "经营月报",
+  "usingComponents": {
+    "number-field": "/components/number-field/index"
+  }
 }

@@ -16,9 +16,10 @@ test('the 21 registered pages resolve packaged TDesign components and their depe
   assert.deepEqual(result.errors, []);
   assert.equal(result.pages, 21);
   const entries = collectComponentEntries(root, result.routeManifest.routes);
-  for (const name of ['grid', 'grid-item', 'button', 'badge', 'icon', 'cell', 'cell-group', 'input', 'empty', 'loading', 'image']) {
+  for (const name of ['button', 'badge', 'icon', 'cell', 'cell-group', 'input', 'empty', 'loading', 'image']) {
     assert.ok(entries.includes('vendor/tdesign/' + name + '/' + name), name);
   }
+  assert.ok(entries.includes('components/number-field/index'));
   assert.match(read('vendor/tdesign/icon/icon.wxss'), /url\(data:font\/woff;base64,/);
   assert.doesNotMatch(read('vendor/tdesign/icon/icon.wxss'), /https?:\/\//);
   assert.match(read('vendor/tdesign/LICENSE'), /MIT License/);
@@ -27,7 +28,7 @@ test('the 21 registered pages resolve packaged TDesign components and their depe
 test('visitor and workbench surfaces use native TDesign while preserving the existing navigation contracts', () => {
   const home = read('pages/home/index.wxml');
   assert.match(home, /class="home-public-hero"[\s\S]*?src="\/assets\/home-network.webp"/);
-  assert.match(home, /<t-grid\b[\s\S]*?data-page="outlets" data-query="scope=public&mode=map"[\s\S]*?bind:click="nav"/);
+  assert.match(home, /data-query="scope=public&mode=map" bindtap="nav"/);
   assert.match(home, /<t-badge wx:if="{{hasUnreadNotices}}"/);
   assert.match(home, /data-page="fees" bindtap="nav"/);
   assert.match(home, /data-page="outlets" data-query="scope=private" bindtap="openOutlets"/);

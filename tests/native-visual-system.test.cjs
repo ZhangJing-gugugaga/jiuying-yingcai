@@ -94,9 +94,6 @@ test('workbench overrides the native regular button width in compact areas', () 
   const styles = read('pages/home/index.wxss');
   assert.match(rule(styles, 'button.home-tool:not([size="mini"])'), /width:\s*100%/);
   assert.match(rule(styles, 'button.home-tool:not([size="mini"])'), /min-width:\s*0/);
-  const login = rule(styles, 'button.home-login:not([size="mini"])');
-  assert.match(login, /width:\s*auto/);
-  assert.match(login, /margin:\s*0/);
   assert.match(styles, /grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
   assert.match(read('pages/home/index.wxml'), /class="home-tool" data-page="tasks"[^>]*bindtap="nav"/);
 });
@@ -106,7 +103,7 @@ test('the report scroll target retains the selected outlet, month and return rea
   const formHeader = report.slice(report.indexOf('id="report-edit"'), report.indexOf('id="report-field-revenue"'));
   assert.match(formHeader, /{{outletNames\[outletIndex \+ 1\]}}/);
   assert.match(formHeader, /{{monthDisplay \|\| month}}/);
-  assert.match(formHeader, /wx:if="{{canEdit && returnedReason}}"[^>]*>总部退回原因：{{returnedReason}}/);
+  assert.match(formHeader, /wx:if="{{canEdit && returnedReason}}"[\s\S]*?class="report-return-reason">{{returnedReason}}/);
 });
 
 test('the native tab bar has an opaque background and keeps its height without inherited page tokens', () => {

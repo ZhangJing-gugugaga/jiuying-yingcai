@@ -1,0 +1,17 @@
+.number-field { min-width: 0; }
+.number-label { display: block; margin-bottom: var(--space-sm); color: var(--text); font-weight: 600; }
+.number-control {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: max(88rpx, 44px);
+  padding: 0 var(--space-lg);
+  border: 1rpx solid var(--border-strong);
+  border-radius: var(--radius-control);
+  color: var(--text);
+  background: var(--background);
+}
+.number-control.focused { border-color: var(--brand); box-shadow: 0 0 0 3rpx var(--focus-ring); }
+.number-control.invalid { border-color: var(--error-text); }
+.number-hint, .number-error { margin-top: var(--space-xs); font-size: var(--font-caption); overflow-wrap: anywhere; }
+.number-hint { color: var(--muted); }
+.number-error { color: var(--error-text); }

@@ -5,6 +5,9 @@ const {publicShare}=require('../../utils/public-share');
 const roleTrial=require('../../development/role-trial');
 /* DEV_ONLY_END */
 const homeShare={title:'九盈英才集团与网点服务',path:'/pages/home/index?scope=public',query:'scope=public'};
+const serviceTiles=[
+  ['education','blue'],['book-open','sky'],['service','violet'],['layers','gold'],['chart-bar','green']
+];
 const firstOutletLoading={status:'loading',detail:'正在确认申请进度…'};
 const firstOutletError={status:'error',detail:'暂时无法确认申请进度。'};
 const firstOutletStages={
@@ -78,12 +81,19 @@ const home=define({
       const contents=state.publicContents||[];
       const groupIntro=contents.find(record=>record.key==='brand')||null;
       const publishedServices=contents.filter(record=>/^service-[1-5]$/.test(record.key))
-        .sort((first,second)=>first.key.localeCompare(second.key));
+        .sort((first,second)=>first.key.localeCompare(second.key))
+        .map(record=>{
+          const [tileIcon,tileTone]=serviceTiles[Number(record.key.slice(-1))-1];
+          return {...record,tileIcon,tileTone};
+        });
       const phone=String(state.support?.settings?.phone||'').replace(/[\s()-]/g,'');
       this.setData({publicView:true,groupIntro,publishedServices,headquartersPhone:/^\+?\d{5,20}$/.test(phone)?phone:'',
         openTotal:null,taskError:false,...(!isVisitor?{hasUnreadNotices:false}:{})});
       this.updatePublicShareMenu();
       await Promise.all([
+        withPublicCover(groupIntro).then(record=>{
+          if(serial===this._serial)this.setData({groupIntro:record});
+        }),
         Promise.all(publishedServices.map(withPublicCover)).then(services=>{
           if(serial===this._serial)this.setData({publishedServices:services});
         }),
@@ -132,6 +142,12 @@ const home=define({
   publicCoverFailed(e){
     const id=e.currentTarget.dataset.id;
     this.setData({publishedServices:markCoverUnavailable(this.data.publishedServices,id)});
+  },
+  groupCoverFailed(e){
+    const {groupIntro}=this.data;
+    if(groupIntro&&groupIntro.id===e.currentTarget.dataset.id){
+      this.setData({groupIntro:{...groupIntro,coverPath:'',coverUnavailable:true}});
+    }
   },
   dialHeadquarters(){
     const phoneNumber=this.data.headquartersPhone;

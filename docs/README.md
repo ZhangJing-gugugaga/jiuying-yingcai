@@ -4,6 +4,8 @@
 
 当前工程注册 21 个小程序页面，加盟申请对应迁移 029 和 030。V4.1 的交接报告记录原快照的验收结果。
 
+下一轮小程序 UI/UX 优化从[四张原型与取舍](ui-prototype/design-contract.md)进入。按[设计规范](../DESIGN.md)和[组件拆解](COMPONENT-GUIDELINES.md)做样板，依[实施待办](../TODO.md)、[开发交接](ui-prototype/implementation-handoff.md)与[验收单](ui-prototype/acceptance.md)逐批交付。
+
 | 要回答的问题 | 依据 |
 | --- | --- |
 | 项目如何启动和协作？ | [快速开始](../README.md)、[协作约定](../AGENTS.md)、[开发流程](DEVELOPMENT.md) |

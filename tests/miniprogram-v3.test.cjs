@@ -579,7 +579,11 @@ test('visitor entry opens published organization and services, with published ne
  assert.equal(home.data.error,'');
  assert.equal(home.data.groupIntro.title,'隔离集团介绍');
  assert.equal(home.data.groupIntro.imageId,initial);
- assert.equal(home.data.groupIntro.coverPath,undefined);
+ assert.ok(home.data.groupIntro.coverPath);
+ assert.ok(downloads.some(file=>file.url.endsWith('/api/files/'+initial)&&file.status===200));
+ home.groupCoverFailed({currentTarget:{dataset:{id:home.data.groupIntro.id}}});
+ assert.equal(home.data.groupIntro.coverPath,'');
+ assert.equal(home.data.groupIntro.title,'隔离集团介绍');
  assert.deepEqual(home.data.publishedServices.map(x=>x.title),['隔离业务1','隔离业务2','隔离业务3','隔离业务4','隔离业务5']);
  assert.ok(!calls.some(x=>/collections\/(?:outlets|accounts)|\/api\/dashboard/.test(x.url||'')));
  assert.doesNotMatch(JSON.stringify(home.data),/隔离未发布/);

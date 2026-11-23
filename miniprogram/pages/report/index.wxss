@@ -4,15 +4,44 @@
 
 .linked-version{border:2rpx solid #0e65b7;border-color:var(--brand);background:#eaf4ff;background:var(--brand-soft)}.version-card.linked-version{margin-top:16rpx}
 
-.report-scope{align-items:start}
-.report-context{border-top:4rpx solid var(--brand)}
-.report-scope .field{min-width:0}
-.report-scope .picker{white-space:normal;overflow-wrap:anywhere}
-.report-identity{display:grid;gap:8rpx;margin-bottom:16rpx}
+.report-section-title {
+  border-left: 6rpx solid var(--brand);
+  padding-left: var(--space-sm);
+  font-size: var(--font-section);
+  font-weight: 700;
+  line-height: 1.2;
+}
+.report-scope .field {
+  display: grid;
+  grid-template-columns: minmax(5em, 1fr) minmax(0, 3fr);
+  align-items: baseline;
+  gap: var(--space-sm);
+  min-width: 0;
+  margin: var(--space-md) 0;
+}
+.report-scope label { color: var(--muted); margin: 0; }
+.report-scope .picker { white-space: normal; overflow-wrap: anywhere; }
+.report-identity { display: grid; gap: var(--space-xs); margin: var(--space-md) 0; }
 .report-outlet-name{min-width:0;overflow-wrap:anywhere}
 .report-status{flex-wrap:wrap}
-.report-form-context{padding-bottom:var(--space-md);border-bottom:1rpx solid var(--border)}
-.report-form-context .notice{overflow-wrap:anywhere}
+.report-form-context { margin-bottom: var(--space-md); }
+.report-return {
+  margin-bottom: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  border-left: 6rpx solid var(--error-text);
+  border-radius: var(--radius-control);
+  background: var(--error-bg);
+  color: var(--error-text);
+  overflow-wrap: anywhere;
+}
+.report-return-title { font-weight: 700; }
+.report-return-reason, .report-return-note { margin-top: var(--space-xs); white-space: pre-wrap; }
+.report-return-note { font-size: var(--font-caption); }
+.report-return-inline { margin-bottom: var(--space-lg); }
+.report-field { margin-top: var(--space-lg); scroll-margin-top: var(--space-lg); }
+.report-field-label { margin-bottom: var(--space-sm); font-weight: 600; }
+.report-actions { padding-top: var(--space-md); }
+.report-action-buttons { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); }
 .version-card.linked-version + .version-grid{margin-top:16rpx}
 #report-history + .version-grid{margin:0 0 20rpx}
 
@@ -32,5 +61,5 @@
 .report-confirmation-panel .actions{margin:20rpx 0 0}
 
 @media (max-width: 374px) {
-  .report-scope,.report-count-fields,.version-grid{grid-template-columns:minmax(0,1fr)}
+  .report-scope .field,.version-grid{grid-template-columns:minmax(0,1fr)}
 }

@@ -294,6 +294,50 @@ test('public overseas map provides address access before a device error is repor
   t.diagnostic(JSON.stringify({ country: 'SG', outlet: id, publicDetail: observed.requestId }));
 }));
 
+test('public home passes both regions on the first directory request and keeps search on return', () => nativeRun(async ({ app, calls }) => {
+  const state = app.store.load();
+  const template = state.outlets.find(outlet => outlet.id === 'gz');
+  state.outlets.push({ ...template, id: 'review-sg', outlet: 'review-sg' });
+  app.store.save(state);
+  await api.login('manager');
+  const samples = [
+    { id: 'gz', geo: 'mainland', countryCode: 'CN', city: '广州' },
+    { id: 'review-sg', geo: 'overseas', countryCode: 'SG', city: '新加坡' },
+  ];
+  for (const { id, countryCode, city } of samples) {
+    await api.command('public.profile', {
+      outlet: id, countryCode, city, title: city + '验收网点', address: city + '公开地址',
+      description: '隔离验收网点', services: ['咨询'], reason: '隔离公开样本', published: true,
+    });
+  }
+  await api.visitor();
+  const directory = page('outlets');
+  const home = page('home');
+  const firstDirectoryRequest = () => new URL(calls.find(call =>
+    call.url?.includes('/api/collections/outlets?')).url).searchParams;
+  for (const { id, geo, city } of samples) {
+    calls.length = 0;
+    home.nav(tap({ page: 'outlets', query: 'scope=public&mode=list&geo=' + geo }));
+    await directory.onShow();
+    assert.equal(firstDirectoryRequest().get('geo'), geo);
+    assert.equal(firstDirectoryRequest().get('scope'), 'public');
+    assert.equal(directory.data.geo, geo);
+    assert.deepEqual(directory.data.rows.map(row => row.id), [id]);
+
+    await directory.search(change(city));
+    directory.openOutlet(id);
+    assert.match(calls.at(-1).navigateTo, new RegExp('id=' + id));
+    const detail = page('outlet', { id, scope: 'public' });
+    await detail.onShow();
+    assert.equal(detail.data.error, '');
+    calls.length = 0;
+    await directory.onShow();
+    assert.equal(firstDirectoryRequest().get('geo'), geo);
+    assert.equal(firstDirectoryRequest().get('q'), city);
+    assert.equal(directory.data.searchDraft, city);
+  }
+}));
+
 test('location discards delayed capture from a different outlet or period', () => nativeRun(async ({ wx }) => {
   const location = page('location', { outlet: 'zz', month: '2026-10' });
   await location.onShow();
@@ -688,8 +732,8 @@ test('the visitor report tab returns to public home with sign-in and directory a
   assert.equal(reports.data.error, '');
   assert.ok(!calls.some(call => /\/api\/(?:reports\/worklist|collections\/(reports|drafts|businessTasks|exemptions|outlets))/.test(call.url || '')));
   const template = fs.readFileSync(path.join(native,'pages/home/index.wxml'),'utf8');
-  assert.match(template,/data-page="login"[^>]*bindtap="nav">加盟商登录/);
-  assert.match(template,/data-page="outlets"[^>]*data-query="scope=public&mode=list"[^>]*bindtap="nav"[^>]*>[\s\S]*?class="home-feature-label">公开网点/);
+  assert.match(template,/data-page="login"[^>]*bindtap="nav"[\s\S]*?加盟商登录/);
+  assert.match(template,/data-page="outlets"[^>]*data-query="scope=public&mode=list&geo=mainland"[^>]*bindtap="nav"[\s\S]*?国内网点/);
   const home=page('home');
   home.nav(tap({page:'login'}));
   home.nav(tap({page:'outlets',query:'scope=public&mode=list'}));

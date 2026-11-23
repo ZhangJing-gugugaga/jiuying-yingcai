@@ -151,11 +151,11 @@ test('public home exposes directory and login, with a guest login action in prof
   assert.equal(home.data.publicView, true);
   assert.equal(home.data.session.role, 'public');
   const homeMarkup = wxml('home');
-  assert.match(homeMarkup, /<block wx:if="{{publicView}}">\s*<button wx:if="{{!session \|\| session.role==='public'}}"[^>]*data-page="login"[^>]*>加盟商登录/);
+  assert.match(homeMarkup, /<button wx:if="{{!session \|\| session.role==='public'}}"[^>]*data-page="login"[^>]*>[\s\S]*?加盟商登录/);
   home.nav(tap({ page: 'login' }));
   assert.deepEqual(routes.at(-1), { method: 'navigateTo', url: '/pages/login/index' });
-  assert.match(homeMarkup, /data-page="outlets" data-query="scope=public&mode=list"[^>]*>[\s\S]*?class="home-feature-label">公开网点/);
-  assert.ok(homeMarkup.indexOf('class="home-feature-label">公开网点') < homeMarkup.indexOf('class="section-title">五大业务'));
+  assert.match(homeMarkup, /data-page="outlets" data-query="scope=public&mode=list&geo=mainland"[^>]*>[\s\S]*?国内网点/);
+  assert.ok(homeMarkup.indexOf('>五大业务</view>') < homeMarkup.indexOf('>国内网点</text>'));
   home.nav(tap({ page: 'outlets', query: 'scope=public&mode=list' }));
   assert.deepEqual(routes.at(-1), { method: 'switchTab', url: '/pages/outlets/index' });
   assert.equal(requests.filter(row => row.path === '/api/auth/visitor').length, 1);

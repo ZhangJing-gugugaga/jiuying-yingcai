@@ -332,9 +332,10 @@ test('single-field correction preserves approved baseline in draft and submit ev
   assert.equal(editor.data.canCorrect, false);
   assert.match(editor.data.editNotice, /有效完成订单/);
   assert.deepEqual(editor.data.editableFields, { revenue: false, orders: true, traffic: false, enroll: false, note: false });
-  for (const field of ['revenue', 'orders', 'traffic', 'enroll', 'note']) {
-    assert.match(markup, new RegExp(`<(?:input|textarea)[^>]*disabled="[^"]*!editableFields\\.${field}[^"]*"[^>]*name="${field}"`));
+  for (const field of ['revenue', 'orders', 'traffic', 'enroll']) {
+    assert.match(markup, new RegExp(`<number-field[^>]*field="${field}"[^>]*disabled="[^"]*!editableFields\\.${field}[^"]*"`));
   }
+  assert.match(markup, /<textarea[^>]*disabled="[^"]*!editableFields\.note[^"]*"[^>]*name="note"/);
 
   editor.setData({ reason: '重复申请' });
   await editor.correct();

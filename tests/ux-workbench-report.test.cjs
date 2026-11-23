@@ -160,11 +160,7 @@ test('month report selector disambiguates outlets by city and district while sco
   assert.deepEqual(scrolls, ['#report-history']);
 });
 
-test('public home exposes group services in its hero and report lists lead with filling', () => {
-  const home = markup('home');
-  const shortcuts = home.slice(home.indexOf('class="home-public-primary"'), home.indexOf('class="home-services"'));
-  assert.match(home, /data-page="discover" data-query="section=services"[^>]*>查看集团业务/);
-  assert.match(shortcuts, /data-page="outlets" data-query="scope=public&mode=list"[^>]*>[\s\S]*?class="home-feature-label">公开网点/);
+test('report lists lead with filling', () => {
   const reports = markup('reports');
   assert.ok(reports.indexOf('bindtap="newReport"') < reports.indexOf('bindchange="pickOutlet"'));
 });

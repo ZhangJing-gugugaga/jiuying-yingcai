@@ -102,27 +102,25 @@ test('group updates, cases and cooperation use a secondary group entrance', () =
   assert.doesNotMatch(home, /openPublicUpdate/);
   assert.match(home, /data-page="discover" data-query="section=cooperation"/);
   assert.match(home, /data-page="discover" data-query="section=brand"/);
-  assert.match(home, /data-page="support"[^>]*>[\s\S]*?class="home-feature-label">联系总部/);
+  assert.match(home, /data-page="support"[^>]*>[\s\S]*?<text>联系总部<\/text>/);
   const discover = markup('discover');
   assert.ok(discover.indexOf('discover-more') > discover.indexOf('showArticles'));
   assert.match(discover, /wx:if="{{isPublic}}"[^>]*data-page="messages"[^>]*>合作留言通知/);
 });
 
-test('public home prioritizes group services, the outlet directory and contact above secondary shortcuts', () => {
+test('public home follows the prototype order and retains public navigation', () => {
   const home = markup('home');
-  const publicHome = home.slice(home.indexOf('class="home-public-hero"'));
-  const hero = publicHome.indexOf('class="home-public-hero"');
-  const shortcuts = publicHome.indexOf('class="home-public-shortcuts"');
-  const services = publicHome.indexOf('class="home-services"');
-  assert.ok(hero >= 0 && hero < shortcuts && shortcuts < services);
-  const primary = publicHome.slice(hero, shortcuts);
-  assert.match(primary, /data-page="discover" data-query="section=services"[^>]*>查看集团业务/);
-  assert.match(primary, /data-page="outlets" data-query="scope=public&mode=list"[^>]*>[\s\S]*?class="home-feature-label">公开网点/);
-  assert.match(primary, /data-page="support"[^>]*>[\s\S]*?class="home-feature-label">联系总部/);
-  assert.match(publicHome.slice(shortcuts, services), /data-query="scope=public&mode=map"/);
-  assert.match(publicHome.slice(shortcuts, services), /text="申请加盟"[^>]*data-page="join"/);
-  assert.match(publicHome.slice(shortcuts, services), /wx:if="{{session && session.role==='public'}}"[^>]*data-page="messages"[^>]*>\s*<t-badge wx:if="{{hasUnreadNotices}}" dot="{{true}}"/);
-  assert.match(publicHome.slice(services), /bindtap="openService"/);
+  const sections = ['home-public-hero', 'home-services', 'home-network"', '>集团介绍<', '>联系我们<', 'home-signin"'];
+  const positions = sections.map(section => home.indexOf(section));
+  assert.ok(positions[0] >= 0);
+  assert.deepEqual(positions, [...new Set(positions)].sort((a, b) => a - b));
+  assert.match(home, /data-page="discover" data-query="section=services"[^>]*>了解更多业务/);
+  assert.match(home, /data-query="scope=public&mode=list&geo=mainland"[^>]*>[\s\S]*?国内网点/);
+  assert.match(home, /data-query="scope=public&mode=list&geo=overseas"[^>]*>[\s\S]*?境外网点/);
+  assert.match(home, /data-query="scope=public&mode=map"/);
+  assert.match(home, /data-page="join"[^>]*>[\s\S]*?<text>申请加盟<\/text>/);
+  assert.match(home, /wx:if="{{session && session.role==='public'}}"[^>]*data-page="messages"[^>]*>\s*<t-badge wx:if="{{hasUnreadNotices}}" dot="{{true}}"/);
+  assert.match(home, /bindtap="openService"/);
 });
 
 test('opening another group section from a long article returns to the new content', async t => {
