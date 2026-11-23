@@ -32,11 +32,17 @@ function outletPicker(rows,selected){
  return {outlets,outletIndex:Math.max(0,outlets.findIndex(row=>row.id===selected))};
 }
 
+function billAmountDisplay(bill){
+ if(bill.status==='reversed')return {label:'原账单金额',value:bill.amountText==='—'?'':bill.amountText};
+ if(bill.status==='unpaid')return {label:'待支付金额',value:moneyFromCents(bill.ledger?.unpaidCents)};
+ return {label:'应付金额',value:moneyFromCents(bill.ledger?.receivableCents)};
+}
+
 const page=define({
  collections:[{name:'outlets',metadata(){
   this.setData(outletPicker(this.data.state.outlets,this.data.selected));
  }},...scopedCollections],
- data:{filterMonthValue:'',statusFilter:'all',bills:[],payments:[],receipts:[],adjustments:[],outlets:[],outletIndex:0,section:'bills',filtersOpen:false,historyOpen:false,
+ data:{filterMonthValue:'',filterMonthText:'',statusFilter:'all',bills:[],payments:[],receipts:[],adjustments:[],outlets:[],outletIndex:0,section:'bills',filtersOpen:false,historyOpen:false,
   payment:null,selected:'',scopeReady:null,exactBill:false,paymentEnabled:false,paymentNotice:'',paymentErrorBill:'',ledgerTotals:null,
   /* DEV_ONLY_START */
   simulationPrompt:null,
@@ -48,7 +54,7 @@ const page=define({
  },
  async loaded(s){
   const serial=this._serial;
-  const config=this.data.section==='bills'?await api.request('/api/config'):null;
+  const config=this.data.section==='bills'?await api.request('/api/config').catch(()=>null):null;
   if(serial!==this._serial)return;
   let rows=s.outlets,exactBill;
   let {selected,filterMonthValue}=this.data;
@@ -74,9 +80,9 @@ const page=define({
   const filter=row=>!selected||row.outlet===selected;
   const picker=outletPicker(rows,selected);
   this.setData({
-   ...picker,selected,filterMonthValue,scopeReady:true,paymentEnabled:config?.paymentEnabled===true,
+   ...picker,selected,filterMonthValue,filterMonthText:fmt.monthText(filterMonthValue),scopeReady:true,paymentEnabled:config?.paymentEnabled===true,
    bills:bills.filter(filter).map(bill=>({...bill,monthText:fmt.monthText(bill.month),displayOutlet:picker.outlets.find(outlet=>outlet.id===bill.outlet)?.label||bill.outletName,
-    dueText:fmt.dateText(bill.dueOn),
+    dueText:fmt.dateText(bill.dueOn),displayAmount:billAmountDisplay(bill),
     payableText:moneyFromCents(bill.ledger?.receivableCents),
     paidText:moneyFromCents(bill.ledger?.grossReceivedCents),
     unpaidText:moneyFromCents(bill.ledger?.unpaidCents),

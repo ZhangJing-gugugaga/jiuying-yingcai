@@ -36,6 +36,7 @@ function publicOutlet(outlet,profile){
  const code=regions.countryCode(profile?.countryCode);
  const result={id,outlet:id,name:profile?profile.title:outlet.name,address:profile?.address??null,province,city,district,status};
  if(profile?.status==='published'){
+  if(Array.isArray(profile.services)&&profile.services.length)result.services=profile.services;
   if(profile.contactPublished===true&&profile.contact)result.contact=profile.contact;
   if(profile.businessHours)result.businessHours=profile.businessHours;
  }

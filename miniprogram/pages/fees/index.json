@@ -2,6 +2,7 @@
   "navigationBarTitleText": "服务费",
   "enablePullDownRefresh": true,
   "usingComponents": {
-    "t-empty": "/vendor/tdesign/empty/empty"
+    "t-empty": "/vendor/tdesign/empty/empty",
+    "t-icon": "/vendor/tdesign/icon/icon"
   }
 }

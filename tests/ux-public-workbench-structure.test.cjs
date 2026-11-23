@@ -61,8 +61,8 @@ function mount(t, name, query = {}, options = {}) {
   return { page, routes, calls };
 }
 
-test('workbench shows the full pending count with one route to matters', async t => {
-  const common = { outlet: 'zz', outletName: '株洲网点', month: '2026-11', target: 'location', status: 'open' };
+test('workbench shows the full pending count and uses the same scope for the preview and all tasks', async t => {
+  const common = { outlet: 'cs', outletName: '长沙网点', month: '2026-11', target: 'location', status: 'open' };
   const { page, routes } = mount(t, 'home', {}, {
     rows: (name, filters) => name === 'businessTasks' && filters.status === 'open' ? [
       { ...common, id: 'missing', kind: 'location_missing', dueAt: '2026-11-30' },
@@ -74,8 +74,9 @@ test('workbench shows the full pending count with one route to matters', async t
   });
   await page.onShow();
   assert.equal(page.data.openTotal, 5);
-  page.nav(tap({page:'tasks'}));
-  assert.deepEqual(routes, ['/pages/tasks/index']);
+  assert.equal(page.data.activeRows.length, 4);
+  page.openWorkbenchList(tap({status:'open'}));
+  assert.deepEqual(routes, ['/pages/tasks/index?status=open&outlet=cs']);
 });
 
 test('the secondary dashboard opens the latest verified settlement when the current month has none', async t => {
@@ -95,23 +96,23 @@ test('the secondary dashboard opens the latest verified settlement when the curr
   assert.equal(page.data.metrics[1].value, 4);
 });
 
-test('workbench can open matters while its pending count is still loading', async t => {
+test('workbench can open matters while its pending count is still loading', { timeout: 3000 }, async t => {
   let startCount,finishCount;
   const countStarted = new Promise(resolve => { startCount = resolve; });
   const count = new Promise(resolve => { finishCount = resolve; });
   const { page, routes } = mount(t, 'home', {}, {
     rows(name, filters) {
-      if (name !== 'businessTasks') return;
-      assert.equal(filters.limit,1);
+      if (name !== 'businessTasks' || filters.status !== 'open') return;
       startCount();
+      assert.equal(filters.limit,4);
       return count;
     }
   });
   const refresh = page.onShow();
   try {
     await countStarted;
-    page.nav(tap({page:'tasks'}));
-    assert.deepEqual(routes, ['/pages/tasks/index']);
+    page.openWorkbenchList(tap({status:'open'}));
+    assert.deepEqual(routes, ['/pages/tasks/index?status=open&outlet=cs']);
   } finally {
     finishCount([]);
     await refresh;
@@ -125,7 +126,7 @@ for (const [status, actionText] of [
   test('zero-outlet workbench opens the correct first-outlet destination for ' + status, async t => {
     const reads = [];
     const { page, routes } = mount(t, 'home', {}, {
-      request(route) { reads.push(route); },
+      request(route) { if (!route.startsWith('/api/training/')&&!route.startsWith('/api/workbench/')) reads.push(route); },
       rows(name, filters) {
         if (name === 'outlets') return [];
         if (name !== 'requests') return [];
@@ -196,8 +197,8 @@ test('workbench offers first-outlet guidance only after a successful zero count'
   assert.equal(reads.filter(read => read === 'requests').length, 1);
   assert.ok(!reads.some(read => typeof read==='string'&&read.startsWith('/api/dashboard?')));
   const template = markup('home');
-  assert.match(template, /data-page="outlets" data-query="scope=private" bindtap="openOutlets"[\s\S]*?firstOutlet.actionText/);
-  assert.match(template, /经营办理[\s\S]*?data-page="reports"[\s\S]*?data-page="fees"[\s\S]*?data-page="tasks"/);
+  assert.match(template, /data-page="outlets" bindtap="openOutlets"[\s\S]*?firstOutlet.actionText/);
+  assert.match(template, /data-page="reports"[\s\S]*?data-page="fees"[\s\S]*?bindtap="openWorkbenchList"/);
 });
 
 test('a delayed first-outlet lookup cannot restore a previous account’s application', async t => {

@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | ① 公众首页及地域跳转 · UX-05、06 | [首页模板](../../miniprogram/pages/home/index.wxml)与[页面逻辑](../../miniprogram/pages/home/index.js)复用已发布业务、集团简介及拨号配置。更新[网点目录](../../miniprogram/pages/outlets/index.js)的初始筛选与 tab 参数交接。先备齐一个境内、一个境外的已发布样本。 | 对照图 1 的标准宽度、窄屏及缺图首页；从两个入口取得各自首个列表请求。A01、A02、A08 |
 | ② 月报组件样板 · UX-04 → UX-01 | 从[月报办理页](../../miniprogram/pages/report/index.wxml)调整摘要、退回提示、字段与操作区；复用[公共样式](../../miniprogram/app.wxss)和现行校验、保存、提交、更正逻辑。用一份真实结构的退回样本走总部原单。 | 对照图 3 的退回月报、键盘展开及错误画面；保留重新提交前后同一原单的证据。A06、A08 |
-| ③ 工作台与我的事项 · UX-07、08、02 | [工作台](../../miniprogram/pages/home/index.js)对 outlets 和 open 状态的 businessTasks 目前各取 limit:1。先核对分页、范围、总数与目的页能否接收同一筛选，再接预览和选择器。复用[事项路由](../../miniprogram/pages/tasks/matters.js)与[角色底栏](../../miniprogram/custom-tab-bar/index.js)。 | 对照图 2 的零店、多店、待办读取失败与有已办样本。缺单店查询时显示只读授权范围；近期记录先采用已完成事项。A03、A04、A08、A09 |
+| ③ 工作台与我的事项 · UX-07、08、02 | [工作台](../../miniprogram/pages/home/index.js)按所选授权网点读取待办总数、最多四条待办和三条最近业务记录；完整记录列表沿用同一网点并分页。复用[事项路由](../../miniprogram/pages/tasks/matters.js)与[角色底栏](../../miniprogram/custom-tab-bar/index.js)。 | 对照图 2 的零店、多店、待办读取失败与有已办样本。检查最近业务记录的排序、分页和原单跳转，并复核事项与通知的筛选恢复。A03、A04、A08、A09 |
 | ④ 目录与网点详情 · UX-09 | 在[列表](../../miniprogram/pages/outlets/index.wxml)及[详情](../../miniprogram/pages/outlet/index.wxml)区分公开与授权字段，沿用已有分页和地图失败返回。复用第①批的地域入口。 | 图 3、4 对应的公开/私有目录、长店名、分页、地图错误返回及换主体结果。A02、A03、A05、A08 |
 | ⑤ 激活、服务费与低频入口 · UX-10、03、08 | [加盟申请](../../miniprogram/pages/join/index.js)、[激活表单](../../miniprogram/pages/login/index.wxml)、[服务费](../../miniprogram/pages/fees/index.wxml)与[历史培训](../../miniprogram/pages/training/index.js)按原单、角色与办理条件进入。 | 激活两次输入不一致、成功后身份、账单返回和有/无培训记录的入口对照。A07、A09、A10 |
 | ⑥ 复验与签收 · UX-11 | 用独立包从正常入口走完整链路，再按现有授权 AppID、HTTPS 服务和设备复核真机能力。 | 逐项记录 A01–A10，分别标记代码检查、开发者工具和真机结果，附失败步骤和复测包标识。 |

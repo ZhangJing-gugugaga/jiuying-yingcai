@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { randomUUID } = require('node:crypto');
 const { createServer } = require('../server/index.cjs');
 const config = require('../miniprogram/config');
 const api = require('../miniprogram/utils/api');
@@ -96,6 +97,145 @@ function seedPagedOutlets(app) {
   }
   app.store.save(state);
 }
+
+test('workbench business history paginates three authorized record types and opens their original records', () => nativeRun(async ({ calls }) => {
+  const write = (route, body) => api.request(route, 'POST', body, { 'Idempotency-Key': randomUUID() });
+  await api.login('manager');
+  const course = await write('/api/training/courses', { title: '独立课程', content: '隔离验收材料' });
+  await write('/api/training/courses/' + course.id, { status: 'published' });
+  await api.login('partnerA');
+  const report = (await api.command('report.submit', { outlet:'cs', month:'2026-10',
+    revenue:1200, orders:4, traffic:6, enroll:0, note:'仅原单显示的经营说明' })).result;
+  const ticket = (await api.command('support.ticket', { outlet:'cs', category:'aftersale',
+    title:'设备无法使用', description:'仅原单显示的工单详情', contact:'仅原单显示的联系方式' })).result;
+  const training = await write('/api/training/records', { courseId:course.id, outletId:'cs', learner:'仅培训原单显示的学员' });
+  await api.visitor();
+  await api.command('support.ticket', { outlet:'cs', category:'complaint', title:'消费者投诉私有标题', description:'消费者投诉详情' });
+  const recordsUrl='/api/workbench/records';
+  await assert.rejects(api.request(recordsUrl), {status:403});
+  await api.login('support');
+  await assert.rejects(api.request(recordsUrl), {status:403});
+  await api.login('partnerA');
+  const list = await api.request(recordsUrl+'?outlet=cs&limit=3');
+  assert.deepEqual(list.items.map(row=>row.id), [training.id,ticket.id,report.id]);
+  assert.deepEqual(list.items.map(row=>row.kind), ['training','support','report']);
+  assert.ok(list.items.every(row=>row.outlet==='cs'&&row.outletName&&row.occurredAt));
+  assert.doesNotMatch(JSON.stringify(list), /仅原单显示|仅培训原单显示|消费者投诉/);
+  const second = await api.request(recordsUrl+'?outlet=cs&limit=1&offset=1');
+  assert.equal(second.items[0].id,ticket.id);
+  assert.equal(second.total,list.total);
+  assert.equal(second.hasMore,true);
+  const home=page('home');
+  await home.onShow();
+  const i=home.data.scopeOutlets.findIndex(row=>row.id==='cs');
+  await home.chooseWorkbenchOutlet(change(i+1));
+  assert.deepEqual(home.data.recentRows.map(row=>row.id),[training.id,ticket.id,report.id]);
+  home.openWorkbenchList(tap({section:'records'}));
+  assert.equal(calls.at(-1).navigateTo,'/pages/tasks/index?section=records&outlet=cs');
+  const history=page('tasks',{section:'records',outlet:'cs'});
+  await history.onShow();
+  assert.equal(history.data.businessTotal,list.total);
+  for(const [kind,id,route] of [['report',report.id,'report'],['support',ticket.id,'support'],['training',training.id,'training']]){
+    await history.open(tap({id:kind+':'+id}));
+    assert.match(calls.at(-1).navigateTo,new RegExp('^/pages/'+route+'/index\\?'));
+    assert.equal(new URL(calls.at(-1).navigateTo,'http://localhost').searchParams.get('id'),id);
+  }
+  await api.login('partnerB');
+  assert.deepEqual((await api.request(recordsUrl+'?outlet=cs')).items,[]);
+  for(const [kind,id] of [['reports',report.id],['supportTickets',ticket.id]]){
+    await assert.rejects(api.detail(kind,id), {status:404});
+  }
+  await assert.rejects(api.request('/api/training/records/'+training.id+'?outlet=cs'), {status:404});
+  await history.onShow();
+  assert.deepEqual(history.data.businessRows,[]);
+}));
+
+test('the activation form reports errors at the corresponding field and redeems the invitation once', () => nativeRun(async ({ calls }) => {
+  await api.login('manager');
+  const invitation = await api.request('/api/auth/activation', 'POST', { actor: 'partnerB', username: 'activation.review' });
+  await api.visitor();
+  const login = page('login', { mode: 'activate' });
+  await login.onShow();
+  const activationRequests = () => calls.filter(call => call.method === 'POST' && call.url?.endsWith('/api/auth/activate'));
+  await login.activate();
+  assert.equal(login.data.activationField, 'activationToken');
+  login.input({ ...tap({ field: 'activationToken' }), detail: { value: invitation.token } });
+  assert.equal(login.data.error, '');
+  login.setData({ password: 'short', confirmPassword: 'short' });
+  await login.activate();
+  assert.equal(login.data.activationField, 'password');
+  login.setData({ password: 'Isolated-Activation-24!', confirmPassword: 'Different-Activation-24!' });
+  await login.activate();
+  assert.equal(login.data.activationField, 'confirmPassword');
+  assert.equal(activationRequests().length, 0);
+
+  login.toggleActivationVisibility(tap({ field: 'confirmPassword' }));
+  assert.equal(login.data.visibleActivationFields.confirmPassword, true);
+  assert.equal(login.data.visibleActivationFields.password, undefined);
+  login.input({ ...tap({ field: 'confirmPassword' }), detail: { value: login.data.password } });
+  await login.activate();
+  assert.equal(api.session().actor, 'partnerB');
+  assert.equal(login.data.password, '');
+  assert.equal(login.data.confirmPassword, '');
+  assert.equal(login.data.activationToken, '');
+  assert.deepEqual(login.data.visibleActivationFields, {});
+  assert.equal(activationRequests().at(-1).status, 200);
+
+  await api.visitor();
+  const replay = page('login', { mode: 'activate' });
+  replay.setData({ activationToken: invitation.token, password: 'Isolated-Activation-24!', confirmPassword: 'Isolated-Activation-24!' });
+  await replay.activate();
+  assert.equal(replay.data.activationField, 'activationToken');
+  assert.match(replay.data.error, /激活码已失效/);
+  assert.equal(activationRequests().at(-1).status, 409);
+}));
+
+test('workbench keeps the selected outlet across preview and task list and clears rows after an account switch', () => nativeRun(async ({ calls }) => {
+  const month = '2026-10';
+  const submit = async (outlet, enroll) => (await api.command('report.submit', {
+    outlet, month, revenue: 1200, orders: 4, traffic: 6, enroll, note: '工作台隔离验证',
+  })).result;
+  const reports = await Promise.all([submit('cs', 0), submit('zz', null)]);
+  await api.login('manager');
+  for (const report of reports) {
+    await api.command('review.report', { id: report.id, decision: 'return', note: '仅 ' + report.outlet + ' 原单可见的退回原因' });
+  }
+  await api.login('partnerA');
+  const home = page('home');
+  await home.onShow();
+  assert.equal(home.data.scopeName, '全部授权网点');
+  const outletIndex = home.data.scopeOutlets.findIndex(row => row.id === 'zz');
+  await home.chooseWorkbenchOutlet(change(String(outletIndex + 1)));
+  assert.equal(home.data.scopeOutlet, 'zz');
+  assert.equal(home.data.scopeStatus, '营业中');
+  const item = home.data.activeRows.find(row => row.reason.includes('仅 zz'));
+  assert.ok(item);
+  assert.doesNotMatch(JSON.stringify(home.data.activeRows), /仅 cs/);
+  await home.openWorkbenchTask(tap({ id: item.id }));
+  assert.match(calls.at(-1).navigateTo, new RegExp('outlet=zz&month='+month+'&id='+reports[1].id+'&edit=returned$'));
+  const editor = page('report', { outlet: 'zz', month, id: reports[1].id, edit: 'returned' });
+  await editor.onShow();
+  assert.equal(editor.data.directReturnedEdit, true);
+  assert.equal(editor.data.linkedVersion, null);
+  assert.equal(editor.data.latestSubmittedVersion.id, reports[1].id);
+  assert.equal(editor.data.canEdit, true);
+  assert.match(editor.data.returnedReason, /仅 zz/);
+  home.openWorkbenchList(tap({ status: 'open' }));
+  assert.equal(calls.at(-1).navigateTo, '/pages/tasks/index?status=open&outlet=zz');
+  const tasks = page('tasks', { status: 'open', outlet: 'zz' });
+  await tasks.onShow();
+  assert.equal(tasks.data.pagers.businessTasks.total, home.data.openTotal);
+  assert.ok(tasks.data.taskRows.some(row => row.id === item.id));
+  assert.ok(tasks.data.state.businessTasks.every(row => row.outlet === 'zz'));
+
+  await api.login('partnerB');
+  await assert.rejects(api.detail('businessTasks', item.id), { status: 404 });
+  const forbidden = await api.collection('businessTasks', { status: 'open', outlet: 'zz' });
+  assert.equal(forbidden.total, 0);
+  await home.onShow();
+  assert.notEqual(home.data.scopeOutlet, 'zz');
+  assert.doesNotMatch(JSON.stringify(home.data.activeRows), /仅 zz/);
+}));
 
 test('report keeps a second-page outlet through refresh and switching back', () => nativeRun(async ({ app }) => {
   seedPagedOutlets(app);
@@ -323,6 +463,8 @@ test('public home passes both regions on the first directory request and keeps s
     assert.equal(firstDirectoryRequest().get('scope'), 'public');
     assert.equal(directory.data.geo, geo);
     assert.deepEqual(directory.data.rows.map(row => row.id), [id]);
+    assert.deepEqual(directory.data.rows[0].services, ['咨询']);
+    assert.equal(directory.data.rows[0].businessChips, undefined);
 
     await directory.search(change(city));
     directory.openOutlet(id);

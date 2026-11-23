@@ -130,7 +130,7 @@ function define(options){const specs=(options.collections||[]).map(c=>typeof c==
   },
   ...Object.fromEntries(Object.entries(options).filter(([k])=>!['data','load','loaded','collections','summary','onUnload'].includes(k)))
 };}
-async function openRecord(record,{returnStatus,returnPage,onSuccess,onSettled,isCurrent=()=>true}={}){
+async function openRecord(record,{returnStatus,returnPage,onSuccess,onSettled,isCurrent=()=>true,editReturned=false}={}){
  if(!canOpenRecord(record))return;
  const open=(page,query)=>isCurrent()?go(page,query,()=>{
    if(isCurrent()){track('task_click','opened');onSuccess?.();}
@@ -164,7 +164,8 @@ async function openRecord(record,{returnStatus,returnPage,onSuccess,onSettled,is
    }
    if(id?.startsWith('rpt-')){
      const report=await api.detail('reports',id);
-     return open('report',api.query({outlet:report.outlet,month:report.month,id:report.id}));
+     return open('report',api.query({outlet:report.outlet,month:report.month,id:report.id,
+       edit:editReturned&&report.status==='returned'?'returned':undefined}));
    }
    if(id?.startsWith('exempt-')){
      const exemption=await api.detail('exemptions',id);

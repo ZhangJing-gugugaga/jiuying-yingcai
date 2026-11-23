@@ -15,12 +15,17 @@ const signInErrors={
   ACTIVATION_INVALID:'激活码已失效，请联系总部重新领取。',
   ACCOUNT:'账号暂不可用，请联系总部客服。'
 };
+const activationFields=[
+  {name:'activationToken',label:'激活码',placeholder:'请输入总部发放的激活码'},
+  {name:'password',label:'设置登录密码',placeholder:'请设置 12–128 位密码'},
+  {name:'confirmPassword',label:'确认登录密码',placeholder:'请再次输入密码'}
+];
 
 Page({
   data:{
     busy:false,error:'',mode:'methods',username:'',password:'',confirmPassword:'',
     activationToken:'',mobile:'',smsCode:'',challengeId:'',resendSeconds:0,
-    wechatEnabled:false,smsEnabled:false,activationVisible:false,channelsLoading:true,
+    wechatEnabled:false,smsEnabled:false,activationFields,activationField:'',visibleActivationFields:{},channelsLoading:true,
     staffPortalUrl:'',sessionCleanupPending:false,sessionCleanupRequired:false,sessionCleanupError:'',
     /* DEV_ONLY_START */
     development:false,smsMode:'',devCode:'',developerToolsExpanded:false,...development.data,
@@ -36,6 +41,7 @@ Page({
     this.next=query?.next;
     if(query?.mode==='activate')this.setData({mode:'activate'});
     if(query?.token)this.setData({activationToken:query.token,mode:'activate'});
+    if(query?.mode==='activate'||query?.token)wx.setNavigationBarTitle?.({title:'首次激活'});
     if(query?.reason==='session-expired')this.setData({error:'登录已失效，请重新登录后继续。'});
   },
   onShow() {
@@ -75,7 +81,9 @@ Page({
   },
   input(e) {
     const field=e.currentTarget.dataset.field;
-    this.setData({[field]:e.detail.value});
+    this.setData({[field]:e.detail.value,...(this.data.mode==='activate'&&this.data.activationField
+      &&(this.data.activationField===field||this.data.activationField==='confirmPassword'&&field==='password')
+      ?{error:'',activationField:''}:{})});
     if(field==='mobile'){
       this.setData({challengeId:'',smsCode:''});
       /* DEV_ONLY_START */
@@ -89,12 +97,17 @@ Page({
     if(busy||!['methods','password','activate','sms'].includes(requested)||(requested==='sms'&&!smsEnabled))return;
     const mode=requested==='methods'&&!channelsLoading&&!smsEnabled&&!wechatEnabled?'password':requested;
     if(mode===this.data.mode)return;
-    this.setData({mode,error:'',password:'',confirmPassword:'',activationVisible:false});
+    this.setData({mode,error:'',password:'',confirmPassword:'',activationField:'',visibleActivationFields:{}});
+    wx.setNavigationBarTitle?.({title:mode==='activate'?'首次激活':'九盈英才'});
   },
-  toggleActivationVisibility(){this.setData({activationVisible:!this.data.activationVisible});},
+  toggleActivationVisibility(e){
+    const field=e.currentTarget.dataset.field;
+    if(this.data.busy||this.data.mode!=='activate'||!activationFields.some(item=>item.name===field))return;
+    this.setData({['visibleActivationFields.'+field]:!this.data.visibleActivationFields[field]});
+  },
   async run(action,{browse=false}={}) {
     if(this.data.busy||this.data.sessionCleanupPending||this.data.sessionCleanupRequired||this.data.mode==='staff')return;
-    this.setData({busy:true,error:'',sessionCleanupError:''});
+    this.setData({busy:true,error:'',activationField:'',visibleActivationFields:{},sessionCleanupError:''});
     try {
       const session=await action();
       if(this._unloaded)return;
@@ -106,7 +119,9 @@ Page({
     } catch(e) {
       if(this._unloaded)return;
       const retainPassword=e.code==='NETWORK'||e.code==='INVALID_CREDENTIALS';
-      this.setData({error:signInErrors[e.code]||e.message,...(retainPassword?{}:{password:'',confirmPassword:''})});
+      this.setData({error:signInErrors[e.code]||e.message,
+        activationField:this.data.mode==='activate'&&e.code==='ACTIVATION_INVALID'?'activationToken':'',
+        ...(retainPassword?{}:{password:'',confirmPassword:''})});
     } finally {
       if(!this._unloaded)this.setData({busy:false});
     }
@@ -126,7 +141,10 @@ Page({
       return;
     }
     const staff=isStaffRole(session.role);
-    if(staff)this.next=undefined;
+    if(staff){
+      this.next=undefined;
+      wx.setNavigationBarTitle?.({title:'九盈英才'});
+    }
     clearInterval(this.smsTimer);
     this.setData({
       ...(staff?{mode:'staff'}:{}),error:staff?'':unknownRole,username:'',password:'',confirmPassword:'',
@@ -175,9 +193,11 @@ Page({
   },
   async activate() {
     const {activationToken,password,confirmPassword}=this.data;
-    if(!activationToken.trim())return this.setData({error:'请输入总部发放的激活码。'});
-    if(password.length<12)return this.setData({error:'登录密码至少12位。'});
-    if(password!==confirmPassword)return this.setData({error:'两次输入的密码不一致。'});
+    if(!activationToken.trim())return this.setData({activationField:'activationToken',error:'请输入总部发放的激活码。'});
+    if(password.length<12||password.length>128){
+      return this.setData({activationField:'password',error:password.length<12?'登录密码至少12位。':'登录密码最多128位。'});
+    }
+    if(password!==confirmPassword)return this.setData({activationField:'confirmPassword',error:'两次输入的密码不一致。'});
     await this.run(()=>api.activate(activationToken.trim(),password));
   },
   onUnload() {

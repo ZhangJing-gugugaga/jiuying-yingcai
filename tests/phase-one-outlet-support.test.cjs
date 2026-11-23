@@ -143,8 +143,8 @@ test('my outlets keeps address and secondary shortcuts in detail and opens only 
   assert.equal(page.data.directory, false);
   assert.ok(reads.some(url => url.pathname === '/api/collections/outlets' && url.searchParams.get('includeSummary') === 'true'));
   const template = markup('outlets');
-  assert.match(template, /wx:if="{{!directory && !isPublic}}" class="[^"\n]*outlet-list-heading[^"\n]*">\s*<view[^>]*>网点列表<\/view>\s*<button wx:if="{{rows.length}}"[^>]*data-query="type=newOutlet"[^>]*>申请新增网点/);
-  assert.match(template, /data-id="{{item.id}}" bindtap="open"[^>]*>[\s\S]*?查看网点详情/);
+  assert.match(template, /wx:if="{{state && !directory && !isPublic && rows.length}}"[^>]*data-query="type=newOutlet"[^>]*>申请新增网点/);
+  assert.match(template, /data-id="{{item.id}}" bindtap="open"[^>]*aria-label="查看{{item.name}}详情"/);
   assert.match(template, /wx:if="{{item.nextAction}}"[\s\S]*?data-id="{{item.id}}" bindtap="outletAction"/);
   assert.doesNotMatch(template, /wx:for="{{(?:item.summaryRows|outletActions)}}"/);
 
@@ -152,6 +152,7 @@ test('my outlets keeps address and secondary shortcuts in detail and opens only 
     ['location', 'missing', 'location'], ['fee', 'unpaid', 'fees'], ['fee', 'partially_paid', 'fees']];
   for (const outlet of page.data.rows) {
     assert.deepEqual(outlet.summaryRows.map(row => row.key), ['report', 'location', 'fee']);
+    assert.deepEqual(outlet.businessChips.map(row => row.key), ['report', 'fee']);
     assert.ok(outlet.summaryRows.every(row => row.monthText && row.statusText));
     const selected = priority.find(([key, status]) => outlet.summary[key].status === status);
     const count = routes.length;

@@ -6,7 +6,7 @@ const api = require('../miniprogram/utils/api');
 
 const tap = dataset => ({ currentTarget: { dataset } });
 
-test('the bill scope and amount lead the page and filters and history open one at a time', () => runTest(async ({fees, bill}) => {
+test('the bill scope and amount lead the page and filters and history open one at a time', () => runTest(async ({app, fees, bill}) => {
   const template = require('node:fs').readFileSync(require.resolve('../miniprogram/pages/fees/index.wxml'), 'utf8');
   assert.ok(template.indexOf('fees-overview') >= 0);
   assert.ok(template.indexOf('待付合计') < template.indexOf('筛选账单'));
@@ -23,6 +23,9 @@ test('the bill scope and amount lead the page and filters and history open one a
   assert.equal(fees.data.historyOpen, false);
   assert.deepEqual({ selected: fees.data.selected, month: fees.data.filterMonthValue, status: fees.data.statusFilter }, set);
   assert.equal(fees.data.bills.find(row => row.id === bill.id).unpaidText,'120.00');
+  assert.deepEqual(fees.data.bills.find(row => row.id === bill.id).displayAmount, { label: '待支付金额', value: '120.00' });
+  const sourceBill = await api.detail('bills', bill.id);
+  assert.equal(sourceBill.ledger.unpaidCents, 12000);
   await fees.chooseSection(tap({ section: 'records' }));
   assert.equal(fees.data.filtersOpen, false);
   assert.equal(fees.data.historyOpen, false);
@@ -30,6 +33,18 @@ test('the bill scope and amount lead the page and filters and history open one a
   wx.navigateTo = ({ url, success }) => { opened = url; success(); };
   fees.openFinance();
   assert.equal(opened, '/pages/finance/index?outlet=cs');
+  await fees.chooseSection(tap({ section: 'bills' }));
+  assert.deepEqual({ selected: fees.data.selected, month: fees.data.filterMonthValue, status: fees.data.statusFilter }, set);
+
+  const state = app.store.load();
+  state.adjustments.push({id:'adj-isolated-unknown',outlet:'cs',owner:'p1',status:'待财务核算调整',
+    from:'2026-09-01',to:'2026-09-02',amount:null,offsetMonth:null});
+  app.store.transaction(()=>app.store.save(state));
+  await fees.chooseSection(tap({ section: 'adjustments' }));
+  const unknown = fees.data.adjustments.find(row => row.id === 'adj-isolated-unknown');
+  assert.equal(unknown.amount, null);
+  assert.equal(unknown.amountText, '—');
+  assert.equal(app.store.db.prepare('SELECT amount_cents FROM adjustments WHERE id=?').get(unknown.id).amount_cents,null);
   await fees.chooseSection(tap({ section: 'bills' }));
   assert.deepEqual({ selected: fees.data.selected, month: fees.data.filterMonthValue, status: fees.data.statusFilter }, set);
 }));

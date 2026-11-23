@@ -166,6 +166,7 @@ function createServer({dbPath=process.env.DB_PATH||path.join(ROOT,'var/local.db'
     });
     if(route==='/api/reports/context'&&req.method==='GET')return respond(200,{data:repo.reportContext(session,Object.fromEntries(url.searchParams)),requestId});
     if(route==='/api/reports/worklist'&&req.method==='GET')return respond(200,{data:readAnalyticsSnapshot(()=>repo.reportWorklist(session,Object.fromEntries(url.searchParams))),requestId});
+    if(route==='/api/workbench/records'&&req.method==='GET')return respond(200,{data:readAnalyticsSnapshot(()=>repo.workbenchRecords(session,Object.fromEntries(url.searchParams))),requestId});
     if(route==='/api/payments/prepay'&&req.method==='POST')return respond(200,{data:await payments.prepay(session,await protectedJson(req,8192),req.headers['idempotency-key'],requestId,()=>sessionFor(req)),requestId});
     if(route==='/api/payments/exceptions'&&req.method==='GET')return respond(200,{data:payments.paymentExceptions(session,Object.fromEntries(url.searchParams)),requestId});
     const channelRefundRequest=/^\/api\/payment-refunds\/requests\/([^/]+)$/.exec(route);

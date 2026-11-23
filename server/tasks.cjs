@@ -87,6 +87,7 @@ function taskQueries(db,{contextState,access,detail,reportPolicy}){
    const canComplete=!!source&&model.active(t)&&model.manual(t)&&model.matchesAssignee(t,session.actor,session.subject);
    const fields={id:t.id,queue:t.queue,kind:t.kind,businessType:t.businessType,businessId:t.businessId,recordId:t.recordId,target:t.target,outlet:t.outlet,outletName:row.outletName||t.outlet,month:t.month,status:t.status,currentStage:t.currentStage,assigneeType:t.assigneeType,assigneeRole:assignee.role,assigneeFranchiseeId:t.assigneeFranchiseeId,title:t.title||null,applicant:t.businessType?.startsWith('support')?null:row.applicant||t.owner||null,dueAt:row.dueAt,overdue:!!row.overdue,createdAt:t.createdAt,updatedAt:t.updatedAt,completedAt:t.completedAt,closeReason:t.closeReason,canViewBusiness:!!source,canAssign:allowedAssigneeRoles.length>0,canComplete,allowedAssigneeRoles};
    if(t.businessType==='bills'&&Number.isFinite(source?.amount))fields.amount=source.amount;
+   if(outside&&t.kind==='report_returned'&&t.status==='open'&&source?.status==='returned')fields.returnReason=source.reviewNote||null;
    if(outside){fields.dueOn=row.dueAt?.length===10?row.dueAt:null;fields.role=assignee.role;fields.resolution=t.resolution??t.closeReason??null;fields.resolvedAt=t.resolvedAt??t.completedAt??null;}
    if(t.kind==='report_resettlement'&&session.actor==='manager'){
     fields.affectedOutletIds=t.affectedOutletIds||[];
@@ -100,13 +101,14 @@ function taskQueries(db,{contextState,access,detail,reportPolicy}){
    return fields;
   });
  }
- function rowsFor(x,session,selection,limit,offset){
+ function rowsFor(x,session,selection,limit,offset,recent=false){
+  const order=recent?value('completedAt')+' DESC,businessTasks.id':due+' IS NULL,'+due+',businessTasks.created_at DESC,businessTasks.id';
   const rows=db.prepare(`${reportClock} SELECT businessTasks.data,${due} AS dueAt,
    CASE WHEN ${active} THEN ${isOverdue} ELSE 0 END overdue,
    json_extract(o.data,'$.name') outletName,json_extract(org.data,'$.name') applicant
    FROM businessTasks CROSS JOIN report_clock LEFT JOIN outlets o ON o.id=businessTasks.outlet LEFT JOIN organizations org ON org.id=businessTasks.owner
    WHERE ${selection.where}
-   ORDER BY ${due} IS NULL,${due},businessTasks.created_at DESC,businessTasks.id
+   ORDER BY ${order}
    LIMIT ? OFFSET ?`).all(...clock(x.s,session),...selection.args,limit,offset);
   return project(rows,x,session);
  }
@@ -118,7 +120,7 @@ function taskQueries(db,{contextState,access,detail,reportPolicy}){
   core.check(Number.isInteger(limit)&&limit>=1&&limit<=200&&Number.isSafeInteger(offset)&&offset>=0,'INPUT','limit须1—200，offset须为非负整数');
   const selection=where(x,filter(params),queue);
   const total=db.prepare('SELECT count(*) n FROM businessTasks WHERE '+selection.where).get(...selection.args).n;
-  const items=rowsFor(x,session,selection,limit,offset);
+  const items=rowsFor(x,session,selection,limit,offset,params.status==='resolved'&&params.sort==='completed');
   return {items,total,offset,limit,hasMore:offset+items.length<total};
  }
  function taskDetail(session,id){

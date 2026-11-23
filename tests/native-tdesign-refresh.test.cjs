@@ -27,12 +27,12 @@ test('the 21 registered pages resolve packaged TDesign components and their depe
 
 test('visitor and workbench surfaces use native TDesign while preserving the existing navigation contracts', () => {
   const home = read('pages/home/index.wxml');
-  assert.match(home, /class="home-public-hero"[\s\S]*?src="\/assets\/home-network.webp"/);
+  assert.match(home, /class="home-public-hero"[\s\S]*?src="\/assets\/home-skyline.webp"/);
   assert.match(home, /data-query="scope=public&mode=map" bindtap="nav"/);
   assert.match(home, /<t-badge wx:if="{{hasUnreadNotices}}"/);
-  assert.match(home, /data-page="fees" bindtap="nav"/);
-  assert.match(home, /data-page="outlets" data-query="scope=private" bindtap="openOutlets"/);
-  assert.match(home, /data-page="tasks" bindtap="nav"/);
+  assert.match(home, /data-page="fees" bindtap="openScopedTool"/);
+  assert.match(home, /data-page="outlets" bindtap="openOutlets"/);
+  assert.match(home, /data-page="tasks" data-query="section=notices" bindtap="nav"/);
   assert.match(read('pages/profile/index.wxml'), /<t-cell[^>]+data-page="security" bind:click="nav"/);
   const login = read('pages/login/index.wxml');
   assert.match(login, /<t-input[^>]+data-field="password" bind:change="input"[^>]+type="password"/);

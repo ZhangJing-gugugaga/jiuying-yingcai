@@ -88,6 +88,30 @@ test('workbench keeps the pending count when unread notices cannot load', async 
   assert.equal(instance.data.managerName, '测试负责人');
 });
 
+test('a slow outlet preview cannot overwrite a newer workbench scope', async t => {
+  let finishFirst;
+  const { instance } = page('home', {}, t, {
+    async request(route) {
+      return route === '/api/context' ? { actor: 'partnerA', today } : { items: [] };
+    },
+    async collection(name, filters) {
+      if (name === 'outlets') return entries(outlets);
+      if (name !== 'businessTasks' || filters.status !== 'open') return entries([]);
+      if (filters.outlet === 'cs') return new Promise(resolve => { finishFirst = resolve; });
+      return filters.outlet === 'zz' ? entries([{ id: 'task-zz', kind: 'report_missing',
+        outlet: 'zz', outletName: '株洲网点', status: 'open', month: '2027-02' }]) : entries([]);
+    },
+  });
+  await instance.onShow();
+  const selectFirst = instance.chooseWorkbenchOutlet({ detail: { value: '1' } });
+  await instance.chooseWorkbenchOutlet({ detail: { value: '2' } });
+  assert.equal(instance.data.scopeOutlet, 'zz');
+  assert.deepEqual(instance.data.activeRows.map(row => row.id), ['task-zz']);
+  finishFirst(entries([{ id: 'stale', kind: 'report_missing', outlet: 'cs', status: 'open' }]));
+  await selectFirst;
+  assert.deepEqual(instance.data.activeRows.map(row => row.id), ['task-zz']);
+});
+
 test('my matters opens a task by ID and ignores the ID of a stale refreshed row', async t => {
   const first = { id: 'task-a', kind: 'report_missing', outlet: 'cs', month: '2027-02', status: 'open' };
   const second = { id: 'task-b', kind: 'report_missing', outlet: 'zz', month: '2027-02', status: 'open' };

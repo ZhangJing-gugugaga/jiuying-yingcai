@@ -72,7 +72,7 @@ const editor = define({
     searchExpanded: false, historyExpanded: false, formExpanded: false, correctionExpanded: false, noteExpanded: false, hasDraft: false,
     applicable: false, enrollmentStatus: 'pending', timing: null, versions: [], current: null,
     currentApprovedVersion: null, latestSubmittedVersion: null, linkedVersion: null,
-    versionUnavailable: false, currentAction: '', returnedReason: '', submitting: false, inlineConfirmation: false,
+    versionUnavailable: false, currentAction: '', returnedReason: '', directReturnedEdit: false, submitting: false, inlineConfirmation: false,
     submitConfirmationContent: confirmationContent, showActionError: false, actionNotice: '',
     missingFields: [], missingFieldsText: '', fieldErrors: {}, confirmationRows: [],
     reason: '', correctionError: '', correctionType: 'field', correctionFieldIndex: 0, correctionOptions: [], recoveryAvailable: false,
@@ -125,13 +125,22 @@ const editor = define({
       return row.status === 'returned' && !row.revoked && row.id !== latestSubmittedVersion?.id
         ? { ...row, statusText: '历史退回记录', statusTone: 'gray' } : row;
     });
-    const linkedId = this.query.id || this.query.reportId;
+    const requestedVersion = this.query.id || this.query.reportId;
+    const enterReturnedEditor = this.query.edit==='returned' && requestedVersion &&
+      requestedVersion===latestSubmittedVersion?.id && latestSubmittedVersion.status==='returned' &&
+      !latestSubmittedVersion.revoked && editAllowed;
+    if (enterReturnedEditor) {
+      delete this.query.id;
+      delete this.query.reportId;
+    }
+    delete this.query.edit;
+    const linkedId = enterReturnedEditor ? '' : requestedVersion;
     const linkedVersion = versions.find(record => record.id === linkedId) || null;
     const versionUnavailable = !!linkedId && !linkedVersion;
     const shownVersion = linkedId ? linkedVersion : latestSubmittedVersion;
     const returned = shownVersion?.status === 'returned' && !shownVersion.revoked && shownVersion.id === latestSubmittedVersion?.id;
     const returnedReason = returned ? shownVersion.review || '总部未填写说明，可联系总部了解详情。' : '';
-    // An identified version is a read-only snapshot. Editing is a separate monthly view.
+    // A version link keeps its snapshot unless a return task names the latest editable version.
     let currentAction = '';
     if (linkedVersion) {
       if (latestSubmittedVersion && linkedVersion.id !== latestSubmittedVersion.id) currentAction = '查看当前月报';
@@ -168,6 +177,7 @@ const editor = define({
     this.setData({
       state: { ...this.data.state, reports: versions }, versions, current: latestSubmittedVersion,
       currentApprovedVersion, latestSubmittedVersion, linkedVersion, versionUnavailable, currentAction, returnedReason, enrollmentStatus, applicable, timing: timing || null,
+      directReturnedEdit: !!(returned && canEdit && (enterReturnedEditor || this.data.directReturnedEdit)),
       monthDisplay:fmt.monthText(month),dueDisplay:fmt.dateText(timing?.dueOn),
       displayStatus:linkedId ? linkedVersion?.statusText || '' : reason==='exempt'?'已免报':latestSubmittedVersion?.statusText||(context.draft?'草稿':canEdit?'待填写':''),
       displayStatusTone:linkedId ? linkedVersion?.statusTone : reason==='exempt'?'ok':latestSubmittedVersion?.statusTone||(canEdit||context.draft?'wait':'gray'),
@@ -222,7 +232,7 @@ const editor = define({
         ...values, form: { ...emptyForm }, editableFields: { ...readOnlyFields }, enrollmentStatus: 'pending',
         applicable: false, timing: null, canEdit: false, canSubmit: false, canCorrect: false, editNotice: '', versions: [], current: null,
         currentApprovedVersion: null, latestSubmittedVersion: null, linkedVersion: null, versionUnavailable: false,
-        currentAction: '', returnedReason: '', reason: '', correctionError: '', showActionError: false, actionNotice: '', displayStatus: '', dueDisplay: '',
+        currentAction: '', returnedReason: '', directReturnedEdit: false, reason: '', correctionError: '', showActionError: false, actionNotice: '', displayStatus: '', dueDisplay: '',
         historyExpanded: !!versionId, formExpanded: false, correctionExpanded: false, noteExpanded: false, hasDraft: false,
         missingFields: [], missingFieldsText: '', fieldErrors: {}, confirmationRows: [],
         correctionType: 'field', correctionFieldIndex: 0, recoveryAvailable: false,

@@ -5,8 +5,8 @@ const {recentSearches,addRecentSearch,clearRecentSearches}=require('../../utils/
 const {outletSummaryRows,outletSummaryStatus}=require('../../utils/outlet-summary');
 
 const geography=[
-  {value:'all',label:'全域分布'},
-  {value:'mainland',label:'中国大陆'},
+  {value:'all',label:'全部地区'},
+  {value:'mainland',label:'国内'},
   {value:'overseas',label:'境外'}
 ];
 const allCountries={code:'',name:'全部国家或地区'};
@@ -37,13 +37,16 @@ function privateRow(outlet){
     nextAction={page,label,month:summary[key].month,text:[title,monthText,statusText].join(' · ')};
   }
   return {...outlet,area,statusText:fmt.label(status,'outlet'),statusTone:fmt.statusTone(status,'outlet'),
-    summaryRows:rows,nextAction,waitingText:nextAction?'':waiting};
+    summaryRows:rows,businessChips:rows.filter(row=>row.key==='report'||row.key==='fee').map(row=>({...row,
+      label:row.key==='report'?'月报':'服务费',tone:fmt.statusTone(summary[row.key]?.status,row.key==='fee'?'bill':'report')})),
+    nextAction,waitingText:nextAction?'':waiting};
 }
 
 function publicRow(outlet){
-  const {id,name,address,status,province,city,countryCode,countryName,publicLocation,publicCoords}=outlet;
+  const {id,name,address,status,province,city,countryCode,countryName,publicLocation,publicCoords,services}=outlet;
   const area=[countryName,city].filter((name,index,all)=>name&&all.indexOf(name)===index).join(' · ');
-  return {id,name,address,area,province,city,countryCode,countryName,statusText:fmt.label(status,'outlet'),statusTone:fmt.statusTone(status,'outlet'),publicLocation,publicCoords};
+  return {id,name,address,area,province,city,countryCode,countryName,statusText:fmt.label(status,'outlet'),statusTone:fmt.statusTone(status,'outlet'),
+    services:Array.isArray(services)?services.slice(0,3):[],publicLocation,publicCoords};
 }
 
 function groupRows(rows,directory){

@@ -472,6 +472,41 @@ function repository(store,{today}={}){const db=store.db;
   return {outlet,month,draft:v.drafts[0]||null,currentApprovedVersion,latestSubmittedVersion:historyVersions.at(-1)||null,historyVersions,enrollmentStatus,timing:operations.reportTiming(s,month,reportPolicy(s.today)),eligibility};
  }
  const tasks=taskQueries(db,{contextState,access,detail,reportPolicy});
- return {reportContext,reportWorklist,list,detail,approvalRecord,context,snapshot,commandState,contextState,access,...tasks};
+ function workbenchRecords(session,params){
+  const owner=core.own(session.actor);
+  core.check(owner,'FORBIDDEN','仅加盟商可查看本方业务记录',403);
+  const outlet=params.outlet&&params.outlet!=='all'?params.outlet:null;
+  const limit=Number(params.limit??20),offset=Number(params.offset??0);
+  core.check(Number.isSafeInteger(limit)&&limit>=1&&limit<=100&&Number.isSafeInteger(offset)&&offset>=0,'INPUT','业务记录分页参数无效');
+  if(outlet)core.check(/^[\w-]{1,128}$/.test(outlet),'INPUT','网点编号无效');
+  const state=contextState(session);
+  const reports=access('reports',session,state),tickets=access('supportTickets',session,state);
+  const sql=`WITH activity AS (
+    SELECT 'report' AS kind,id,outlet,month,NULL AS title,
+      CASE WHEN json_extract(data,'$.revoked') THEN 'revoked' ELSE status END AS status,
+      COALESCE(json_extract(data,'$.trail[#-1].executedAt'),created_at) AS occurredAt
+    FROM reports WHERE (${reports.where})
+      AND NOT EXISTS (SELECT 1 FROM reports newer WHERE newer.owner IS reports.owner
+        AND newer.outlet=reports.outlet AND newer.month=reports.month AND newer.version>reports.version)
+    UNION ALL
+    SELECT 'support',id,outlet,NULL,json_extract(data,'$.title'),status,
+      MAX(created_at,COALESCE(json_extract(data,'$.closedAt'),''),COALESCE(json_extract(data,'$.firstResponseAt'),''),
+        COALESCE(json_extract(data,'$.messages[#-1].at'),''))
+    FROM supportTickets WHERE (${tickets.where})
+    UNION ALL
+    SELECT 'training',r.id,r.outlet_id,NULL,c.title,r.status,r.updated_at
+    FROM training_records r JOIN training_courses c ON c.id=r.course_id WHERE r.owner=?
+  ), visible AS (
+    SELECT activity.*,json_extract(o.data,'$.name') AS outletName
+    FROM activity LEFT JOIN outlets o ON o.id=activity.outlet
+    WHERE (activity.outlet IS NULL OR o.owner=?) AND (? IS NULL OR activity.outlet=?)
+  )`;
+  const args=[...reports.params,...tickets.params,owner,owner,outlet,outlet];
+  const total=db.prepare(sql+' SELECT count(*) AS total FROM visible').get(...args).total;
+  const items=db.prepare(sql+` SELECT kind,id,outlet,outletName,month,title,status,occurredAt FROM visible
+    ORDER BY julianday(occurredAt) DESC,kind,id LIMIT ? OFFSET ?`).all(...args,limit,offset);
+  return {items,total,offset,limit,hasMore:offset+items.length<total};
+ }
+ return {reportContext,reportWorklist,workbenchRecords,list,detail,approvalRecord,context,snapshot,commandState,contextState,access,...tasks};
 }
 module.exports={repository};

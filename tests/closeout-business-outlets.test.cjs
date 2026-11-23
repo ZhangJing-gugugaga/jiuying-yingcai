@@ -49,7 +49,7 @@ test('published outlet directory uses the same public projection for every sessi
   const directory = '/collections/outlets';
   const expected = {
     id: 'gz', outlet: 'gz', name: '公开服务网点', address: '授权服务地址',
-    province: '广东', city: '广州', district: '示范区', status: 'open', publicCoords,
+    province: '广东', city: '广州', district: '示范区', status: 'open', publicCoords, services: ['咨询'],
     publicLocation: { latitude: 23.19, longitude: 113.31, coordinateSystem: 'GCJ-02', precision: 'public' },
   };
   for (const session of [visitor, partner, other, ops]) {

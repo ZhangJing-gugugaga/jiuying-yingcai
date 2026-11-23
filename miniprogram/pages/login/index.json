@@ -3,6 +3,7 @@
   "enablePullDownRefresh": false,
   "usingComponents": {
     "t-button": "/vendor/tdesign/button/button",
-    "t-input": "/vendor/tdesign/input/input"
+    "t-input": "/vendor/tdesign/input/input",
+    "t-icon": "/vendor/tdesign/icon/icon"
   }
 }

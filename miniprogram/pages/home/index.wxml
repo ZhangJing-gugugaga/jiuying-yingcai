@@ -1,54 +1,128 @@
 <view class="page tab-page home-page {{publicView ? 'home-public' : 'home-member'}}">
-  <view wx:if="{{!publicView}}" class="home-header row between">
-    <view class="row grow">
-      <view class="home-mark" aria-hidden="true">九</view>
-      <view class="grow">
-        <view class="home-title">九盈英才</view>
-        <view wx:if="{{managerName && !publicView}}" class="home-caption">{{managerName}}{{outletCount !== null ? ' · '+outletCount+' 家网点' : ''}}</view>
-        <view wx:else class="home-caption">{{displayDate || '加盟商工作台'}}</view>
-      </view>
-    </view>
-  </view>
-
   <block wx:if="{{!publicView && session.role==='partner'}}">
-    <view class="section-head"><view class="section-title">经营办理</view></view>
-    <view class="home-tools">
-      <button class="home-tool" data-page="outlets" data-query="scope=private" bindtap="openOutlets" hover-class="tap-feedback">
-        <t-icon class="home-tool-icon ice" name="shop" size="41rpx" aria-hidden="true"/>
-        <text class="home-tool-label">我的网点</text>
-        <text class="home-tool-note">{{firstOutlet ? firstOutlet.actionText || '查看网点与申请' : outletCount ? outletCount+' 家网点' : '查看网点与申请'}}</text>
-      </button>
-      <button class="home-tool" data-page="reports" data-query="outlet=all" bindtap="nav" hover-class="tap-feedback">
-        <t-icon class="home-tool-icon mint" name="file" size="41rpx" aria-hidden="true"/>
-        <text class="home-tool-label">经营月报</text>
-        <text class="home-tool-note">填报与审核进度</text>
-      </button>
-      <button class="home-tool" data-page="fees" bindtap="nav" hover-class="tap-feedback">
-        <t-icon class="home-tool-icon amber" name="wallet" size="41rpx" aria-hidden="true"/>
-        <text class="home-tool-label">咨询服务费</text>
-        <text class="home-tool-note">账单与付款记录</text>
-      </button>
-      <button class="home-tool" data-page="tasks" bindtap="nav" hover-class="tap-feedback" aria-label="{{hasUnreadNotices ? '我的事项，有未读通知' : '我的事项'}}">
-        <t-badge wx:if="{{hasUnreadNotices}}" dot="{{true}}" offset="{{[1, 4]}}">
-          <t-icon class="home-tool-icon ice" name="task" size="41rpx" aria-hidden="true"/>
-        </t-badge>
-        <t-icon wx:else class="home-tool-icon ice" name="task" size="41rpx" aria-hidden="true"/>
-        <text class="home-tool-label">我的事项</text>
-        <text class="home-tool-note">{{openTotal > 0 ? openTotal+' 项待处理' : hasUnreadNotices ? '有未读通知' : '待办与通知'}}</text>
+    <view class="workbench-hero">
+      <image class="home-public-art" src="/assets/home-skyline.webp" mode="aspectFill" aria-hidden="true"/>
+      <view class="workbench-hero-copy">
+        <view class="home-public-brand"><text class="home-mark" aria-hidden="true">九</text><text>九盈英才</text></view>
+        <view class="workbench-greeting">{{managerName ? '您好，'+managerName : '加盟商工作台'}}</view>
+        <view class="home-caption">加盟商负责人</view>
+      </view>
+      <button class="workbench-notices" data-page="tasks" data-query="section=notices" bindtap="nav" aria-label="{{hasUnreadNotices ? '通知，有未读消息' : '通知'}}">
+        <t-badge wx:if="{{hasUnreadNotices}}" dot="{{true}}"><t-icon name="notification" size="41rpx" aria-hidden="true"/></t-badge>
+        <t-icon wx:else name="notification" size="41rpx" aria-hidden="true"/>
       </button>
     </view>
-    <view wx:if="{{loading && !hasLoaded}}" class="card content-skeleton">
-      <text>正在查看网点和待办…</text>
+
+    <view wx:if="{{loading && !hasLoaded && outletCount===null}}" class="card content-skeleton">
+      <text>正在查看授权网点…</text>
       <view class="content-skeleton-body" aria-hidden="true"/>
     </view>
-    <view wx:elif="{{loading}}" class="loading">正在更新工作台…</view>
-    <view wx:if="{{error || taskError}}" class="error">
-      {{error || '暂时无法读取待办数量。'}}<button class="link" bindtap="refresh">重试</button>
+    <view wx:elif="{{outletCount!==null}}" class="workbench-scope">
+      <t-icon class="workbench-scope-icon" name="shop" size="39rpx" aria-hidden="true"/>
+      <view class="workbench-scope-content">
+        <view wx:if="{{outletCount===0}}" class="workbench-scope-name">尚无授权网点</view>
+        <picker wx:elif="{{outletCount>1}}" range="{{scopeLabels}}" value="{{scopeIndex}}" bindchange="chooseWorkbenchOutlet" disabled="{{loading}}" aria-label="选择工作台网点">
+          <view class="workbench-scope-picker"><text class="workbench-scope-name">{{scopeName}}</text><t-icon name="chevron-down" size="32rpx" aria-hidden="true"/></view>
+        </picker>
+        <view wx:else class="workbench-scope-name">{{scopeName}}</view>
+        <view wx:if="{{outletCount>0 && scopeOutlet}}" class="workbench-meta">当前网点</view>
+        <view wx:elif="{{outletCount>0}}" class="workbench-meta">{{outletCount}} 家网点</view>
+        <view wx:else class="workbench-meta">{{firstOutlet.detail}}</view>
+      </view>
+      <text wx:if="{{scopeStatus}}" class="badge {{scopeTone}}">{{scopeStatus}}</text>
+    </view>
+    <button wx:if="{{firstOutlet.actionText && !error}}" class="workbench-scope-action outline small" bindtap="openFirstOutlet">{{firstOutlet.actionText}}</button>
+    <button wx:if="{{firstOutlet.status==='error'}}" class="workbench-scope-action outline small" bindtap="refresh">重试读取首店申请</button>
+    <button wx:if="{{pagers.outlets.hasMore}}" class="workbench-scope-action link" data-collection="outlets" bindtap="more"
+      loading="{{pagers.outlets.loading}}" disabled="{{loading || pagers.outlets.loading}}">加载更多可选网点</button>
+
+    <view class="home-tools">
+      <button class="home-tool" data-page="reports" bindtap="openScopedTool" hover-class="tap-feedback">
+        <t-icon class="home-tool-icon ice" name="file" size="35rpx" aria-hidden="true"/>
+        <view class="home-tool-copy"><text class="home-tool-label">经营月报</text><text class="home-tool-note">月度填报 · 审核进度</text></view>
+      </button>
+      <button class="home-tool" data-page="fees" bindtap="openScopedTool" hover-class="tap-feedback">
+        <t-icon class="home-tool-icon amber" name="wallet" size="35rpx" aria-hidden="true"/>
+        <view class="home-tool-copy"><text class="home-tool-label">咨询服务费</text><text class="home-tool-note">账单查询 · 付款</text></view>
+      </button>
+      <button class="home-tool" data-page="support" bindtap="openScopedTool" hover-class="tap-feedback">
+        <t-icon class="home-tool-icon violet" name="service" size="35rpx" aria-hidden="true"/>
+        <view class="home-tool-copy"><text class="home-tool-label">客服工单</text><text class="home-tool-note">问题咨询 · 进度</text></view>
+      </button>
+      <button wx:if="{{trainingRecord}}" class="home-tool" bindtap="openTrainingSupplement" hover-class="tap-feedback">
+        <t-icon class="home-tool-icon mint" name="education" size="35rpx" aria-hidden="true"/>
+        <view class="home-tool-copy"><text class="home-tool-label">培训补件</text><text class="home-tool-note">学员资料 · 退回补充</text></view>
+      </button>
+      <button class="home-tool" data-page="outlets" bindtap="openOutlets" hover-class="tap-feedback">
+        <t-icon class="home-tool-icon ice" name="shop" size="35rpx" aria-hidden="true"/>
+        <view class="home-tool-copy"><text class="home-tool-label">我的网点</text><text class="home-tool-note">{{firstOutlet.actionText || '网点信息 · 状态管理'}}</text></view>
+      </button>
+      <button class="home-tool" bindtap="toggleMoreBusiness" hover-class="tap-feedback" aria-expanded="{{moreBusiness}}">
+        <t-icon class="home-tool-icon violet" name="view-module" size="35rpx" aria-hidden="true"/>
+        <view class="home-tool-copy"><text class="home-tool-label">更多业务</text><text class="home-tool-note">停业停费 · 位置核验</text></view>
+      </button>
+    </view>
+    <view wx:if="{{moreBusiness}}" class="home-public-section workbench-more">
+      <view wx:if="{{!scopeOutlet}}" class="workbench-meta">请在我的网点选择办理对象。</view>
+      <button wx:if="{{!scopeOutlet}}" class="outline small" bindtap="openOutlets">选择办理网点</button>
+      <block wx:else>
+        <button wx:if="{{scopeTone==='ok'}}" class="outline small" data-page="requests" data-type="statusChange" bindtap="openOutletBusiness">申请暂停营业</button>
+        <button wx:if="{{scopeStatus==='营业中' || scopeStatus==='暂停营业'}}" class="outline small" data-page="requests" data-type="pauseFee" bindtap="openOutletBusiness">申请暂停收费</button>
+        <button class="outline small" data-page="location" bindtap="openOutletBusiness">月度位置核验</button>
+      </block>
+    </view>
+
+    <view wx:if="{{loading && hasLoaded}}" class="loading">正在更新工作台…</view>
+    <view wx:if="{{error}}" class="error">{{error}}<button class="link" bindtap="refresh">重试</button></view>
+    <view wx:if="{{taskOpenError}}" class="error" aria-live="polite">{{taskOpenError}}</view>
+    <view class="home-public-section workbench-section">
+      <view class="home-section-head">
+        <view class="home-section-title">当前待办{{openTotal===null ? '' : '（'+openTotal+'）'}}</view>
+        <button class="home-text-action" data-status="open" bindtap="openWorkbenchList">查看全部待办 <text aria-hidden="true">›</text></button>
+      </view>
+      <view wx:if="{{taskError}}" class="workbench-meta">暂时无法读取待办。<button class="home-text-action" bindtap="loadWorkbenchTasks">重试</button></view>
+      <view wx:elif="{{taskLoading && !error}}" class="workbench-meta" aria-live="polite">正在加载待办…</view>
+      <view wx:elif="{{!activeRows.length}}" class="workbench-meta">当前暂无待办。</view>
+      <view wx:for="{{activeRows}}" wx:key="id" class="workbench-task">
+        <t-icon class="workbench-task-icon {{item.tone}}" name="{{item.icon}}" size="40rpx" aria-hidden="true"/>
+        <view class="workbench-task-copy">
+          <view class="workbench-task-title">{{item.title}}</view>
+          <view wx:if="{{item.scope}}" class="workbench-meta">{{item.scope}}</view>
+          <view wx:if="{{item.reason}}" class="workbench-reason">{{item.reason}}</view>
+        </view>
+        <view class="workbench-task-actions">
+          <text class="workbench-badge {{item.tone}}">{{item.status}}</text>
+          <button wx:if="{{item.canOpen}}" class="workbench-task-action" data-id="{{item.id}}" bindtap="openWorkbenchTask" disabled="{{openingTask}}">
+            {{item.actionText}} <text aria-hidden="true">›</text>
+          </button>
+        </view>
+      </view>
+    </view>
+    <view class="home-public-section workbench-section">
+      <view class="home-section-head">
+        <view class="home-section-title">最近业务记录</view>
+        <button class="home-text-action" data-section="records" bindtap="openWorkbenchList">查看全部记录 <text aria-hidden="true">›</text></button>
+      </view>
+      <view wx:if="{{recentError}}" class="workbench-meta">暂时无法读取记录。<button class="home-text-action" bindtap="loadWorkbenchTasks">重试</button></view>
+      <view wx:elif="{{recentLoading && !error}}" class="workbench-meta" aria-live="polite">正在加载记录…</view>
+      <view wx:elif="{{!recentRows.length}}" class="workbench-meta">当前暂无业务记录。</view>
+      <view wx:for="{{recentRows}}" wx:key="rowKey" class="workbench-task workbench-record" data-key="{{item.rowKey}}"
+        bindtap="openWorkbenchTask" hover-class="tap-feedback" aria-role="button" aria-label="查看{{item.displayTitle}}">
+        <t-icon class="workbench-task-icon {{item.tone}}" name="{{item.icon}}" size="40rpx" aria-hidden="true"/>
+        <view class="workbench-task-copy">
+          <view class="workbench-task-title">{{item.displayTitle}}</view>
+          <view wx:if="{{item.outletName || item.timeText}}" class="workbench-meta">{{item.outletName}}{{item.outletName && item.timeText ? ' · ' : ''}}{{item.timeText}}</view>
+        </view>
+        <view class="workbench-record-state">
+          <text class="workbench-badge {{item.statusTone}}">{{item.statusText}}</text>
+          <t-icon name="chevron-right" size="31rpx" aria-hidden="true"/>
+        </view>
+      </view>
     </view>
   </block>
   <block wx:elif="{{publicView}}">
     <view class="home-public-hero">
-      <image class="home-public-art" src="/assets/home-network.webp" mode="aspectFill" aria-hidden="true"/>
+      <image class="home-public-art" src="/assets/home-skyline.webp" mode="aspectFill" aria-hidden="true"/>
       <view class="home-public-hero-copy">
         <view class="home-public-brand"><text class="home-mark" aria-hidden="true">九</text><text>九盈英才</text></view>
         <view class="home-public-title">专业服务 共创发展</view>
@@ -68,6 +142,7 @@
           <image wx:if="{{item.coverPath}}" class="home-service-image" src="{{item.coverPath}}" mode="aspectFill" lazy-load data-id="{{item.id}}" binderror="publicCoverFailed" aria-hidden="true"/>
           <t-icon wx:else name="{{item.tileIcon}}" size="46rpx" aria-hidden="true"/>
           <text class="home-service-title">{{item.title}}</text>
+          <text wx:if="{{item.summary}}" class="home-service-summary">{{item.summary}}</text>
         </button>
       </view>
       <view wx:elif="{{loading}}" class="loading home-content-status">正在加载业务介绍…</view>
@@ -75,10 +150,12 @@
     </view>
 
     <view class="home-public-section home-network">
+      <image class="home-network-art" src="/assets/home-coverage.webp" mode="aspectFill" aria-hidden="true"/>
       <view class="home-section-head">
         <view class="home-section-title">服务网点</view>
         <button class="home-text-action" data-page="outlets" data-query="scope=public&mode=map" bindtap="nav">全域地图 <text aria-hidden="true">›</text></button>
       </view>
+      <view class="home-network-caption">按地区查找网点地址与营业状态</view>
       <view class="home-network-actions">
         <button class="home-region home-region-primary" data-page="outlets" data-query="scope=public&mode=list&geo=mainland" bindtap="nav" hover-class="tap-feedback">
           <t-icon name="location" size="34rpx" aria-hidden="true"/><text>国内网点</text>
@@ -93,7 +170,7 @@
       <view class="home-section-title">集团介绍</view>
       <view wx:if="{{groupIntro}}" class="home-group">
         <view class="home-group-copy">
-          <view class="home-group-title">{{groupIntro.title}}</view>
+          <view wx:if="{{groupIntro.title!=='九盈英才'}}" class="home-group-title">{{groupIntro.title}}</view>
           <view wx:if="{{groupIntro.summary || groupIntro.body || groupIntro.text || groupIntro.intro}}" class="home-group-summary">{{groupIntro.summary || groupIntro.body || groupIntro.text || groupIntro.intro}}</view>
         </view>
         <image wx:if="{{groupIntro.coverPath}}" class="home-group-image" src="{{groupIntro.coverPath}}" mode="aspectFill" lazy-load data-id="{{groupIntro.id}}" binderror="groupCoverFailed" aria-hidden="true"/>

@@ -1,9 +1,9 @@
-<view class="page login">
-  <view class="login-heading">
+<view class="page login {{mode==='activate' ? 'login-activation' : ''}}">
+  <view wx:if="{{mode!=='activate'}}" class="login-heading">
     <view class="brand-mark" aria-hidden="true">九</view>
     <view class="grow">
       <view class="login-brand-name">九盈英才</view>
-      <view class="title">{{mode==='staff' ? '总部管理端' : mode==='activate' ? '首次激活账号' : mode==='sms' ? '手机验证码登录' : '账号登录'}}</view>
+      <view class="title">{{mode==='staff' ? '总部管理端' : mode==='sms' ? '手机验证码登录' : '账号登录'}}</view>
     </view>
   </view>
 
@@ -21,7 +21,41 @@
   </view>
 
   <block wx:else>
-  <view class="card">
+  <block wx:if="{{mode==='activate'}}">
+    <view class="activation-hero">
+      <image class="activation-emblem" src="/assets/activation-shield.webp" mode="aspectFit" aria-hidden="true"/>
+      <view class="activation-title">激活加盟商账号</view>
+      <view class="activation-caption">使用总部发放的一次性激活码，设置登录密码。</view>
+    </view>
+    <view class="card activation-card">
+      <view wx:if="{{error && !activationField}}" class="error login-error" role="alert">{{error}}</view>
+      <view wx:if="{{sessionCleanupError}}" class="error login-error" role="alert">{{sessionCleanupError}}</view>
+      <button wx:if="{{sessionCleanupRequired}}" class="outline staff-handoff-button" bindtap="retrySessionCleanup">重试退出本机</button>
+      <view wx:for="{{activationFields}}" wx:key="name" class="activation-field">
+        <label class="activation-label" for="activation-{{item.name}}">
+          <t-icon name="{{index===0 ? 'file' : 'lock-on'}}" size="28rpx" aria-hidden="true"/>
+          <text>{{item.label}}</text>
+        </label>
+        <view class="activation-input-shell {{activationField===item.name ? 'activation-input-error' : ''}}">
+          <input id="activation-{{item.name}}" class="activation-input" type="text" password="{{!visibleActivationFields[item.name]}}"
+            data-field="{{item.name}}" value="{{item.name==='activationToken' ? activationToken : item.name==='password' ? password : confirmPassword}}"
+            placeholder="{{item.placeholder}}" aria-label="{{activationField===item.name ? item.label+'，'+error : item.label}}"
+            maxlength="128" disabled="{{busy}}" cursor-spacing="24" bindinput="input"/>
+          <button class="activation-visibility" data-field="{{item.name}}" bindtap="toggleActivationVisibility" disabled="{{busy}}"
+            aria-label="{{(visibleActivationFields[item.name] ? '隐藏' : '显示')+item.label}}">
+            <t-icon name="{{visibleActivationFields[item.name] ? 'browse-off' : 'browse'}}" size="34rpx" aria-hidden="true"/>
+          </button>
+        </view>
+        <view wx:if="{{activationField===item.name}}" class="activation-field-error" role="alert">{{error}}</view>
+      </view>
+      <button class="primary activation-submit" bindtap="activate" loading="{{busy}}" disabled="{{busy || sessionCleanupPending || sessionCleanupRequired}}">立即激活</button>
+    </view>
+    <view class="activation-return">
+      <text>已有账号？</text><button class="link activation-link" data-mode="methods" bindtap="mode" disabled="{{busy}}">立即登录</button>
+    </view>
+    <button class="link activation-support" bindtap="contact" disabled="{{busy}}">联系总部客服</button>
+  </block>
+  <view wx:else class="card">
     <view wx:if="{{error}}" class="error login-error" role="alert">{{error}}</view>
     <view wx:if="{{sessionCleanupError}}" class="error login-error" role="alert">{{sessionCleanupError}}</view>
     <button wx:if="{{sessionCleanupRequired}}" class="outline staff-handoff-button" bindtap="retrySessionCleanup">重试退出本机</button>
@@ -41,16 +75,6 @@
       <t-button class="auth-submit" theme="primary" block bind:tap="passwordLogin" loading="{{busy}}" disabled="{{busy}}">登录</t-button>
     </block>
 
-    <block wx:elif="{{mode==='activate'}}">
-      <view class="hint">输入总部发给您的一次性激活码并设置密码。加盟商使用小程序办理业务，管理员使用总部管理端。</view>
-      <t-input class="auth-control" label="激活码" layout="vertical" value="{{activationToken}}" data-field="activationToken" bind:change="input" placeholder="请输入激活码" type="{{activationVisible ? 'text' : 'password'}}" maxlength="{{128}}" disabled="{{busy}}" borderless/>
-      <button class="link" bindtap="toggleActivationVisibility" disabled="{{busy}}">{{activationVisible ? '隐藏激活码' : '显示激活码'}}</button>
-      <t-input class="auth-control" label="设置密码" layout="vertical" value="{{password}}" data-field="password" bind:change="input" type="password" maxlength="{{128}}" placeholder="请输入登录密码" disabled="{{busy}}" borderless/>
-      <t-input class="auth-control" label="确认密码" layout="vertical" value="{{confirmPassword}}" data-field="confirmPassword" bind:change="input" type="password" maxlength="{{128}}" placeholder="再次输入登录密码" disabled="{{busy}}" borderless/>
-      <view class="hint">{{password.length < 12 ? '登录密码至少12位。' : confirmPassword && password !== confirmPassword ? '两次输入的密码不一致。' : '密码长度符合要求。'}}</view>
-      <t-button class="auth-submit" theme="primary" block bind:tap="activate" loading="{{busy}}" disabled="{{busy}}">激活并登录</t-button>
-    </block>
-
     <block wx:elif="{{mode==='sms' && smsEnabled}}">
         <t-input class="auth-control" label="总部登记手机号" layout="vertical" type="number" value="{{mobile}}" data-field="mobile" bind:change="input" maxlength="{{11}}" placeholder="请输入手机号" disabled="{{busy}}" borderless/>
         <view>
@@ -67,18 +91,18 @@
 
     <view class="login-entry">
       <button wx:if="{{mode==='methods' || mode==='password'}}" class="link" data-mode="activate" bindtap="mode" disabled="{{busy}}">首次激活</button>
-      <button wx:if="{{mode==='activate' || mode==='sms' || (mode==='password' && (wechatEnabled || smsEnabled))}}" class="link" data-mode="methods" bindtap="mode" disabled="{{busy}}">返回登录</button>
+      <button wx:if="{{mode==='sms' || (mode==='password' && (wechatEnabled || smsEnabled))}}" class="link" data-mode="methods" bindtap="mode" disabled="{{busy}}">返回登录</button>
       <button class="link" bindtap="contact" disabled="{{busy}}">{{mode==='password' ? '忘记密码' : '联系总部客服'}}</button>
     </view>
   </view>
-  <view class="login-entry login-footer">
+  <view wx:if="{{mode!=='activate'}}" class="login-entry login-footer">
     <button class="link" bindtap="applyForFranchise" disabled="{{busy}}">申请加盟</button>
     <button class="link" bindtap="visitor" disabled="{{busy}}">浏览集团介绍与网点</button>
     <button class="link" bindtap="privacy">隐私保护指引</button>
   </view>
 
   <!-- DEV_ONLY_START -->
-  <view wx:if="{{development}}" class="card top-gap">
+  <view wx:if="{{development && mode!=='activate'}}" class="card top-gap">
     <button class="link" bindtap="toggleDeveloperTools" aria-expanded="{{developerToolsExpanded}}">开发工具</button>
     <block wx:if="{{developerToolsExpanded}}">
       <picker range="{{choices}}" range-key="name" value="{{index}}" bindchange="select" disabled="{{busy}}"><view class="picker picker-control" hover-class="tap-feedback">{{choices[index].name}}</view></picker>

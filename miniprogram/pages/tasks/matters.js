@@ -1,8 +1,10 @@
 const {define,go,api,fmt,openRecord,canOpenRecord}=require('../../utils/page');
 const {recordErrorText}=require('../../utils/navigation');
+const {loadBusinessRecords,businessRecord,openBusinessRecord}=require('../../utils/workbench-records');
 
 const taskStatuses=new Set(['open','in_progress','resolved','all']);
 const noticeStatuses=new Set(['all','unread','read']);
+const recordPageSize=25;
 const taskLabels={
   report_missing:{subject:'经营月报',action:'填写月报'},
   report_returned:{subject:'经营月报',action:'修改月报'},
@@ -37,6 +39,29 @@ function taskCopy(row,month){
     title:row.status==='open'||!topic?taskTitle(row,month):topic,
     actionText:row.status==='open'&&labels?labels.action:subject==='经营月报'?'查看月报':subject?'查看'+subject:'查看事项'
   };
+}
+
+function workbenchTask(row){
+  const month=fmt.monthText(row.month);
+  const {title,actionText}=taskCopy(row,month);
+  const appearance={
+    report_missing:['经营月报','file','blue','待填写'],
+    report_returned:['经营月报（退回修改）','file','red','需修改'],
+    training_material_returned:['学员资料补件','education','amber','需补件'],
+    location_missing:['月度位置核验','location','blue','待提交'],
+    location_exception:['位置核验补件','location','amber','需补件'],
+    request_supplement:['业务申请补件','task','amber','需补件'],
+    bill_unpaid:['咨询服务费','wallet','green','待支付'],
+    bill_overdue:['咨询服务费','wallet','green','待支付'],
+    support_waiting:['客服工单','service','violet','需补件'],
+    support_reply:['客服回复','service','violet','有回复']
+  };
+  const [name,icon,tone,status]=appearance[row.kind]||[title,'task','blue','待处理'];
+  const completed=row.status==='resolved';
+  const amount=Number.isFinite(row.amount)&&['bill_unpaid','bill_overdue'].includes(row.kind)?'¥'+fmt.money(row.amount):'';
+  return {id:row.id,title:completed?(taskLabels[row.kind]?.subject||name):name,icon,tone,
+    status:completed?'已完成':status,scope:[row.outlet&&row.outletName!==row.outlet?row.outletName:'',month,amount].filter(Boolean).join(' · '),
+    reason:completed?'':row.returnReason||'',actionText:completed?'查看记录':row.kind==='report_returned'?'立即修改':actionText,canOpen:canOpenRecord(row)};
 }
 
 const categories={
@@ -94,18 +119,22 @@ function mattersPage(initialSection='tasks'){
   return define({
     collections:[
       {name:'businessTasks',visible(){return this.data.section==='tasks'&&!this.data.isPublic;},
-        filters(){return {status:this.data.status};}},
+        filters(){return {status:this.data.status,outlet:this.data.scopeOutlet||undefined,
+          sort:this.data.status==='resolved'?'completed':undefined};}},
       {name:'messages',visible(){return this.data.section==='notices'||this.data.isPublic;},
         filters(){return {status:this.data.statusFilter};}}
     ],
-    data:{section:initialSection,status:'open',statusFilter:'all',taskRows:[],messages:[],noticeRows:[],noticeUnread:null,openingRecord:false},
+    data:{section:initialSection,status:'open',scopeOutlet:'',scopeName:'',openedFromNotices:false,statusFilter:'all',taskRows:[],messages:[],noticeRows:[],noticeUnread:null,openingRecord:false,
+      businessRows:[],businessTotal:0,businessOffset:0,businessMore:false,businessLoading:false,businessError:''},
     load(query){
-      const section=query.section==='notices'||query.section==='tasks'?query.section:initialSection;
+      const section=query.section==='notices'||query.section==='tasks'||query.section==='records'&&initialSection==='tasks'?query.section:initialSection;
       this.setData({section,status:section==='tasks'&&taskStatuses.has(query.status)?query.status:'open',
+        scopeOutlet:section!=='notices'&&query.outlet!=='all'?query.outlet||'':'',
         statusFilter:section==='notices'&&noticeStatuses.has(query.status)?query.status:'all'});
     },
     onUnload(){this._openAttempt=null;},
     async loaded(state){
+      if(this.data.section==='records'&&!this.data.isPublic)return this.loadRecordPage(true);
       const notices=this.data.section==='notices'||this.data.isPublic;
       const serial=this._serial;
       const canReadTasks=this.data.session?.role==='partner';
@@ -119,7 +148,41 @@ function mattersPage(initialSection='tasks'){
       if(serial!==this._serial)return;
       this.setData({noticeUnread:unread?.total??null});
       if(notices)await this.loadNotices(state.messages,active?.items||[]);
-      else await this.loadTasks(state.businessTasks,unread?.items||[]);
+      else {
+        const outlet=this.data.scopeOutlet;
+        const scoped=outlet?await api.detail('outlets',outlet).catch(()=>null):null;
+        if(serial!==this._serial)return;
+        this.setData({scopeName:scoped?.name||(outlet?'所选网点':'')});
+        await this.loadTasks(state.businessTasks,unread?.items||[]);
+      }
+    },
+    async loadRecordPage(reset){
+      if(this.data.section!=='records'||api.session()?.role!=='partner'||!reset&&(this.data.businessLoading||!this.data.businessMore))return;
+      const serial=this._serial,token=api.session()?.token,outlet=this.data.scopeOutlet;
+      const current=()=>serial===this._serial&&token===api.session()?.token&&this.data.section==='records';
+      const offset=reset?0:this.data.businessOffset;
+      const limit=reset?Math.min(100,Math.max(recordPageSize,this.data.businessRows.length)):recordPageSize;
+      this.setData({businessLoading:true,businessError:''});
+      try{
+        const result=await loadBusinessRecords(outlet,limit,offset,this);
+        if(!current())return;
+        const rows=(result.items||[]).map(businessRecord);
+        const previous=reset?[]:this.data.businessRows;
+        const keys=new Set(previous.map(row=>row.rowKey));
+        const scopeName=outlet?rows.find(row=>row.outlet===outlet)?.outletName||this.data.scopeName||'所选网点':'全部授权网点';
+        this.setData({scopeName,businessRows:[...previous,...rows.filter(row=>!keys.has(row.rowKey))],
+          businessTotal:result.total,businessOffset:offset+rows.length,businessMore:result.hasMore});
+      }catch(error){
+        if(current())this.setData({businessError:error.message,...(reset?{businessRows:[],businessOffset:0,businessMore:false}:{})});
+      }finally{
+        if(current())this.setData({businessLoading:false});
+      }
+    },
+    moreBusinessRecords(){
+      if(!this.data.loading)return this.loadRecordPage(false);
+    },
+    retryBusinessRecords(){
+      if(!this.data.loading)return this.loadRecordPage(!this.data.businessRows.length);
     },
     async loadTasks(tasks,unread){
       const id=this.query.id,serial=this._serial;
@@ -176,7 +239,7 @@ function mattersPage(initialSection='tasks'){
       const section=e.currentTarget.dataset.section;
       if(this.data.isPublic||!['tasks','notices'].includes(section)||section===this.data.section||this.data.busy||this.data.openingRecord)return;
       this.query.id='';
-      this.setData({section,taskRows:[],messages:[],noticeRows:[]});
+      this.setData({section,openedFromNotices:false,taskRows:[],messages:[],noticeRows:[]});
       await this.refresh();
     },
     async status(e){
@@ -184,7 +247,7 @@ function mattersPage(initialSection='tasks'){
       if(this.data.isPublic||!taskStatuses.has(status)||this.data.section==='tasks'&&status===this.data.status||
         this.data.busy||this.data.openingRecord)return;
       this.query.id='';
-      this.setData({section:'tasks',status,taskRows:[],messages:[],noticeRows:[]});
+      this.setData({section:'tasks',status,openedFromNotices:this.data.section==='notices',taskRows:[],messages:[],noticeRows:[]});
       await this.refresh();
     },
     async filterStatus(e){
@@ -197,11 +260,12 @@ function mattersPage(initialSection='tasks'){
     async open(e){
       if(this.data.busy||this.data.loading||this.data.openingRecord)return;
       const {id}=e.currentTarget.dataset;
+      const recent=this.data.section==='records';
       const notice=(this.data.section||initialSection)==='notices';
-      const records=notice?this.data.messages:this.data.state?.businessTasks;
-      const record=records?.find(row=>row.id===id);
-      if(!record||(notice?!record.hasLink:!canOpenRecord(record)))return;
-      const unreadIds=notice?(record.read?[]:[id]):this.data.taskRows.find(row=>row.id===id)?.unreadNoticeIds||[];
+      const records=recent?this.data.businessRows:notice?this.data.messages:this.data.state?.businessTasks;
+      const record=records?.find(row=>(recent?row.rowKey:row.id)===id);
+      if(!record||!recent&&(notice?!record.hasLink:!canOpenRecord(record)))return;
+      const unreadIds=recent?[]:notice?(record.read?[]:[id]):this.data.taskRows.find(row=>row.id===id)?.unreadNoticeIds||[];
       const attempt={},serial=this._serial,token=api.session()?.token;
       this._openAttempt=attempt;
       const isCurrent=()=>serial===this._serial&&token===api.session()?.token;
@@ -213,7 +277,7 @@ function mattersPage(initialSection='tasks'){
       let marking;
       this.setData({openingRecord:true,error:''});
       try{
-        const started=await openRecord(record,{
+        const started=await (recent?openBusinessRecord:openRecord)(record,{
           ...(notice?{returnStatus:this.data.statusFilter,returnPage:initialSection==='tasks'?'tasks':'messages'}:{}),
           isCurrent,
           onSuccess:()=>{if(isCurrent())marking=this.markOpenedNotices(unreadIds,isCurrent);},
@@ -250,9 +314,10 @@ function mattersPage(initialSection='tasks'){
     },
     openLocation(){
       const month=this.data.state?.today?.slice(0,7);
-      if(month&&this.data.session&&this.data.session.role!=='public')go('location',api.query({month}));
+      if(month&&this.data.session&&this.data.session.role!=='public')go('location',api.query({month,outlet:this.data.scopeOutlet||undefined}));
     }
   });
 }
 
 module.exports=mattersPage;
+module.exports.workbenchTask=workbenchTask;

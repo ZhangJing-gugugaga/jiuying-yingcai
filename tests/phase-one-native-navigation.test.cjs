@@ -57,15 +57,16 @@ test('the four native tabs include the registered member report list', t => {
   assert.ok(routes.includes('pages/join/index'));
 });
 
-test('the four workbench entries are the only business links, and matters shows unread notices', () => {
+test('workbench exposes scoped shortcuts, notices, and direct work on records', () => {
   const home = markup('home').split('class="home-public-hero"')[0];
-  const cards = [...home.matchAll(/class="home-tool" data-page="([a-z-]+)"[^>]*>([\s\S]*?)<\/button>/g)];
-  assert.deepEqual(cards.map(match => match[1]), ['outlets', 'reports', 'fees', 'tasks']);
-  assert.deepEqual(cards.map(match => /class="home-tool-label">([^<]+)/.exec(match[2])?.[1]),
-    ['我的网点', '经营月报', '咨询服务费', '我的事项']);
-  assert.match(cards[3][0], /aria-label="{{hasUnreadNotices \? '我的事项，有未读通知' : '我的事项'}}"/);
-  assert.match(cards[3][2], /<t-badge wx:if="{{hasUnreadNotices}}" dot="{{true}}"/);
-  assert.doesNotMatch(home, /data-page="(?:location|messages|training|requests|finance|agreements|dashboard)"|bindtap="openTodo"/);
+  const cards = [...home.matchAll(/class="home-tool" data-page="([a-z-]+)"/g)];
+  assert.deepEqual(cards.map(match => match[1]), ['reports', 'fees', 'support', 'outlets']);
+  assert.match(home, /data-page="tasks" data-query="section=notices" bindtap="nav"/);
+  assert.match(home, /<t-badge wx:if="{{hasUnreadNotices}}" dot="{{true}}"/);
+  assert.match(home, /wx:if="{{trainingRecord}}"[^>]*bindtap="openTrainingSupplement"/);
+  assert.match(home, /data-status="open" bindtap="openWorkbenchList"/);
+  assert.match(home, /data-section="records" bindtap="openWorkbenchList"/);
+  assert.match(home, /data-id="{{item.id}}" bindtap="openWorkbenchTask"/);
   const matters = markup('tasks');
   assert.match(matters, /bindtap="openLocation"[^>]*>月度位置核验/);
   assert.match(matters, /data-status="in_progress"/);
@@ -145,7 +146,9 @@ test('sign-in shows configured methods up front with a password fallback and a s
   assert.match(login, /data-mode="activate"[^>]*>首次激活/);
   assert.match(login, /data-mode="methods"[^>]*>返回登录/);
   assert.match(login, /bindtap="applyForFranchise"[^>]*>申请加盟/);
-  assert.match(login, /总部发给您的一次性激活码/);
+  assert.match(login, /总部发放的一次性激活码/);
+  assert.match(login, /class="activation-visibility"[^>]*data-field="{{item.name}}"[^>]*bindtap="toggleActivationVisibility"/);
+  assert.match(login, /class="primary activation-submit"[^>]*bindtap="activate"/);
   assert.equal([...login.matchAll(/bindtap="wechatLogin"/g)].length, 1);
 });
 

@@ -13,14 +13,19 @@
   </view>
   <view wx:if="{{!outlets.length && !loading && !error}}" class="empty">未找到符合条件的网点，请调整搜索内容。</view>
   <block wx:if="{{outlets.length}}">
-    <view wx:if="{{outletId && returnedReason && !(canEdit && formExpanded)}}" class="report-return">
+    <view wx:if="{{outletId && returnedReason && (directReturnedEdit || !(canEdit && formExpanded))}}" class="report-return">
       <view class="report-return-title">月报已退回，请修改后重新提交</view>
       <view class="report-return-reason">{{returnedReason}}</view>
       <view wx:if="{{currentApprovedVersion}}" class="report-return-note">原已审核月报仍然有效。</view>
     </view>
     <view class="card report-context">
-      <view class="report-section-title">填报信息</view>
-      <view wx:if="{{linkedVersion || versionUnavailable}}" class="report-identity">
+      <view wx:if="{{!directReturnedEdit}}" class="report-section-title">填报信息</view>
+      <view wx:if="{{directReturnedEdit}}" class="report-facts">
+        <view class="report-fact"><text>网点</text><text class="report-outlet-name">{{outletNames[outletIndex + 1]}}</text></view>
+        <view class="report-fact"><text>账期</text><text>{{monthDisplay || month}}</text></view>
+        <view class="report-fact"><text>当前状态</text><text class="badge {{displayStatusTone}}">{{displayStatus}}</text></view>
+      </view>
+      <view wx:elif="{{linkedVersion || versionUnavailable}}" class="report-identity">
         <text class="card-title report-outlet-name">{{outletNames[outletIndex + 1]}}</text>
         <text class="muted">{{monthDisplay || month}} · 经营月报</text>
       </view>
@@ -38,7 +43,7 @@
           </picker>
         </view>
       </view>
-      <view wx:if="{{displayStatus || dueDisplay}}" class="report-status row">
+      <view wx:if="{{!directReturnedEdit && (displayStatus || dueDisplay)}}" class="report-status row">
         <text wx:if="{{displayStatus}}" class="badge {{displayStatusTone}}">{{displayStatus}}</text>
         <text wx:if="{{linkedVersion && linkedVersion.id!==latestSubmittedVersion.id}}" class="muted">历史月报</text>
         <text wx:if="{{dueDisplay}}" class="muted">截止 {{dueDisplay}}</text>
@@ -48,7 +53,7 @@
       <view wx:if="{{linkedVersion.revoked}}" class="hint">该版本已撤销，不再作为当前有效月报。</view>
       <view wx:if="{{linkedVersion.review && !returnedReason}}" class="notice">{{linkedVersion.review}}</view>
       <view wx:if="{{linkedVersion.summaryOnly}}" class="hint">该历史版本仅提供摘要，可查看提交与审核记录。</view>
-      <view wx:if="{{editNotice}}" class="notice">{{editNotice}}</view>
+      <view wx:if="{{editNotice && !(directReturnedEdit && editNotice==='当前月份可以填写经营数据。')}}" class="notice">{{editNotice}}</view>
       <view wx:if="{{recoveryAvailable}}" class="notice top-gap">
         <view>此网点、此月份有未保存的填写内容。</view>
         <view class="actions">
@@ -60,22 +65,22 @@
       <button wx:elif="{{canEdit && !formExpanded && !recoveryAvailable}}" class="primary top-gap" bindtap="showReportFields" disabled="{{busy || loading || switching}}">{{returnedReason ? '修改并重新提交' : (hasDraft ? '继续填写' : '填写月报')}}</button>
       <button wx:elif="{{canCorrect && !correctionExpanded}}" class="primary top-gap" bindtap="showCorrection" disabled="{{busy || loading || switching}}">申请更正</button>
       <button wx:if="{{outletId && !canEdit && !formExpanded && !versionUnavailable && !linkedVersion.summaryOnly && (linkedVersion || latestSubmittedVersion || currentApprovedVersion || hasDraft)}}" class="link" bindtap="showReportFields">查看月报数据</button>
-      <button wx:if="{{versions.length && !historyExpanded}}" class="link" bindtap="showVersions" disabled="{{busy || loading || switching}}">查看版本记录</button>
-      <button wx:if="{{!linkedVersion && !versionUnavailable && (outlets.length > 1 || pagers.outlets.hasMore || outletSearch)}}" class="link" bindtap="toggleOutletSearch">{{searchExpanded ? '收起网点搜索' : '搜索其他网点'}}</button>
-      <view wx:if="{{!linkedVersion && !versionUnavailable && pagers.outlets.hasMore}}" class="pagination">
+      <button wx:if="{{versions.length && !historyExpanded && !directReturnedEdit}}" class="link" bindtap="showVersions" disabled="{{busy || loading || switching}}">查看版本记录</button>
+      <button wx:if="{{!directReturnedEdit && !linkedVersion && !versionUnavailable && (outlets.length > 1 || pagers.outlets.hasMore || outletSearch)}}" class="link" bindtap="toggleOutletSearch">{{searchExpanded ? '收起网点搜索' : '搜索其他网点'}}</button>
+      <view wx:if="{{!directReturnedEdit && !linkedVersion && !versionUnavailable && pagers.outlets.hasMore}}" class="pagination">
         <button class="outline small" data-collection="outlets" bindtap="more" loading="{{pagers.outlets.loading}}" disabled="{{busy || loading || switching || pagers.outlets.loading}}">加载更多网点</button>
       </view>
     </view>
 
     <view wx:if="{{formExpanded && outletId && !versionUnavailable && !linkedVersion.summaryOnly}}">
       <view class="card" id="report-edit">
-        <view class="report-form-context">
+        <view wx:if="{{!directReturnedEdit}}" class="report-form-context">
           <view class="report-identity">
             <text class="card-title report-outlet-name">{{outletNames[outletIndex + 1]}}</text>
             <text class="muted">{{monthDisplay || month}} · 经营月报</text>
           </view>
         </view>
-        <view wx:if="{{canEdit && returnedReason}}" class="report-return report-return-inline">
+        <view wx:if="{{canEdit && returnedReason && !directReturnedEdit}}" class="report-return report-return-inline">
           <view class="report-return-title">月报已退回，请修改后重新提交</view>
           <view class="report-return-reason">{{returnedReason}}</view>
           <view wx:if="{{currentApprovedVersion}}" class="report-return-note">原已审核月报仍然有效。</view>
@@ -119,7 +124,7 @@
           <textarea disabled="{{!editableFields.note || busy || inlineConfirmation || loading || switching}}" name="note" data-field="note" value="{{form.note}}" bindinput="input" maxlength="600" placeholder="可填写本月经营情况、特殊事项或需要总部了解的情况。"/>
           <button wx:if="{{canEdit}}" class="link" bindtap="toggleNote" disabled="{{busy || loading || switching}}">收起经营说明</button>
         </view>
-        <view id="report-actions" class="report-actions">
+        <view id="report-actions" class="report-actions {{directReturnedEdit ? 'action-dock' : ''}}">
           <block wx:if="{{canEdit || submitting}}">
             <view wx:if="{{canSubmit && missingFields.length}}" class="hint">还需填写 {{missingFieldsText}}</view>
             <view class="actions report-action-buttons">
@@ -133,6 +138,8 @@
       </view>
     </view>
 
+    <button wx:if="{{directReturnedEdit && versions.length && !historyExpanded}}" class="link" bindtap="showVersions"
+      disabled="{{busy || loading || switching}}">查看版本记录</button>
     <view wx:if="{{canCorrect && correctionExpanded}}" class="card" id="report-correct">
       <view class="card-title">选择更正方式</view>
       <view class="filter">
