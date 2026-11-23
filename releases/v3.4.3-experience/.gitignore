@@ -1,0 +1,17 @@
+node_modules/
+.env
+.env.*
+!.env.example
+var/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.log
+coverage/
+miniprogram/project.private.config.json
+*.pem
+*.key
+*.p12
+*.pfx
+__pycache__/

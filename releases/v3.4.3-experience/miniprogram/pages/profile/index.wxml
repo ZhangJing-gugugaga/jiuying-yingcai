@@ -1,0 +1,37 @@
+<view class="page">
+  <view class="title">我的</view>
+  <view wx:if="{{loading}}" class="loading">正在加载，请稍候…</view>
+  <view wx:if="{{error}}" class="error">{{error}}<button class="link top-gap" bindtap="refresh">重试</button></view>
+  <view wx:if="{{isPublic || managerName}}" class="card row">
+    <view class="avatar">九</view>
+    <view class="grow">
+      <view class="card-title">{{isPublic ? '访客' : managerName}}</view>
+      <view wx:if="{{organizationName && !isPublic}}" class="muted">{{organizationName}}</view>
+      <view wx:if="{{outletCount !== null && !isPublic}}" class="muted">管理网点：{{outletCount}}家</view>
+    </view>
+    <button wx:if="{{isPublic}}" class="outline small profile-login" data-page="login" bindtap="nav">加盟商登录</button>
+  </view>
+  <view class="card">
+    <block wx:if="{{!isPublic && managerName}}">
+      <view class="list-item row between" data-page="tasks" bindtap="nav"><text>我的待办</text><text class="arrow">›</text></view>
+      <view class="list-item row between" data-page="outlets" data-query="scope=private" bindtap="nav"><text>我的网点</text><text class="arrow">›</text></view>
+      <view class="list-item row between" data-page="agreements" bindtap="nav"><text>服务协议</text><text class="arrow">›</text></view>
+      <view class="list-item row between" data-page="fees" bindtap="nav"><text>咨询服务费</text><text class="arrow">›</text></view>
+      <view class="list-item row between" data-page="finance" bindtap="nav"><text>付款与发票</text><text class="arrow">›</text></view>
+      <view class="list-item row between" data-page="security" bindtap="nav"><text>账号安全</text><text class="arrow">›</text></view>
+      <view class="list-item row between" data-page="dashboard" bindtap="nav"><text>经营看板</text><text class="arrow">›</text></view>
+      <view class="list-item row between" data-page="requests" bindtap="nav"><text>业务申请</text><text class="arrow">›</text></view>
+      <view class="list-item row between" data-page="training" bindtap="nav"><text>业务学习与培训</text><text class="arrow">›</text></view>
+    </block>
+    <view wx:if="{{isPublic}}" class="list-item row between" data-page="outlets" data-query="scope=public&mode=list" bindtap="nav"><text>查找服务网点</text><text class="arrow">›</text></view>
+    <view class="list-item row between" data-page="messages" bindtap="nav"><text>消息</text><text class="arrow">›</text></view>
+    <view class="list-item row between" data-page="discover" bindtap="nav"><text>集团介绍与服务</text><text class="arrow">›</text></view>
+    <view class="list-item row between" data-page="support" bindtap="nav"><text>联系客服</text><text class="arrow">›</text></view>
+  </view>
+  <view class="card">
+    <view class="hint">网点经营数据仅向有权限的人员展示。定位和照片仅在您主动提交位置核验时使用。</view>
+    <button class="link" bindtap="privacy">隐私保护指引</button>
+  </view>
+  <button wx:if="{{session && !isPublic}}" class="danger top-gap" bindtap="logout">退出登录</button>
+  <view class="hint">九盈英才</view>
+</view>

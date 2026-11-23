@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "scope": "source_member_readme",
+  "baselineSha256": "7f173905e4cdd39151a75b2409f922e4d1fcf14735cb1650065d6d7528c49b47",
+  "archive": "九盈英才_V3.3_全量问题整改_完整源码.zip",
+  "resultsLocation": "重新解压验包记录.json",
+  "hashManifest": "SHA256文件清单.txt",
+  "simulatorEvidenceDirectory": "最终候选微信实测证据/",
+  "archiveHashNote": "最终 ZIP 的 SHA256 由外部验包记录提供；不把 ZIP 自身散列写入 ZIP。"
+}

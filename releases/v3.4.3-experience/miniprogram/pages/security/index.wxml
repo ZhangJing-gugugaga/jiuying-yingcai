@@ -1,0 +1,34 @@
+<view class="page compact">
+  <view class="title">账号安全</view>
+  <view class="subtitle">管理登录方式和账号信息，保障账户安全。</view>
+  <view wx:if="{{loading}}" class="loading">正在加载，请稍候…</view>
+  <view wx:if="{{error}}" class="error">{{error}}<button class="link top-gap" bindtap="refresh">重试</button></view>
+  <view wx:if="{{!managerName && !loading && !error}}" class="empty">当前账号暂无权限查看此内容。</view>
+
+  <block wx:if="{{managerName}}">
+    <view class="card">
+      <view class="detail-row"><text>当前负责人</text><text>{{managerName}}</text></view>
+      <view class="detail-row"><text>总部登记手机号</text><text>{{bindings.smsMobileMasked || '尚未登记'}}</text></view>
+      <view class="detail-row"><text>微信绑定状态</text><text>{{bindings.wechatBound ? '已绑定' : '尚未绑定'}}</text></view>
+      <view class="detail-row"><text>短信登录状态</text><text>{{!smsEnabled ? '暂未开放' : (bindings.smsMobileMasked ? '已开通' : '尚未登记手机号')}}</text></view>
+      <button wx:if="{{wechatEnabled && !bindings.wechatBound}}" class="outline" bindtap="bindWechat" disabled="{{busy || loading}}">绑定微信</button>
+      <view wx:if="{{!wechatEnabled}}" class="hint">微信登录暂未开放，请使用其他已开通方式登录。</view>
+    </view>
+
+    <view class="card">
+      <view class="card-title">修改登录密码</view>
+      <view class="field"><label>当前密码</label><input password="{{true}}" value="{{form.currentPassword}}" data-field="currentPassword" bindinput="input" maxlength="128"/></view>
+      <view class="field"><label>新密码（至少12位）</label><input password="{{true}}" value="{{form.password}}" data-field="password" bindinput="input" maxlength="128"/></view>
+      <view class="field"><label>确认新密码</label><input password="{{true}}" value="{{form.confirmPassword}}" data-field="confirmPassword" bindinput="input" maxlength="128"/></view>
+      <button class="primary" bindtap="changePassword" disabled="{{busy || loading}}" loading="{{busy}}">保存修改</button>
+    </view>
+
+    <view class="card">
+      <view class="hint">负责人或登记手机号变更需由总部核实。审核通过后，原登录权限将按规则调整。网点历史经营、账单和付款记录仍归原加盟商主体。</view>
+      <view class="actions">
+        <button class="outline" data-page="requests" data-query="type=accountChange&change=manager" bindtap="nav">申请变更负责人</button>
+        <button class="outline" data-page="requests" data-query="type=accountChange&change=mobile" bindtap="nav">申请变更手机号</button>
+      </view>
+    </view>
+  </block>
+</view>

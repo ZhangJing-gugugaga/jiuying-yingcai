@@ -1,0 +1,154 @@
+<view class="page compact">
+  <view class="title">付款与凭证</view>
+  <view class="subtitle">查看线下付款、退款和发票申请进度。</view>
+  <view wx:if="{{loading}}" class="loading">正在加载，请稍候…</view>
+  <view wx:if="{{error}}" class="error">{{error}}<button class="link top-gap" bindtap="refresh">重试</button></view>
+
+  <view wx:if="{{selectedApplication}}" class="card" id="finance-application-result">
+    <view class="row between"><text class="card-title">{{selectedApplication.title}}</text><text class="badge {{selectedApplication.statusTone}}">{{selectedApplication.statusText}}</text></view>
+    <view class="detail-row"><text>{{selectedApplication.outletName}}</text><text>¥ {{selectedApplication.amountText}}</text></view>
+    <view wx:if="{{selectedApplication.dateText}}" class="hint">{{selectedApplication.dateText}}</view>
+    <view class="hint">{{selectedApplication.reason}}</view>
+    <view wx:if="{{selectedApplication.type==='refund' && selectedApplication.reference}}" class="detail-row"><text>{{selectedApplication.referenceLabel || '退款凭证号'}}</text><text>{{selectedApplication.reference}}</text></view>
+    <view wx:if="{{selectedApplication.reviewNote}}" class="notice">{{selectedApplication.reviewNote}}</view>
+    <view wx:if="{{selectedApplication.refundNote}}" class="hint">{{selectedApplication.refundNote}}</view>
+    <button wx:if="{{selectedApplication.billId}}" class="link top-gap" bindtap="openApplicationBill">返回原账单</button>
+    <view wx:if="{{selectedApplication.originalPayment}}" class="list-item">
+      <view class="detail-row"><text>原付款金额</text><text>¥ {{selectedApplication.originalPayment.amountText}}</text></view>
+      <view class="hint">{{selectedApplication.originalPayment.channelText}} {{selectedApplication.originalPayment.dateText}}</view>
+      <button class="link" bindtap="openOriginalPayment">查看原付款记录</button>
+    </view>
+  </view>
+  <view wx:if="{{selectedFinanceChange}}" class="card">
+    <view class="row between"><text class="card-title">费用核算详情</text><text class="badge {{selectedFinanceChange.statusTone}}">{{selectedFinanceChange.statusText}}</text></view>
+    <view class="detail-row"><text>{{selectedFinanceChange.outletName}}</text><text>¥ {{selectedFinanceChange.amountText}}</text></view>
+    <view class="detail-row" wx:if="{{selectedFinanceChange.monthText}}"><text>抵扣月份</text><text>{{selectedFinanceChange.monthText}}</text></view>
+    <view class="detail-row" wx:if="{{selectedFinanceChange.serviceUntilText}}"><text>服务顺延至</text><text>{{selectedFinanceChange.serviceUntilText}}</text></view>
+    <button wx:if="{{selectedFinanceChange.billId}}" class="link" data-id="{{selectedFinanceChange.billId}}" bindtap="chooseLedgerBill">查看抵扣账单</button>
+  </view>
+  <view wx:if="{{ledgerOverview}}" class="card">
+    <view class="card-title">{{ledgerOutlet ? '网点账务汇总' : '全部网点账务'}}</view>
+    <view class="row between">
+      <picker mode="date" fields="month" value="{{ledgerMonth}}" bindchange="chooseLedgerMonth"><view class="picker">{{ledgerMonth || '全部账期'}}</view></picker>
+      <button wx:if="{{ledgerMonth}}" class="link" bindtap="clearLedgerMonth">全部账期</button>
+      <button wx:if="{{ledgerOutlet}}" class="link" bindtap="chooseLedgerOutlet">全部网点</button>
+    </view>
+    <view wx:for="{{ledgerOverview.metrics}}" wx:key="key" class="detail-row"><text>{{item.label}}</text><text>{{item.value}}</text></view>
+    <view wx:if="{{ledgerOverview.totals.pendingAdjustmentCount}}" class="detail-row"><text>费用核算中</text><text>{{ledgerOverview.adjustment}}</text></view>
+    <block wx:if="{{!ledgerOutlet}}">
+      <view class="section-title">网点明细</view>
+      <view wx:for="{{ledgerOverview.outlets.items}}" wx:key="outlet" class="row between"><text>{{item.name}}</text><button class="link" data-outlet="{{item.outlet}}" bindtap="chooseLedgerOutlet">查看网点账务</button></view>
+      <view class="actions">
+        <button wx:if="{{ledgerOverview.outlets.offset > 0}}" class="outline small" data-offset="{{ledgerOverview.outlets.offset - ledgerOverview.outlets.limit}}" bindtap="ledgerPage">上一页</button>
+        <button wx:if="{{ledgerOverview.outlets.hasMore}}" class="outline small" data-offset="{{ledgerOverview.outlets.offset + ledgerOverview.outlets.limit}}" bindtap="ledgerPage">下一页</button>
+      </view>
+    </block>
+    <block wx:else>
+      <view class="section-title">{{ledgerOverview.outlets.items[0].name || '网点账单'}}</view>
+      <view wx:for="{{bills}}" wx:key="id" class="row between"><text>{{item.month}} · ¥ {{item.amountText}}</text><button class="link" data-id="{{item.id}}" bindtap="chooseLedgerBill">查看账单</button></view>
+      <button wx:if="{{pagers.bills.hasMore}}" class="outline small" data-collection="bills" bindtap="more" loading="{{pagers.bills.loading}}">加载更多账单</button>
+    </block>
+  </view>
+  <view wx:if="{{ledgerBill}}" class="card" id="bill-ledger-detail">
+    <view class="row between"><text class="card-title">{{ledgerBill.month}} 账单详情</text><button class="link" bindtap="closeLedgerBill">收起</button></view>
+    <view wx:if="{{ledgerBill.outletName}}" class="hint">{{ledgerBill.outletName}}</view>
+    <view class="detail-row"><text>账单状态</text><text class="badge {{ledgerBill.statusTone}}">{{ledgerBill.heading}}</text></view>
+    <view wx:for="{{ledgerBill.metrics}}" wx:key="key" class="detail-row"><text>{{item.label}}</text><text>{{item.value}}</text></view>
+    <view wx:for="{{ledgerBill.fields}}" wx:key="key" class="detail-row"><text>{{item.label}}</text><text>{{item.value}}</text></view>
+    <button wx:if="{{ledgerBill.canRegisterPayment && !sourceLocked}}" class="outline small top-gap" data-type="offline" bindtap="openBillAction" disabled="{{busy || loading}}">登记线下付款</button>
+    <view class="filter">
+      <view wx:for="{{ledgerBill.sections}}" wx:key="key" class="pill {{ledgerSection===item.key?'active':''}}" data-section="{{item.key}}" bindtap="ledgerSection">{{item.label}} {{item.count}}</view>
+    </view>
+    <view wx:for="{{ledgerBill.records}}" wx:key="id" class="detail-row">
+      <view>
+        <text>{{item.caption}}</text>
+        <view wx:if="{{item.reference}}" class="hint">{{item.referenceLabel ? item.referenceLabel + '：' : ''}}{{item.reference}}</view>
+        <view wx:if="{{item.refundNote}}" class="hint">{{item.refundNote}}</view>
+        <view wx:if="{{item.beforeAmount}}" class="hint">更正前金额 ¥ {{item.beforeAmount}}</view>
+        <button wx:if="{{item.replacementBillId}}" class="link" data-id="{{item.replacementBillId}}" bindtap="chooseLedgerBill">查看更正后账单</button>
+        <button wx:if="{{ledgerSection==='lineage' && item.id!==ledgerBill.id}}" class="link" data-id="{{item.id}}" bindtap="chooseLedgerBill">查看历史账单</button>
+        <view wx:if="{{item.canRequest && !sourceLocked}}" class="actions">
+          <button class="link" data-type="refund" data-id="{{item.id}}" bindtap="openBillAction" disabled="{{busy || loading}}">退款申请</button>
+          <button class="link" data-type="invoice" data-id="{{item.id}}" bindtap="openBillAction" disabled="{{busy || loading}}">发票申请</button>
+        </view>
+      </view>
+      <view>
+        <text>{{item.amount}}</text>
+        <view class="hint">{{item.status}}</view>
+        <!-- DEV_ONLY_START -->
+        <view wx:if="{{item.simulation}}" class="hint">测试记录</view>
+        <!-- DEV_ONLY_END -->
+      </view>
+    </view>
+    <view wx:if="{{!ledgerBill.records.length}}" class="empty">暂无相关记录。</view>
+    <view class="actions">
+      <button wx:if="{{ledgerBill.pager.offset > 0}}" class="outline small" data-section="{{ledgerSection}}" data-offset="{{ledgerBill.pager.offset - ledgerBill.pager.limit}}" bindtap="ledgerSection">上一页</button>
+      <button wx:if="{{ledgerBill.pager.hasMore}}" class="outline small" data-section="{{ledgerSection}}" data-offset="{{ledgerBill.pager.offset + ledgerBill.pager.limit}}" bindtap="ledgerSection">下一页</button>
+    </view>
+  </view>
+
+  <view class="notice">线下付款经总部财务核实后计入实收。退款和发票申请经审核后办理。</view>
+  <view class="card" id="finance-application-form">
+    <view wx:if="{{sourceLocked}}" class="card-title">{{types[typeIndex].name}}</view>
+    <picker wx:else range="{{types}}" range-key="name" value="{{typeIndex}}" bindchange="selectType"><view class="picker">{{types[typeIndex].name}}</view></picker>
+    <view wx:if="{{sourceLocked && formBill}}" class="top-gap">
+      <view class="detail-row"><text>原账单</text><text>{{formBill.outletName}} · {{formBill.month}}</text></view>
+      <view wx:if="{{type!=='offline' && receipts[receiptIndex]}}" class="hint">原付款 {{receipts[receiptIndex].pickerName}}</view>
+      <button wx:if="{{!selectedApplication}}" class="link" bindtap="openApplicationBill">返回原账单</button>
+    </view>
+    <view wx:elif="{{sourceLocked}}" class="hint">这笔记录暂无法办理，请从原账单查看最新状态。</view>
+    <view wx:elif="{{type==='offline'}}" class="field">
+      <label>选择应付账单</label>
+      <picker range="{{payableBills}}" range-key="pickerName" value="{{billIndex}}" bindchange="selectBill" disabled="{{!payableBills.length}}">
+        <view class="picker">{{payableBills[billIndex].pickerName || (payableBills.length ? '请选择应付账单' : '暂无应付账单')}}</view>
+      </picker>
+      <button wx:if="{{pagers.bills.hasMore}}" class="link" data-collection="bills" bindtap="more" loading="{{pagers.bills.loading}}">加载更多账单</button>
+    </view>
+    <view wx:else class="field">
+      <label>选择原付款记录</label>
+      <picker range="{{receipts}}" range-key="pickerName" value="{{receiptIndex}}" bindchange="selectReceipt" disabled="{{!receipts.length}}">
+        <view class="picker">{{receipts[receiptIndex].pickerName || (receipts.length ? '请选择原付款记录' : '暂无原付款记录')}}</view>
+      </picker>
+      <button wx:if="{{pagers.receipts.hasMore}}" class="link" data-collection="receipts" bindtap="more" loading="{{pagers.receipts.loading}}">加载更多付款记录</button>
+    </view>
+    <view class="field"><label>申请金额（元）</label><input type="digit" data-field="amount" value="{{form.amount}}" bindinput="input" placeholder="0.00"/></view>
+    <block wx:if="{{type==='offline'}}">
+      <view class="field"><label>付款日期</label><picker mode="date" data-field="paidOn" value="{{form.paidOn}}" bindchange="input"><view class="picker">{{form.paidOn}}</view></picker></view>
+      <view class="field">
+        <label>交易流水号</label>
+        <input data-field="reference" value="{{form.reference}}" bindinput="input" maxlength="120" placeholder="请输入交易流水号（必填）"/>
+      </view>
+      <view class="hint">请登记与账单等额的线下付款。</view>
+    </block>
+    <block wx:if="{{type==='invoice'}}">
+      <view class="field"><label>发票抬头</label><input data-field="title" value="{{form.title}}" bindinput="input"/></view>
+      <view class="field"><label>纳税人识别号</label><input data-field="taxId" value="{{form.taxId}}" bindinput="input"/></view>
+    </block>
+    <view class="field"><label>申请原因或补充说明</label><textarea data-field="reason" value="{{form.reason}}" bindinput="input" maxlength="1000"/></view>
+    <button class="primary" bindtap="submit" loading="{{busy}}" disabled="{{busy || loading || (sourceLocked && !formBill)}}">{{busy ? '正在提交…' : '提交财务核验'}}</button>
+  </view>
+
+  <view class="section-title">申请进度</view>
+  <view class="filter">
+    <view class="pill {{statusFilter==='all'?'active':''}}" data-status="all" bindtap="filterStatus">全部</view>
+    <view class="pill {{statusFilter==='pending'?'active':''}}" data-status="pending" bindtap="filterStatus">待财务核验</view>
+    <view class="pill {{statusFilter==='approved'?'active':''}}" data-status="approved" bindtap="filterStatus">已通过</view>
+    <view class="pill {{statusFilter==='returned'?'active':''}}" data-status="returned" bindtap="filterStatus">已退回</view>
+  </view>
+  <block wx:for="{{applicationGroups}}" wx:for-item="group" wx:key="name">
+    <view class="section-title">{{group.title}}</view>
+    <view wx:for="{{group.rows}}" wx:key="id" class="card">
+      <view class="row between"><text>{{item.outletName}}</text><text class="badge {{item.statusTone}}">{{item.statusText}}</text></view>
+      <view class="detail-row"><text>{{item.dateText}}</text><text>¥ {{item.amountText}}</text></view>
+      <view wx:if="{{item.reason}}" class="hint">{{item.reason}}</view>
+      <view wx:if="{{item.reference || item.number}}" class="muted">{{item.referenceLabel ? item.referenceLabel + '：' : ''}}{{item.reference || item.number}}</view>
+      <view wx:if="{{item.reviewNote}}" class="notice">{{item.reviewNote}}</view>
+      <view wx:if="{{item.refundNote}}" class="hint">{{item.refundNote}}</view>
+      <button class="link top-gap" data-id="{{item.id}}" bindtap="openApplication">查看进度</button>
+    </view>
+    <view wx:if="{{!group.rows.length && !loading && !error}}" class="empty">{{group.empty}}</view>
+    <view wx:if="{{pagers[group.name].hasMore}}" class="pagination">
+      <button class="outline small" data-collection="{{group.name}}" bindtap="more" loading="{{pagers[group.name].loading}}">加载更多记录</button>
+    </view>
+  </block>
+</view>

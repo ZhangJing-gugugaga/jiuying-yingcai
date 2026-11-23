@@ -1,0 +1,76 @@
+{
+  "pages": [
+    "pages/home/index",
+    "pages/login/index",
+    "pages/outlets/index",
+    "pages/outlet/index",
+    "pages/reports/index",
+    "pages/report/index",
+    "pages/fees/index",
+    "pages/requests/index",
+    "pages/location/index",
+    "pages/support/index",
+    "pages/dashboard/index",
+    "pages/messages/index",
+    "pages/profile/index",
+    "pages/finance/index",
+    "pages/agreements/index",
+    "pages/tasks/index",
+    "pages/discover/index",
+    "pages/service-detail/index",
+    "pages/security/index",
+    "pages/training/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "九盈英才",
+    "navigationBarBackgroundColor": "#f6f9fd",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f6f9fd",
+    "enablePullDownRefresh": true
+  },
+  "tabBar": {
+    "color": "#52677e",
+    "selectedColor": "#0e65b7",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/home/index",
+        "text": "工作台"
+      },
+      {
+        "pagePath": "pages/outlets/index",
+        "text": "网点"
+      },
+      {
+        "pagePath": "pages/reports/index",
+        "text": "月报"
+      },
+      {
+        "pagePath": "pages/support/index",
+        "text": "客服"
+      },
+      {
+        "pagePath": "pages/profile/index",
+        "text": "我的"
+      }
+    ]
+  },
+  "permission": {
+    "scope.userLocation": {
+      "desc": "在您主动提交月度位置核验或选择网点位置时使用一次定位，不进行后台追踪"
+    }
+  },
+  "requiredPrivateInfos": [
+    "getLocation",
+    "chooseLocation"
+  ],
+  "networkTimeout": {
+    "request": 15000,
+    "downloadFile": 15000,
+    "uploadFile": 15000
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}

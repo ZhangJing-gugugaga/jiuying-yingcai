@@ -1,0 +1,18 @@
+<view class="page compact">
+  <view wx:if="{{loading}}" class="loading">正在加载，请稍候…</view>
+  <view wx:if="{{error}}" class="error">
+    {{error}}
+    <button class="link top-gap" bindtap="refresh">重试</button>
+  </view>
+  <block wx:if="{{service}}">
+    <image wx:if="{{coverPath}}" class="service-cover" src="{{coverPath}}" mode="widthFix" binderror="coverFailed" aria-label="{{service.title}}封面" />
+    <view wx:elif="{{coverUnavailable}}" class="hint">封面暂时无法加载，可下拉刷新。</view>
+    <view class="card">
+      <view class="title">{{service.title}}</view>
+      <view wx:if="{{service.summary}}" class="subtitle">{{service.summary}}</view>
+      <view class="divider"></view>
+      <view class="article">{{service.body || service.text || service.intro}}</view>
+    </view>
+    <button class="outline top-gap" data-page="support" bindtap="nav">联系总部客服</button>
+  </block>
+</view>
