@@ -231,6 +231,7 @@ test('the only confirmation is inline and it can cancel or confirm the exact pen
   await editor.submit(tap);
   assert.equal(editor.data.inlineConfirmation, true);
   assert.equal(editor.data.submitConfirmationContent, modalCopy.content);
+  assert.deepEqual(editor.data.confirmationRows.at(-1), { field: 'note', label: '经营说明', value: '本月正常营业' });
   assert.equal(editor.data.busy, false);
   assert.equal(state.modals.length, 0);
   assert.equal(submissions(state).length, 0);
@@ -238,12 +239,16 @@ test('the only confirmation is inline and it can cancel or confirm the exact pen
   assert.equal(editor.data.inlineConfirmation, false);
   assert.equal(editor.data.busy, false);
   assert.equal(editor.data.form.note, '本月正常营业');
+  assert.deepEqual(editor.data.confirmationRows, []);
 
+  fill(editor, { note: '  第一行经营说明\n第二行经营说明  ' });
   await editor.submit(tap);
   await editor.confirmSubmit();
   assert.equal(editor.data.inlineConfirmation, false);
   assert.equal(submissions(state).length, 1);
-  assert.equal((await currentReport()).latestSubmittedVersion.status, 'pending');
+  const latest = (await currentReport()).latestSubmittedVersion;
+  assert.equal(latest.status, 'pending');
+  assert.equal(latest.note, '第一行经营说明\n第二行经营说明');
 }));
 
 test('a late confirmation tap after cancel or page unload cannot write', () => withReport(async ({ open, state }) => {

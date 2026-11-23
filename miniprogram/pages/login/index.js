@@ -25,7 +25,7 @@ Page({
   data:{
     busy:false,error:'',mode:'methods',username:'',password:'',confirmPassword:'',
     activationToken:'',mobile:'',smsCode:'',challengeId:'',resendSeconds:0,
-    wechatEnabled:false,smsEnabled:false,activationFields,activationField:'',visibleActivationFields:{},channelsLoading:true,
+    wechatEnabled:false,smsEnabled:false,activationFields,activationField:'',activationFocus:'',visibleActivationFields:{},channelsLoading:true,
     staffPortalUrl:'',sessionCleanupPending:false,sessionCleanupRequired:false,sessionCleanupError:'',
     /* DEV_ONLY_START */
     development:false,smsMode:'',devCode:'',developerToolsExpanded:false,...development.data,
@@ -97,7 +97,7 @@ Page({
     if(busy||!['methods','password','activate','sms'].includes(requested)||(requested==='sms'&&!smsEnabled))return;
     const mode=requested==='methods'&&!channelsLoading&&!smsEnabled&&!wechatEnabled?'password':requested;
     if(mode===this.data.mode)return;
-    this.setData({mode,error:'',password:'',confirmPassword:'',activationField:'',visibleActivationFields:{}});
+    this.setData({mode,error:'',password:'',confirmPassword:'',activationField:'',activationFocus:'',visibleActivationFields:{}});
     wx.setNavigationBarTitle?.({title:mode==='activate'?'首次激活':'九盈英才'});
   },
   toggleActivationVisibility(e){
@@ -105,9 +105,29 @@ Page({
     if(this.data.busy||this.data.mode!=='activate'||!activationFields.some(item=>item.name===field))return;
     this.setData({['visibleActivationFields.'+field]:!this.data.visibleActivationFields[field]});
   },
+  confirmActivationField(e) {
+    const {field}=e.currentTarget.dataset;
+    const index=activationFields.findIndex(item=>item.name===field);
+    if(this.data.mode!=='activate'||this.data.busy||index<0)return;
+    if(typeof e.detail?.value==='string')this.input(e);
+    const next=activationFields[index+1];
+    if(next)this.setData({activationFocus:next.name});
+    else return this.activate();
+  },
+  blurActivationField(e) {
+    if(this.data.activationFocus===e.currentTarget.dataset.field)this.setData({activationFocus:''});
+  },
+  scrollToActivationError(field) {
+    if(field&&this.data.mode==='activate'&&this.data.activationField===field){
+      wx.pageScrollTo?.({selector:'#activation-field-'+field,duration:180});
+    }
+  },
+  showActivationError(field,error) {
+    this.setData({activationField:field,activationFocus:'',error},()=>this.scrollToActivationError(field));
+  },
   async run(action,{browse=false}={}) {
     if(this.data.busy||this.data.sessionCleanupPending||this.data.sessionCleanupRequired||this.data.mode==='staff')return;
-    this.setData({busy:true,error:'',activationField:'',visibleActivationFields:{},sessionCleanupError:''});
+    this.setData({busy:true,error:'',activationField:'',activationFocus:'',visibleActivationFields:{},sessionCleanupError:''});
     try {
       const session=await action();
       if(this._unloaded)return;
@@ -119,9 +139,9 @@ Page({
     } catch(e) {
       if(this._unloaded)return;
       const retainPassword=e.code==='NETWORK'||e.code==='INVALID_CREDENTIALS';
-      this.setData({error:signInErrors[e.code]||e.message,
-        activationField:this.data.mode==='activate'&&e.code==='ACTIVATION_INVALID'?'activationToken':'',
-        ...(retainPassword?{}:{password:'',confirmPassword:''})});
+      const activationField=this.data.mode==='activate'&&e.code==='ACTIVATION_INVALID'?'activationToken':'';
+      this.setData({error:signInErrors[e.code]||e.message,activationField,
+        ...(retainPassword?{}:{password:'',confirmPassword:''})},()=>this.scrollToActivationError(activationField));
     } finally {
       if(!this._unloaded)this.setData({busy:false});
     }
@@ -192,12 +212,13 @@ Page({
     await this.run(()=>api.passwordLogin(username.trim(),password));
   },
   async activate() {
-    const {activationToken,password,confirmPassword}=this.data;
-    if(!activationToken.trim())return this.setData({activationField:'activationToken',error:'请输入总部发放的激活码。'});
+    const {activationToken,password,confirmPassword,busy,sessionCleanupPending,sessionCleanupRequired}=this.data;
+    if(busy||sessionCleanupPending||sessionCleanupRequired)return;
+    if(!activationToken.trim())return this.showActivationError('activationToken','请输入总部发放的激活码。');
     if(password.length<12||password.length>128){
-      return this.setData({activationField:'password',error:password.length<12?'登录密码至少12位。':'登录密码最多128位。'});
+      return this.showActivationError('password',password.length<12?'登录密码至少12位。':'登录密码最多128位。');
     }
-    if(password!==confirmPassword)return this.setData({activationField:'confirmPassword',error:'两次输入的密码不一致。'});
+    if(password!==confirmPassword)return this.showActivationError('confirmPassword','两次输入的密码不一致。');
     await this.run(()=>api.activate(activationToken.trim(),password));
   },
   onUnload() {

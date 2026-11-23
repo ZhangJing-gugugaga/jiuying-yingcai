@@ -126,6 +126,49 @@ test('viewing a paid bill returns to the matching ledger page without stacking a
   assert.equal(routes[0], '/pages/finance/index?ledgerBillId=' + bill.id + '&outlet=cs&month=2026-09');
 }));
 
+test('returning from a later bill or from history restores the visible pages only for the same scope', () => runTest(async ({ app, fees, bill }) => {
+  const state = app.store.load();
+  const original = state.bills.find(row => row.id === bill.id);
+  for (let index = 0; index < 54; index++) {
+    const month = new Date(Date.UTC(2026, 7 - index, 1)).toISOString().slice(0, 7);
+    state.bills.push({ ...original, id: 'return-scope-bill-' + index, month });
+  }
+  app.store.transaction(() => app.store.save(state));
+
+  await fees.clearFilters();
+  await fees.filterStatus(tap({ status: 'unpaid' }));
+  assert.equal(fees.data.bills.length, 50);
+  const total = fees.data.pagers.bills.total;
+  assert.ok(total > 50);
+  await fees.more(tap({ collection: 'bills' }));
+  assert.equal(fees.data.bills.length, total);
+  const target = fees.data.bills.at(-1);
+  let destination;
+  const scrolls = [];
+  wx.pageScrollTo = options => scrolls.push(options.selector);
+  wx.navigateTo = ({ url, success }) => { destination = new URL(url, 'https://native.invalid'); success(); };
+  fees.openBill(tap({ id: target.id }));
+  assert.equal(destination.searchParams.get('ledgerBillId'), target.id);
+
+  fees.onHide();
+  await fees.onShow();
+  assert.equal(fees.data.bills.length, total);
+  assert.equal(fees.data.bills.at(-1).id, target.id);
+  assert.deepEqual(scrolls, ['#fee-bills-' + target.id]);
+  assert.equal(fees.data.statusFilter, 'unpaid');
+  await fees.chooseSection(tap({ section: 'records' }));
+  await fees.chooseSection(tap({ section: 'bills' }));
+  assert.equal(fees.data.bills.length, total);
+  assert.equal(fees.data.selected, 'cs');
+
+  fees.onHide();
+  await api.login('partnerB');
+  await fees.onShow();
+  assert.deepEqual(fees.data.bills, []);
+  assert.equal(fees.data.scopeReady, false);
+  assert.equal(scrolls.length, 1);
+}));
+
 async function runTest(run) {
   const app = createServer({ dbPath: ':memory:', env: { NODE_ENV:'test', ADAPTER_MODE:'mock' } });
   await new Promise(resolve => app.server.listen(0, '127.0.0.1', resolve));

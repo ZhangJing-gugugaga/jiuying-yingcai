@@ -1,6 +1,7 @@
 {
   "navigationBarTitleText": "经营月报",
   "usingComponents": {
-    "number-field": "/components/number-field/index"
+    "number-field": "/components/number-field/index",
+    "t-icon": "/vendor/tdesign/icon/icon"
   }
 }

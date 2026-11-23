@@ -209,6 +209,12 @@ test('the notices switch uses a red-dot indicator without displaying the count',
   assert.doesNotMatch(switchButton, /{{noticeUnread}}/);
 });
 
+test('business records, tasks and notices render in mutually exclusive branches', () => {
+  const matters = markup('tasks');
+  assert.match(matters, /<block wx:if="{{hasLoaded && !loading && section==='records' && !isPublic}}">[\s\S]*?<\/block>\s*<block wx:elif="{{hasLoaded && section==='tasks' && !isPublic}}">/);
+  assert.match(matters, /<block wx:elif="{{hasLoaded && section!=='records'}}">\s*<view class="filter">/);
+});
+
 test('sign-in resumes the exact guarded notices filter', t => {
   const calls = navigation(t);
   const loginUrl = memberLoginUrl('tasks', { section: 'notices', status: 'unread' });

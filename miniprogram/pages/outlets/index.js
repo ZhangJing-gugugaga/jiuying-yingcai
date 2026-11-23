@@ -34,7 +34,8 @@ function privateRow(outlet){
     const {key,page,label}=activity;
     const {title,monthText}=rows.find(row=>row.key===key);
     const statusText=outletSummaryStatus(key,activity.status);
-    nextAction={page,label,month:summary[key].month,text:[title,monthText,statusText].join(' · ')};
+    const returnedVersionId=key==='report'&&activity.status==='returned'?summary.report.returnedVersionId:undefined;
+    nextAction={page,label,month:summary[key].month,monthText,text:[title,monthText,statusText].join(' · '),returnedVersionId};
   }
   return {...outlet,area,statusText:fmt.label(status,'outlet'),statusTone:fmt.statusTone(status,'outlet'),
     summaryRows:rows,businessChips:rows.filter(row=>row.key==='report'||row.key==='fee').map(row=>({...row,
@@ -301,8 +302,9 @@ const page=define({
   outletAction(e){
     const outlet=this.privateOutlet(e.currentTarget.dataset.id);
     if(!outlet?.nextAction)return;
-    const {page,month}=outlet.nextAction;
-    this.openFromPrivateList(page,api.query({outlet:outlet.id,month}));
+    const {page,month,returnedVersionId}=outlet.nextAction;
+    this.openFromPrivateList(page,api.query({outlet:outlet.id,month,id:returnedVersionId,
+      edit:returnedVersionId?'returned':undefined}));
   },
   openOutlet(id){
     const directory=this.data.directory;

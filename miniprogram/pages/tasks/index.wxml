@@ -31,7 +31,7 @@
       <button class="outline small" bindtap="moreBusinessRecords" loading="{{businessLoading}}" disabled="{{businessLoading}}">加载更多记录</button>
     </view>
   </block>
-  <block wx:if="{{hasLoaded && section==='tasks' && !isPublic}}">
+  <block wx:elif="{{hasLoaded && section==='tasks' && !isPublic}}">
     <block wx:for="{{taskRows}}" wx:key="id">
       <view wx:if="{{item.groupHeading}}" class="section-title">{{item.groupHeading}}</view>
       <view class="card {{item.overdue ? 'matters-overdue' : ''}}">
@@ -57,7 +57,7 @@
       <button class="outline small" data-collection="businessTasks" bindtap="more" loading="{{pagers.businessTasks.loading}}" disabled="{{loading || pagers.businessTasks.loading}}">加载更多</button>
     </view>
   </block>
-  <block wx:elif="{{hasLoaded}}">
+  <block wx:elif="{{hasLoaded && section!=='records'}}">
     <view class="filter">
       <button class="pill {{statusFilter==='all'?'active':''}}" data-status="all" bindtap="filterStatus" disabled="{{loading || busy || openingRecord}}">全部</button>
       <button class="pill {{statusFilter==='unread'?'active':''}}" data-status="unread" bindtap="filterStatus" disabled="{{loading || busy || openingRecord}}">未读</button>

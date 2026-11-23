@@ -23,13 +23,14 @@ function page(name, query = {}) {
     ...definition,
     data: structuredClone(definition.data),
     route: 'pages/' + name + '/index',
-    setData(values) {
+    setData(values, done) {
       for (const [key, value] of Object.entries(values)) {
         const parts = key.split('.');
         let target = this.data;
         for (const part of parts.slice(0, -1)) target = target[part] ||= {};
         target[parts.at(-1)] = value;
       }
+      done?.();
     }
   };
   global.getCurrentPages = () => [instance];
@@ -49,7 +50,7 @@ async function nativeRun(fn) {
     setStorageSync: (key, value) => storage.set(key, value),
     removeStorageSync: key => storage.delete(key),
     stopPullDownRefresh() {},
-    pageScrollTo() {},
+    pageScrollTo(options) { calls.push({ scrollTo: options.selector }); },
     showToast() {},
     showModal(o) { o.success({confirm:true}); },
     reLaunch(options) { calls.push({ reLaunch: options.url }); },
@@ -159,11 +160,19 @@ test('the activation form reports errors at the corresponding field and redeems 
   const activationRequests = () => calls.filter(call => call.method === 'POST' && call.url?.endsWith('/api/auth/activate'));
   await login.activate();
   assert.equal(login.data.activationField, 'activationToken');
-  login.input({ ...tap({ field: 'activationToken' }), detail: { value: invitation.token } });
+  assert.equal(calls.at(-1).scrollTo, '#activation-field-activationToken');
+  login.confirmActivationField({ ...tap({ field: 'activationToken' }), detail: { value: invitation.token } });
   assert.equal(login.data.error, '');
+  assert.equal(login.data.activationFocus, 'password');
+  login.blurActivationField(tap({ field: 'activationToken' }));
+  assert.equal(login.data.activationFocus, 'password');
+  login.confirmActivationField({ ...tap({ field: 'password' }), detail: { value: 'short' } });
+  assert.equal(login.data.activationFocus, 'confirmPassword');
   login.setData({ password: 'short', confirmPassword: 'short' });
   await login.activate();
   assert.equal(login.data.activationField, 'password');
+  assert.equal(login.data.activationFocus, '');
+  assert.equal(calls.at(-1).scrollTo, '#activation-field-password');
   login.setData({ password: 'Isolated-Activation-24!', confirmPassword: 'Different-Activation-24!' });
   await login.activate();
   assert.equal(login.data.activationField, 'confirmPassword');
@@ -172,8 +181,7 @@ test('the activation form reports errors at the corresponding field and redeems 
   login.toggleActivationVisibility(tap({ field: 'confirmPassword' }));
   assert.equal(login.data.visibleActivationFields.confirmPassword, true);
   assert.equal(login.data.visibleActivationFields.password, undefined);
-  login.input({ ...tap({ field: 'confirmPassword' }), detail: { value: login.data.password } });
-  await login.activate();
+  await login.confirmActivationField({ ...tap({ field: 'confirmPassword' }), detail: { value: login.data.password } });
   assert.equal(api.session().actor, 'partnerB');
   assert.equal(login.data.password, '');
   assert.equal(login.data.confirmPassword, '');
@@ -186,6 +194,7 @@ test('the activation form reports errors at the corresponding field and redeems 
   replay.setData({ activationToken: invitation.token, password: 'Isolated-Activation-24!', confirmPassword: 'Isolated-Activation-24!' });
   await replay.activate();
   assert.equal(replay.data.activationField, 'activationToken');
+  assert.equal(calls.at(-1).scrollTo, '#activation-field-activationToken');
   assert.match(replay.data.error, /激活码已失效/);
   assert.equal(activationRequests().at(-1).status, 409);
 }));
@@ -235,6 +244,50 @@ test('workbench keeps the selected outlet across preview and task list and clear
   await home.onShow();
   assert.notEqual(home.data.scopeOutlet, 'zz');
   assert.doesNotMatch(JSON.stringify(home.data.activeRows), /仅 zz/);
+}));
+
+test('private directory opens the exact returned report and keeps a superseded version read-only', () => nativeRun(async ({ calls }) => {
+  const { today } = await api.request('/api/context');
+  const [year, monthNumber] = today.slice(0, 7).split('-').map(Number);
+  const month = new Date(Date.UTC(year, monthNumber - 2, 1)).toISOString().slice(0, 7);
+  const payload = { outlet: 'cs', month, revenue: 1200, orders: 4, traffic: 6, enroll: 0, note: '目录原单复验' };
+  const { result: original } = await api.command('report.submit', payload);
+  await api.login('manager');
+  await api.command('review.report', { id: original.id, decision: 'return', note: '仅本人可查看的退回原因' });
+  await api.command('public.profile', { outlet: 'cs', title: '隔离公开网点', address: '隔离地址',
+    description: '隔离公开资料', services: ['咨询'], published: true, reason: '隔离验收' });
+
+  await api.login('partnerA');
+  const directory = page('outlets');
+  await directory.onShow();
+  const privateRow = directory.data.rows.find(row => row.id === 'cs');
+  assert.equal(privateRow.summary.report.returnedVersionId, original.id);
+  directory.outletAction(tap({ id: 'cs' }));
+  const destination = new URL(calls.at(-1).navigateTo, 'https://native.invalid');
+  const query = Object.fromEntries(destination.searchParams);
+  assert.equal(destination.pathname, '/pages/report/index');
+  assert.deepEqual(query, { outlet: 'cs', month, id: original.id, edit: 'returned' });
+
+  const editor = page('report', { ...query });
+  await editor.onShow();
+  assert.equal(editor.data.directReturnedEdit, true);
+  assert.equal(editor.data.latestSubmittedVersion.id, original.id);
+  assert.match(editor.data.returnedReason, /仅本人/);
+  const { result: replacement } = await api.command('report.submit', { ...payload, orders: 5 });
+  assert.notEqual(replacement.id, original.id);
+  const history = page('report', query);
+  await history.onShow();
+  assert.equal(history.data.linkedVersion.id, original.id);
+  assert.equal(history.data.canEdit, false);
+  assert.equal(history.data.directReturnedEdit, false);
+
+  await api.visitor();
+  const published = await api.detail('outlets', 'cs', { scope: 'public', includeSummary: 'true' });
+  assert.equal(published.summary, undefined);
+  assert.doesNotMatch(JSON.stringify(published), new RegExp(original.id));
+  await api.login('partnerB');
+  await assert.rejects(api.detail('outlets', 'cs', { includeSummary: 'true' }), { status: 404 });
+  await assert.rejects(api.request('/api/reports/context?' + api.query({ outlet: 'cs', month })), { status: 403 });
 }));
 
 test('report keeps a second-page outlet through refresh and switching back', () => nativeRun(async ({ app }) => {

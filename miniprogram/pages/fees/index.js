@@ -1,12 +1,13 @@
 const {define,go,api,fmt}=require('../../utils/page');
 const {checkout,moneyFromCents,paymentNotice,paymentScope,confirmationPending,paymentResults}=require('../finance/checkout');
 
-const scopedCollections=['bills','payments','receipts','adjustments'].map(name=>({
- name,
+const feePageSize=50;
+const feeSections={bills:['bills'],records:['payments','receipts'],adjustments:['adjustments']};
+const scopedCollections=Object.values(feeSections).flat().map(name=>({
+ name,limit:feePageSize,
  visible(){
-  const section=name==='bills'?'bills':name==='adjustments'?'adjustments':'records';
   const recent=name==='receipts'&&this.data.section==='bills'&&this.data.payment?.status==='success';
-  return recent||!this.query.id&&this.data.section===section;
+  return recent||!this.query.id&&feeSections[this.data.section].includes(name);
  },
  filters(){
   if(name==='receipts'&&this.data.section==='bills')return {outlet:this.data.payment.outlet||this.data.selected,month:this.data.payment.month||this.data.filterMonthValue};
@@ -32,6 +33,34 @@ function outletPicker(rows,selected){
  return {outlets,outletIndex:Math.max(0,outlets.findIndex(row=>row.id===selected))};
 }
 
+function feeScope({section,selected,filterMonthValue,statusFilter}) {
+ return JSON.stringify([section,selected,filterMonthValue,statusFilter]);
+}
+
+function captureFeeRange({data}) {
+ const token=api.session()?.token;
+ if(!token||token!==data.session?.token||!data.scopeReady||data.exactBill)return null;
+ const loaded=feeSections[data.section].map(name=>[name,data.pagers[name]])
+  .filter(([,pager])=>pager&&pager.loaded>feePageSize).map(([name,pager])=>[name,pager.loaded]);
+ return loaded.length?{token,scope:feeScope(data),loaded}:null;
+}
+
+async function restoreFeeRange(page,range,serial) {
+ const current=()=>range&&serial===page._serial&&range.token===api.session()?.token&&
+  range.scope===feeScope(page.data)&&!page.query.id;
+ if(!current())return;
+ for(const [name,loaded] of range.loaded){
+  while(current()&&page.data.pagers[name]?.hasMore&&page.data.pagers[name].loaded<loaded){
+   try {
+    await page.fetchCollection(name,false,serial,false);
+   } catch {
+    // Keep pages already refreshed. The section still exposes its load-more action.
+    return;
+   }
+  }
+ }
+}
+
 function billAmountDisplay(bill){
  if(bill.status==='reversed')return {label:'原账单金额',value:bill.amountText==='—'?'':bill.amountText};
  if(bill.status==='unpaid')return {label:'待支付金额',value:moneyFromCents(bill.ledger?.unpaidCents)};
@@ -54,6 +83,13 @@ const page=define({
  },
  async loaded(s){
   const serial=this._serial;
+  const range=this._restoreFeeRange;
+  this._restoreFeeRange=null;
+  if(range){
+   await restoreFeeRange(this,range,serial);
+   if(serial!==this._serial)return;
+   s=this.data.state;
+  }
   const config=this.data.section==='bills'?await api.request('/api/config').catch(()=>null):null;
   if(serial!==this._serial)return;
   let rows=s.outlets,exactBill;
@@ -103,6 +139,11 @@ const page=define({
  chooseSection(e){
   const {section}=e.currentTarget.dataset;
   if(this.data.loading||this.data.busy||this.data.exactBill||!['bills','records','adjustments'].includes(section)||section===this.data.section)return;
+  if(this.data.section==='bills')this._billRange=captureFeeRange(this);
+  if(section==='bills'){
+   this._restoreFeeRange=this._billRange;
+   this._billRange=null;
+  }
   this.setData({section,filtersOpen:false,historyOpen:false});
   return this.refresh();
  },
@@ -123,8 +164,10 @@ const page=define({
   if(this.data.scopeReady===false)return;
   return go('agreements',api.query({outlet:this.data.selected}));
  },
- openBillLedger(scope){
-  const open=()=>go('finance',api.query(scope));
+ openBillLedger(scope,anchor){
+  const token=this.data.session?.token;
+  const origin=anchor&&token?{...anchor,token,scope:feeScope(this.data)}:null;
+  const open=()=>go('finance',api.query(scope),()=>{this._feeReturnAnchor=origin;});
   const previous=typeof getCurrentPages==='function'?getCurrentPages().at(-2):null;
   const existingBill=previous?.data?.ledgerBill;
   const plainDetail=!scope.section&&!scope.type&&!scope.ledgerRecordId;
@@ -139,7 +182,8 @@ const page=define({
   if(this.data.loading||this.data.scopeReady===false)return;
   const fromReceipt=['refund','invoice'].includes(type);
   const receiptRecord=fromReceipt||record==='receipt';
-  const rows=receiptRecord?this.data.receipts:record?this.data.payments:this.data.bills;
+  const collection=receiptRecord?'receipts':record?'payments':'bills';
+  const rows=this.data[collection];
   const row=rows.find(item=>item.id===id);
   if(!row)return;
   if(type==='offline'&&row.status!=='unpaid')return;
@@ -148,7 +192,7 @@ const page=define({
   if(!ledgerBillId)return;
   return this.openBillLedger({outlet:row.outlet,month:row.month,ledgerBillId,section,type,
    billId:type==='offline'?ledgerBillId:undefined,receiptId:fromReceipt?row.id:undefined,
-   ledgerRecordId:record||receiptRecord?row.id:undefined});
+   ledgerRecordId:record||receiptRecord?row.id:undefined},{collection,id:row.id});
  },
  setFilters(patch){
   if(this.data.busy||(this.data.exactBill&&this.data.scopeReady===false&&patch.selected===undefined))return;
@@ -331,7 +375,21 @@ const page=define({
  }
 });
 
-Page({...page,onShow(){this._paymentHidden=false;return page.onShow.call(this);},onHide(){this._paymentHidden=true;},
+Page({...page,async onShow(){
+ this._paymentHidden=false;
+ this._restoreFeeRange=this._hiddenFeeRange;
+ this._hiddenFeeRange=null;
+ const anchor=this._feeReturnAnchor;
+ this._feeReturnAnchor=null;
+ await page.onShow.call(this);
+ if(anchor&&!this._paymentHidden&&!this._paymentUnloaded&&anchor.token===api.session()?.token&&
+    anchor.scope===feeScope(this.data)&&this.data.scopeReady&&this.data[anchor.collection].some(row=>row.id===anchor.id)){
+  wx.pageScrollTo?.({selector:'#fee-'+anchor.collection+'-'+anchor.id,duration:0});
+ }
+},onHide(){
+ this._paymentHidden=true;
+ this._hiddenFeeRange=captureFeeRange(this);
+},
 onUnload(){this._paymentUnloaded=true;page.onUnload.call(this);},async refresh(){
  this.setData({scopeReady:false,bills:[],payments:[],receipts:[],adjustments:[],ledgerTotals:null});
  const pending=page.refresh.call(this);

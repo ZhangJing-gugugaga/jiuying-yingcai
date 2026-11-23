@@ -63,7 +63,7 @@
     <button class="pill {{statusFilter==='all'?'active':''}}" data-status="all" bindtap="filterStatus" disabled="{{loading || busy}}">全部账单</button>
   </view>
   <view wx:if="{{bills.length && !exactBill}}" class="section-title">服务费账单</view>
-  <view wx:for="{{bills}}" wx:key="id" class="card fees-bill">
+  <view wx:for="{{bills}}" wx:key="id" id="fee-bills-{{item.id}}" class="card fees-bill">
     <view class="fees-bill-head">
       <view class="fees-bill-identity">
         <view class="card-title">{{item.displayOutlet}}</view>
@@ -103,7 +103,7 @@
   <view wx:if="{{scopeReady}}" class="hint">{{outlets[outletIndex].label}} · 全部账期</view>
   <button wx:if="{{scopeReady}}" class="link" bindtap="openFinance">查看付款与凭证</button>
   <view class="section-title">付款记录</view>
-  <view wx:for="{{payments}}" wx:key="id" class="card">
+  <view wx:for="{{payments}}" wx:key="id" id="fee-payments-{{item.id}}" class="card">
     <view class="row between"><text class="grow">{{item.outletName}}</text><text class="badge {{item.statusTone}}">{{item.statusText}}</text></view>
     <view class="detail-row"><text>{{item.dateText}}</text><text class="amount-number">{{item.amount==null ? '金额待核算' : '¥ '+item.amountText}}</text></view>
     <view wx:if="{{item.channel}}" class="hint">{{item.channel==='alipay' ? '支付宝' : '微信支付'}}</view>
@@ -119,7 +119,7 @@
   <view wx:if="{{pagers.payments.hasMore}}" class="pagination"><button class="outline small" data-collection="payments" bindtap="more" loading="{{pagers.payments.loading}}" disabled="{{loading || pagers.payments.loading}}">加载更多付款记录</button></view>
 
   <view class="section-title">实收记录</view>
-  <view wx:for="{{receipts}}" wx:key="id" class="card">
+  <view wx:for="{{receipts}}" wx:key="id" id="fee-receipts-{{item.id}}" class="card">
     <view class="row between"><text class="grow">{{item.outletName}}</text><text class="amount-number">{{item.amount==null ? '金额待核算' : '¥ '+item.amountText}}</text></view>
     <view wx:if="{{item.dateText}}" class="muted">{{item.dateText}}</view>
     <button wx:if="{{item.billId}}" class="link" data-id="{{item.id}}" data-record="receipt" data-section="receipts" bindtap="openBill">查看原账单</button>

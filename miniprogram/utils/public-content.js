@@ -1,5 +1,12 @@
 const api = require('./api');
 
+function retainPublicCover(record, previous) {
+  if (record?.imageId && previous?.coverPath && record.id === previous.id && record.imageId === previous.imageId) {
+    return { ...record, coverPath: previous.coverPath };
+  }
+  return record;
+}
+
 async function withPublicCover(record) {
   if (!record?.imageId) return record;
   try {
@@ -16,4 +23,4 @@ function markCoverUnavailable(records, id) {
     : record);
 }
 
-module.exports = { withPublicCover, markCoverUnavailable };
+module.exports = { withPublicCover, markCoverUnavailable, retainPublicCover };

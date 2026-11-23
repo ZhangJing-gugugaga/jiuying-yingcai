@@ -2,7 +2,7 @@ const {define,go,api,fmt,openRecord,canOpenRecord}=require('../../utils/page');
 const {recordErrorText}=require('../../utils/navigation');
 const {workbenchTask}=require('../tasks/matters');
 const {loadBusinessRecords,businessRecord,openBusinessRecord}=require('../../utils/workbench-records');
-const {withPublicCover,markCoverUnavailable}=require('../../utils/public-content');
+const {withPublicCover,retainPublicCover}=require('../../utils/public-content');
 const {publicShare}=require('../../utils/public-share');
 /* DEV_ONLY_START */
 const roleTrial=require('../../development/role-trial');
@@ -85,23 +85,25 @@ const home=define({
       const session=this.data.session;
       const isVisitor=state.actor==='public'&&session?.role==='public';
       const contents=state.publicContents||[];
-      const groupIntro=contents.find(record=>record.key==='brand')||null;
+      const groupIntro=retainPublicCover(contents.find(record=>record.key==='brand')||null,this.data.groupIntro);
       const publishedServices=contents.filter(record=>/^service-[1-5]$/.test(record.key))
         .sort((first,second)=>first.key.localeCompare(second.key))
         .map(record=>{
           const [tileIcon,tileTone]=serviceTiles[Number(record.key.slice(-1))-1];
-          return {...record,tileIcon,tileTone};
+          const previous=this.data.publishedServices.find(service=>service.id===record.id);
+          return {...retainPublicCover(record,previous),tileIcon,tileTone};
         });
       const phone=String(state.support?.settings?.phone||'').replace(/[\s()-]/g,'');
       this.setData({publicView:true,groupIntro,publishedServices,headquartersPhone:/^\+?\d{5,20}$/.test(phone)?phone:'',
         openTotal:null,taskError:false,...(!isVisitor?{hasUnreadNotices:false}:{})});
       this.updatePublicShareMenu();
       await Promise.all([
-        withPublicCover(groupIntro).then(record=>{
+        groupIntro?.imageId&&!groupIntro.coverPath?withPublicCover(groupIntro).then(record=>{
           if(serial===this._serial)this.setData({groupIntro:record});
-        }),
-        Promise.all(publishedServices.map(withPublicCover)).then(services=>{
-          if(serial===this._serial)this.setData({publishedServices:services});
+        }):null,
+        ...publishedServices.filter(service=>service.imageId&&!service.coverPath).map(async service=>{
+          const loaded=await withPublicCover(service);
+          if(serial===this._serial)this.setData({publishedServices:this.data.publishedServices.map(row=>row.id===loaded.id?loaded:row)});
         }),
         isVisitor?api.collection('messages',{status:'unread',limit:1},this).catch(()=>null).then(messages=>{
           if(serial===this._serial&&api.session()?.token===session.token){
@@ -242,12 +244,16 @@ const home=define({
     if(this.data.publishedServices.some(record=>record.id===id))go('service-detail',api.query({id}));
   },
   publicCoverFailed(e){
-    const id=e.currentTarget.dataset.id;
-    this.setData({publishedServices:markCoverUnavailable(this.data.publishedServices,id)});
+    const {id,coverPath}=e.currentTarget.dataset;
+    const rows=this.data.publishedServices;
+    if(rows.some(row=>row.id===id&&row.coverPath&&row.coverPath===coverPath)){
+      this.setData({publishedServices:rows.map(row=>row.id===id?{...row,coverPath:'',coverUnavailable:true}:row)});
+    }
   },
   groupCoverFailed(e){
     const {groupIntro}=this.data;
-    if(groupIntro&&groupIntro.id===e.currentTarget.dataset.id){
+    const {id,coverPath}=e.currentTarget.dataset;
+    if(groupIntro?.coverPath&&groupIntro.id===id&&groupIntro.coverPath===coverPath){
       this.setData({groupIntro:{...groupIntro,coverPath:'',coverUnavailable:true}});
     }
   },

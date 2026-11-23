@@ -13,18 +13,20 @@
       <t-icon name="filter" size="36rpx" aria-hidden="true"/><text>{{showRegionFilters ? '收起' : '筛选'}}</text>
     </button>
   </view>
-  <view wx:if="{{directory || isPublic}}" class="outlet-quick-filters" aria-label="服务网点地域">
-    <button wx:for="{{geography}}" wx:key="value" class="outlet-quick-filter {{geo===item.value ? 'active' : ''}}" data-geo="{{item.value}}" bindtap="filterGeography"
-      aria-label="{{item.label + (geo===item.value ? '，已选择' : '')}}">{{item.label}}</button>
+  <view wx:if="{{directory || isPublic}}" class="outlet-directory-controls">
+    <view class="outlet-quick-filters" aria-label="服务网点地域">
+      <button wx:for="{{geography}}" wx:key="value" class="outlet-quick-filter {{geo===item.value ? 'active' : ''}}" data-geo="{{item.value}}" bindtap="filterGeography"
+        aria-label="{{item.label + (geo===item.value ? '，已选择' : '')}}">{{item.label}}</button>
+    </view>
+    <button class="link outlet-toolbar-link outlet-map-toggle" data-mode="{{mode==='map' ? 'list' : 'map'}}" bindtap="mode">
+      <t-icon name="{{mode==='map' ? 'view-list' : 'map'}}" size="32rpx" aria-hidden="true"/><text>{{mode==='map' ? '返回列表' : '查看地图'}}</text>
+    </button>
   </view>
   <view wx:elif="{{state}}" class="outlet-quick-filters" aria-label="网点营业状态">
     <button wx:for="{{statusFilters}}" wx:key="value" class="outlet-quick-filter {{statusFilter===item.value ? 'active' : ''}}" data-status="{{item.value}}" bindtap="filterStatus"
       aria-label="{{item.label + (statusFilter===item.value ? '，已选择' : '')}}">{{item.label}}</button>
   </view>
-  <view class="outlet-toolbar">
-    <button wx:if="{{directory || isPublic}}" class="link outlet-toolbar-link" data-mode="{{mode==='map' ? 'list' : 'map'}}" bindtap="mode">
-      <t-icon name="{{mode==='map' ? 'view-list' : 'map'}}" size="32rpx" aria-hidden="true"/><text>{{mode==='map' ? '返回列表' : '查看地图'}}</text>
-    </button>
+  <view wx:if="{{state && !isPublic}}" class="outlet-toolbar">
     <button wx:if="{{state && !isPublic}}" class="link outlet-toolbar-link" data-scope="{{directory ? 'private' : 'public'}}" bindtap="changeScope">{{directory ? '返回我的网点' : '浏览服务网点'}}</button>
     <button wx:if="{{state && !directory && !isPublic && rows.length}}" class="link outlet-toolbar-link" data-page="requests" data-query="type=newOutlet" bindtap="nav">申请新增网点</button>
   </view>
@@ -94,8 +96,10 @@
           <view class="outlet-card-icon"><t-icon name="shop" size="46rpx" aria-hidden="true"/></view>
           <view class="outlet-card-copy">
             <view class="outlet-heading"><view class="card-title grow">{{item.name}}</view><text wx:if="{{item.statusText}}" class="badge {{item.statusTone}}">{{item.statusText}}</text></view>
-            <view wx:if="{{item.area}}" class="muted outlet-area">{{item.area}}</view>
-            <view wx:if="{{directory || isPublic}}" class="outlet-address">{{item.address || '暂无可查看地址'}}</view>
+            <view wx:if="{{directory || isPublic}}" class="outlet-location">
+              <text wx:if="{{item.area}}" class="muted">{{item.area}} · </text><text>{{item.address || '暂无可查看地址'}}</text>
+            </view>
+            <view wx:elif="{{item.area}}" class="muted outlet-area">{{item.area}}</view>
             <view wx:if="{{(directory || isPublic) && item.services.length}}" class="outlet-service-tags">
               <text wx:for="{{item.services}}" wx:for-item="service" wx:key="*this" class="outlet-service-tag">{{service}}</text>
             </view>
@@ -103,16 +107,19 @@
           <t-icon class="outlet-detail-label" name="chevron-right" size="33rpx" aria-hidden="true"/>
         </view>
         <block wx:if="{{!directory && !isPublic}}">
-          <view wx:if="{{item.businessChips.length}}" class="outlet-business-chips">
-            <view wx:for="{{item.businessChips}}" wx:for-item="chip" wx:key="key" class="outlet-business-chip">
-              <text>{{chip.label}}</text><text class="badge {{chip.tone}}" aria-label="{{chip.monthText+' '+chip.statusText}}">{{chip.statusText}}</text>
+          <view wx:if="{{item.businessChips.length || item.nextAction}}" class="outlet-business-footer">
+            <view wx:if="{{item.businessChips.length}}" class="outlet-business-chips">
+              <view wx:for="{{item.businessChips}}" wx:for-item="chip" wx:key="key" class="outlet-business-chip">
+                <text>{{chip.label}}</text><text class="badge {{chip.tone}}" aria-label="{{chip.monthText+' '+chip.statusText}}">{{chip.statusText}}</text>
+              </view>
             </view>
+            <button wx:if="{{item.nextAction}}" class="outline small outlet-next-button" data-id="{{item.id}}" bindtap="outletAction"
+              aria-label="{{item.name+'，'+item.nextAction.text+'，'+item.nextAction.label}}">
+              <text>{{item.nextAction.label}}</text>
+              <text class="outlet-next-period">{{item.nextAction.monthText}}</text>
+            </button>
           </view>
-          <view wx:if="{{item.nextAction}}" class="outlet-next-task">
-            <text class="outlet-next-status grow">{{item.nextAction.text}}</text>
-            <button class="outline small outlet-next-button" data-id="{{item.id}}" bindtap="outletAction">{{item.nextAction.label}}</button>
-          </view>
-          <view wx:elif="{{item.waitingText}}" class="muted outlet-waiting">{{item.waitingText}}</view>
+          <view wx:if="{{item.waitingText}}" class="muted outlet-waiting">{{item.waitingText}}</view>
         </block>
       </view>
     </block>

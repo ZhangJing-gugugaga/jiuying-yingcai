@@ -10,8 +10,8 @@ function addOutletSummaries(db, outlets, owner, today) {
     parameters(owner,report_month,current_month) AS (VALUES (?,?,?))
     SELECT page.id,
       EXISTS (SELECT 1 FROM exemptions e WHERE e.outlet=page.id AND e.owner=owner_id.owner AND e.month=report_month AND e.status='approved') exempt,
-      (SELECT CASE WHEN COALESCE(json_extract(r.data,'$.revoked'),0) THEN 'revoked' ELSE r.status END
-       FROM reports r WHERE r.outlet=page.id AND r.owner=owner_id.owner AND r.month=report_month ORDER BY r.version DESC LIMIT 1) report_status,
+      (SELECT json_object('id',r.id,'status',CASE WHEN COALESCE(json_extract(r.data,'$.revoked'),0) THEN 'revoked' ELSE r.status END)
+       FROM reports r WHERE r.outlet=page.id AND r.owner=owner_id.owner AND r.month=report_month ORDER BY r.version DESC LIMIT 1) latest_report,
       EXISTS (SELECT 1 FROM reports r JOIN settlements s ON s.month=r.month AND s.status='approved'
        WHERE r.outlet=page.id AND r.owner=owner_id.owner AND r.month=report_month AND r.current=1 AND r.status='approved'
        AND NOT COALESCE(json_extract(r.data,'$.revoked'),0)
@@ -28,13 +28,15 @@ function addOutletSummaries(db, outlets, owner, today) {
     const row = byId.get(outlet.id);
     const exemptions = row.exempt ? [{ outlet: outlet.id, month: reportMonth, status: 'approved' }] : [];
     const reason = reportMonthStatus({ today, exemptions }, outlet, reportMonth);
+    const latestReport = row.latest_report ? JSON.parse(row.latest_report) : null;
     const reportStatus = reason === 'exempt' ? 'exempt'
-      : row.report_status || ({ full_pause: 'exemption_pending', no_operation: 'not_required' })[reason] || 'missing';
+      : latestReport?.status || ({ full_pause: 'exemption_pending', no_operation: 'not_required' })[reason] || 'missing';
     const settlementStatus = ['exempt', 'not_required'].includes(reportStatus) ? 'not_applicable' : row.settled ? 'settled' : 'unsettled';
     const needsLocation = ['open', 'paused'].includes(outlet.status);
     outlet.summary = {
       period,
-      report: { month: reportMonth, status: reportStatus, settlementStatus },
+      report: { month: reportMonth, status: reportStatus, settlementStatus,
+        ...(reportStatus === 'returned' ? { returnedVersionId: latestReport.id } : {}) },
       location: { month: period, status: row.location_status || (needsLocation ? 'missing' : 'not_required') },
       fee: { month: period, status: row.fee_status || 'missing' },
     };

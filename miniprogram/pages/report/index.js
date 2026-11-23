@@ -69,7 +69,7 @@ const editor = define({
   data: {
     canEdit: false, canSubmit: false, canCorrect: false, switching: false, editNotice: '',
     form: { ...emptyForm }, editableFields: { ...readOnlyFields }, month: '', outlets: [], outletNames: [], outletIndex: -1, outletId: '',
-    searchExpanded: false, historyExpanded: false, formExpanded: false, correctionExpanded: false, noteExpanded: false, hasDraft: false,
+    searchExpanded: false, historyExpanded: false, formExpanded: false, correctionExpanded: false, noteExpanded: false, fieldHintsExpanded: false, hasDraft: false,
     applicable: false, enrollmentStatus: 'pending', timing: null, versions: [], current: null,
     currentApprovedVersion: null, latestSubmittedVersion: null, linkedVersion: null,
     versionUnavailable: false, currentAction: '', returnedReason: '', directReturnedEdit: false, submitting: false, inlineConfirmation: false,
@@ -233,7 +233,7 @@ const editor = define({
         applicable: false, timing: null, canEdit: false, canSubmit: false, canCorrect: false, editNotice: '', versions: [], current: null,
         currentApprovedVersion: null, latestSubmittedVersion: null, linkedVersion: null, versionUnavailable: false,
         currentAction: '', returnedReason: '', directReturnedEdit: false, reason: '', correctionError: '', showActionError: false, actionNotice: '', displayStatus: '', dueDisplay: '',
-        historyExpanded: !!versionId, formExpanded: false, correctionExpanded: false, noteExpanded: false, hasDraft: false,
+        historyExpanded: !!versionId, formExpanded: false, correctionExpanded: false, noteExpanded: false, fieldHintsExpanded: false, hasDraft: false,
         missingFields: [], missingFieldsText: '', fieldErrors: {}, confirmationRows: [],
         correctionType: 'field', correctionFieldIndex: 0, recoveryAvailable: false,
       });
@@ -283,6 +283,9 @@ const editor = define({
 
   toggleNote() {
     this.setData({ noteExpanded: !this.data.noteExpanded });
+  },
+  toggleFieldHints() {
+    this.setData({ fieldHintsExpanded: !this.data.fieldHintsExpanded });
   },
 
   restoreRecovery() {
@@ -393,6 +396,7 @@ const editor = define({
       field, label: fieldNames[field],
       value: field === 'revenue' ? '¥' + fmt.money(input.revenue) : input[field] == null ? '不适用' : input[field] + ' ' + units[field],
     }));
+    if (input.note) confirmationRows.push({ field: 'note', label: fieldNames.note, value: input.note });
     this.setData({ inlineConfirmation: true, confirmationRows, fieldErrors: {}, error: '', showActionError: false, actionNotice: '' });
   },
 

@@ -30,8 +30,8 @@
 }
 .activation-emblem {
   display: block;
-  width: 204rpx;
-  height: 150rpx;
+  width: 246rpx;
+  height: 176rpx;
   margin: 0 auto var(--space-md);
 }
 .activation-title { color: var(--brand-deep); font-size: var(--font-title); font-weight: 700; line-height: 1.3; }

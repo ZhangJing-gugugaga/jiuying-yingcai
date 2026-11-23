@@ -1,4 +1,4 @@
-<view class="page report-page">
+<view class="page report-page {{directReturnedEdit ? 'report-returned-editor' : ''}}">
   <view wx:if="{{loading}}" class="loading">正在同步最新信息…</view>
   <view wx:if="{{error && !showActionError}}" class="error">
     {{error}}
@@ -14,16 +14,28 @@
   <view wx:if="{{!outlets.length && !loading && !error}}" class="empty">未找到符合条件的网点，请调整搜索内容。</view>
   <block wx:if="{{outlets.length}}">
     <view wx:if="{{outletId && returnedReason && (directReturnedEdit || !(canEdit && formExpanded))}}" class="report-return">
-      <view class="report-return-title">月报已退回，请修改后重新提交</view>
+      <view class="report-return-title">
+        <t-icon t-class="report-return-icon" name="error-circle-filled" size="32rpx" aria-hidden="true"/>
+        <text>月报已退回，请修改后重新提交</text>
+      </view>
       <view class="report-return-reason">{{returnedReason}}</view>
       <view wx:if="{{currentApprovedVersion}}" class="report-return-note">原已审核月报仍然有效。</view>
     </view>
     <view class="card report-context">
       <view wx:if="{{!directReturnedEdit}}" class="report-section-title">填报信息</view>
       <view wx:if="{{directReturnedEdit}}" class="report-facts">
-        <view class="report-fact"><text>网点</text><text class="report-outlet-name">{{outletNames[outletIndex + 1]}}</text></view>
-        <view class="report-fact"><text>账期</text><text>{{monthDisplay || month}}</text></view>
-        <view class="report-fact"><text>当前状态</text><text class="badge {{displayStatusTone}}">{{displayStatus}}</text></view>
+        <view class="report-fact">
+          <view class="report-fact-label"><t-icon t-class="report-fact-icon" name="shop" size="28rpx" aria-hidden="true"/><text>网点</text></view>
+          <text class="report-outlet-name">{{outletNames[outletIndex + 1]}}</text>
+        </view>
+        <view class="report-fact">
+          <view class="report-fact-label"><t-icon t-class="report-fact-icon" name="calendar" size="28rpx" aria-hidden="true"/><text>账期</text></view>
+          <text>{{monthDisplay || month}}</text>
+        </view>
+        <view class="report-fact">
+          <view class="report-fact-label"><t-icon t-class="report-fact-icon" name="time" size="28rpx" aria-hidden="true"/><text>当前状态</text></view>
+          <text class="badge {{displayStatusTone}}">{{displayStatus}}</text>
+        </view>
       </view>
       <view wx:elif="{{linkedVersion || versionUnavailable}}" class="report-identity">
         <text class="card-title report-outlet-name">{{outletNames[outletIndex + 1]}}</text>
@@ -53,7 +65,7 @@
       <view wx:if="{{linkedVersion.revoked}}" class="hint">该版本已撤销，不再作为当前有效月报。</view>
       <view wx:if="{{linkedVersion.review && !returnedReason}}" class="notice">{{linkedVersion.review}}</view>
       <view wx:if="{{linkedVersion.summaryOnly}}" class="hint">该历史版本仅提供摘要，可查看提交与审核记录。</view>
-      <view wx:if="{{editNotice && !(directReturnedEdit && editNotice==='当前月份可以填写经营数据。')}}" class="notice">{{editNotice}}</view>
+      <view wx:if="{{editNotice && !(directReturnedEdit && editNotice==='当前月份可以填写经营数据。')}}" class="notice report-edit-notice">{{editNotice}}</view>
       <view wx:if="{{recoveryAvailable}}" class="notice top-gap">
         <view>此网点、此月份有未保存的填写内容。</view>
         <view class="actions">
@@ -81,32 +93,38 @@
           </view>
         </view>
         <view wx:if="{{canEdit && returnedReason && !directReturnedEdit}}" class="report-return report-return-inline">
-          <view class="report-return-title">月报已退回，请修改后重新提交</view>
+          <view class="report-return-title">
+            <t-icon t-class="report-return-icon" name="error-circle-filled" size="32rpx" aria-hidden="true"/>
+            <text>月报已退回，请修改后重新提交</text>
+          </view>
           <view class="report-return-reason">{{returnedReason}}</view>
           <view wx:if="{{currentApprovedVersion}}" class="report-return-note">原已审核月报仍然有效。</view>
         </view>
-        <view class="report-section-title">{{canEdit ? '月报填报' : '月报数据'}}</view>
+        <view class="report-fields-heading">
+          <view class="report-section-title">{{canEdit ? '月报填报' : '月报数据'}}</view>
+          <button wx:if="{{directReturnedEdit}}" class="link report-hint-toggle" bindtap="toggleFieldHints" aria-expanded="{{fieldHintsExpanded}}">{{fieldHintsExpanded ? '收起口径' : '填写口径'}}</button>
+        </view>
         <view class="report-field" id="report-field-revenue">
           <number-field field="revenue" data-field="revenue" label="营业收入（元）" keyboard="digit"
-            value="{{form.revenue}}" error="{{fieldErrors.revenue}}" hint="请按集团财务确认口径填写。"
+            value="{{form.revenue}}" error="{{fieldErrors.revenue}}" hint="{{!directReturnedEdit || fieldHintsExpanded ? '请按集团财务确认口径填写。' : ''}}"
             placeholder="填入金额" disabled="{{!editableFields.revenue || busy || inlineConfirmation || loading || switching}}"
             bind:fieldinput="input" bind:fieldblur="blurField"/>
         </view>
         <view class="report-field" id="report-field-orders">
           <number-field field="orders" data-field="orders" label="有效完成订单（单）" keyboard="number"
-            value="{{form.orders}}" error="{{fieldErrors.orders}}" hint="按该经营月份实际完成的有效订单统计。"
+            value="{{form.orders}}" error="{{fieldErrors.orders}}" hint="{{!directReturnedEdit || fieldHintsExpanded ? '按该经营月份实际完成的有效订单统计。' : ''}}"
             placeholder="填入订单数" disabled="{{!editableFields.orders || busy || inlineConfirmation || loading || switching}}"
             bind:fieldinput="input" bind:fieldblur="blurField"/>
         </view>
         <view class="report-field" id="report-field-traffic">
           <number-field field="traffic" data-field="traffic" label="到店客流（人次）" keyboard="number"
-            value="{{form.traffic}}" error="{{fieldErrors.traffic}}" hint="按实际到店人次统计。"
+            value="{{form.traffic}}" error="{{fieldErrors.traffic}}" hint="{{!directReturnedEdit || fieldHintsExpanded ? '按实际到店人次统计。' : ''}}"
             placeholder="填入到店人次" disabled="{{!editableFields.traffic || busy || inlineConfirmation || loading || switching}}"
             bind:fieldinput="input" bind:fieldblur="blurField"/>
         </view>
         <view class="report-field" id="report-field-enroll">
           <number-field wx:if="{{applicable}}" field="enroll" data-field="enroll" label="实际招生人数（人）" keyboard="number"
-            value="{{form.enroll}}" error="{{fieldErrors.enroll}}" hint="按该经营月份实际入学或正式入读人数统计。"
+            value="{{form.enroll}}" error="{{fieldErrors.enroll}}" hint="{{!directReturnedEdit || fieldHintsExpanded ? '按该经营月份实际入学或正式入读人数统计。' : ''}}"
             placeholder="填入招生人数" disabled="{{!editableFields.enroll || busy || inlineConfirmation || loading || switching}}"
             bind:fieldinput="input" bind:fieldblur="blurField"/>
           <block wx:else>
@@ -200,13 +218,17 @@
   <view wx:if="{{inlineConfirmation}}" class="report-confirmation">
     <view class="report-confirmation-mask" catchtap="cancelSubmit"></view>
     <view class="report-confirmation-panel">
-      <view class="card-title">确认提交月报</view>
-      <view class="muted top-gap">{{outletNames[outletIndex + 1]}} · {{monthDisplay}}</view>
-      <view wx:for="{{confirmationRows}}" wx:key="field" class="detail-row">
-        <text>{{item.label}}</text><text>{{item.value}}</text>
+      <view class="report-confirmation-header">
+        <view class="card-title">确认提交月报</view>
+        <view class="report-confirmation-scope muted"><text>{{outletNames[outletIndex + 1]}}</text><text class="report-confirmation-period">{{monthDisplay || month}}</text></view>
       </view>
-      <view class="hint">{{submitConfirmationContent}}</view>
-      <view class="actions">
+      <view class="report-confirmation-body">
+        <view wx:for="{{confirmationRows}}" wx:key="field" class="detail-row {{item.field==='note' ? 'report-confirmation-note' : ''}}">
+          <text>{{item.label}}</text><text>{{item.value}}</text>
+        </view>
+        <view class="hint">{{submitConfirmationContent}}</view>
+      </view>
+      <view class="actions report-confirmation-actions">
         <button class="outline" bindtap="cancelSubmit">取消</button>
         <button class="primary" bindtap="confirmSubmit">确认提交</button>
       </view>
