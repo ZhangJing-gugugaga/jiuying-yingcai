@@ -107,6 +107,32 @@ test('private outlet summaries resolve previous reporting month, current verific
   assert.ok(publicPage.items.every(x => x.summary === undefined));
 }));
 
+test('private directory status counts cover the searched scope across pages and exclude other owners', () => withServer(async ({ app, call, login }) => {
+  const [owner,other,visitor]=await Promise.all(['partnerA','partnerB','public'].map(login));
+  const state=app.store.load();
+  for(const outlet of state.outlets){
+    outlet.name='统计验收 '+outlet.name;
+    outlet.city=outlet.id==='hy'?'衡阳':'长沙';
+    outlet.status=outlet.id==='zz'?'paused':'open';
+  }
+  app.store.save(state);
+  const root='/collections/outlets?includeStatusCounts=true&q=统计验收&limit=1';
+  const first=await call(root,owner);
+  assert.equal(first.items.length,1);
+  assert.deepEqual(first.statusCounts,{all:3,open:2,paused:1,preparing:0,closed:0});
+  const second=await call(root+'&offset=1&status=open',owner);
+  assert.equal(second.total,2);
+  assert.equal(second.hasMore,false);
+  assert.deepEqual(second.statusCounts,first.statusCounts);
+  const paused=await call(root+'&city=长沙&status=paused',owner);
+  assert.deepEqual(paused.items.map(row=>row.id),['zz']);
+  assert.deepEqual(paused.statusCounts,{all:2,open:1,paused:1,preparing:0,closed:0});
+  assert.deepEqual((await call(root+'&city=衡阳',other)).statusCounts,{all:0,open:0,paused:0,preparing:0,closed:0});
+  assert.equal((await call(root,other)).statusCounts.all,1);
+  assert.ok(!Object.hasOwn(await call(root+'&scope=public',visitor),'statusCounts'));
+  assert.ok(!Object.hasOwn(await call('/collections/outlets',owner),'statusCounts'));
+}));
+
 test('all five business slots support publication, withdrawal and historical restoration', () => withServer(async ({ call, login }) => {
   const manager = await login('manager'), visitor = await login('public'), partner = await login('partnerA');
   const command = async (name, payload) => (await call('/commands', manager, { command: name, payload })).result;

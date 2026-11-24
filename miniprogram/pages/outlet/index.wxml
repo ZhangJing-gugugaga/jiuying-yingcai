@@ -7,6 +7,8 @@
       <text wx:if="{{internal && organizationName}}" class="muted">所属加盟商：{{organizationName}}</text>
       <text class="badge {{outlet.statusTone}}">{{outlet.statusText}}</text>
     </view>
+    <image wx:if="{{publicRecord && outlet.coverPath}}" class="outlet-public-photo" src="{{outlet.coverPath}}" mode="aspectFill"
+      aria-label="门店照片" data-path="{{outlet.coverPath}}" binderror="coverFailed"/>
     <block wx:if="{{internal}}">
       <view class="card outlet-section">
         <view class="card-title">月报与账单</view>

@@ -1,7 +1,7 @@
 const {api,fmt,openRecord}=require('./page');
 
 const types={
-  report:{label:'经营月报',icon:'file',tone:'blue',target:'reports'},
+  report:{label:'经营月报',icon:'task',tone:'blue',target:'reports'},
   support:{label:'客服工单',icon:'service',tone:'violet',target:'support'},
   training:{label:'培训登记',icon:'education',tone:'green',target:'training'}
 };
@@ -20,7 +20,8 @@ function businessRecord(record){
   const subject=record.kind==='report'?fmt.monthText(record.month):record.title;
   const [status,statusTone]=record.kind==='training'?(trainingStatus[record.status]||['状态暂不可查看','gray']):
     [fmt.label(record.status,type.target==='reports'?'report':'support'),tones[fmt.statusTone(record.status,record.kind)]||'gray'];
-  return {...record,rowKey:record.kind+':'+record.id,icon:type.icon,tone:type.tone,statusText:status,statusTone,
+  const icon=record.kind==='report'&&record.status==='approved'?'task-checked':type.icon;
+  return {...record,rowKey:record.kind+':'+record.id,icon,tone:type.tone,statusText:status,statusTone,
     displayTitle:[type.label,subject].filter(Boolean).join(' · '),timeText:fmt.timeText(record.occurredAt)};
 }
 

@@ -62,7 +62,7 @@ test('workbench exposes scoped shortcuts, notices, and direct work on records', 
   const cards = [...home.matchAll(/class="home-tool" data-page="([a-z-]+)"/g)];
   assert.deepEqual(cards.map(match => match[1]), ['reports', 'fees', 'support', 'outlets']);
   assert.match(home, /data-page="tasks" data-query="section=notices" bindtap="nav"/);
-  assert.match(home, /<t-badge wx:if="{{hasUnreadNotices}}" dot="{{true}}"/);
+  assert.match(home, /<t-badge count="\{\{unreadNoticeCount\}\}" max-count="\{\{99\}\}"/);
   assert.match(home, /wx:if="{{trainingRecord}}"[^>]*bindtap="openTrainingSupplement"/);
   assert.match(home, /data-status="open" bindtap="openWorkbenchList"/);
   assert.match(home, /data-section="records" bindtap="openWorkbenchList"/);
@@ -120,7 +120,7 @@ test('public home follows the prototype order and retains public navigation', ()
   assert.match(home, /data-query="scope=public&mode=list&geo=overseas"[^>]*>[\s\S]*?境外网点/);
   assert.match(home, /data-query="scope=public&mode=map"/);
   assert.match(home, /data-page="join"[^>]*>[\s\S]*?<text>申请加盟<\/text>/);
-  assert.match(home, /wx:if="{{session && session.role==='public'}}"[^>]*data-page="messages"[^>]*>\s*<t-badge wx:if="{{hasUnreadNotices}}" dot="{{true}}"/);
+  assert.match(home, /wx:if="{{session && session.role==='public'}}"[^>]*data-page="messages"[^>]*>\s*<t-badge wx:if="{{unreadNoticeCount}}" dot="{{true}}"/);
   assert.match(home, /bindtap="openService"/);
 });
 
@@ -186,14 +186,14 @@ test('public home refreshes only the visitor unread state and clears it for a sh
     return { items: [], total: name === 'messages' ? total : 0, limit: 1, offset: 0, hasMore: false };
   });
   await home.onShow();
-  assert.equal(home.data.hasUnreadNotices, true);
+  assert.equal(home.data.unreadNoticeCount, 8);
   total = 0;
   await home.onShow();
-  assert.equal(home.data.hasUnreadNotices, false);
+  assert.equal(home.data.unreadNoticeCount, 0);
   session = { role: 'partner', token: 'member' };
-  home.setData({ hasUnreadNotices: true });
+  home.setData({ unreadNoticeCount: 8 });
   await home.onShow();
-  assert.equal(home.data.hasUnreadNotices, false);
+  assert.equal(home.data.unreadNoticeCount, 0);
   assert.deepEqual(reads, [
     ['messages', { status: 'unread', limit: 1 }],
     ['messages', { status: 'unread', limit: 1 }],

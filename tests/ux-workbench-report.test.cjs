@@ -62,6 +62,7 @@ const worklistRow = (month, outletId = 'cs') => ({ outletId, outletName: '九盈
 const worklistPage = (month, items = [], overrides = {}) => ({ month, items, total: items.length, offset: 0, limit: 25, hasMore: false, summary, ...overrides });
 
 test('workbench keeps the pending count when unread notices cannot load', async t => {
+  let noticesAvailable = false;
   const tasks = [
     { id: 'missing-1', kind: 'report_missing', outlet: 'cs', month: '2027-02', status: 'open' },
     { id: 'returned', kind: 'report_returned', outlet: 'zz', month: '2027-02', status: 'open', dueAt: '2027-03-05' },
@@ -77,6 +78,7 @@ test('workbench keeps the pending count when unread notices cannot load', async 
       if (name === 'outlets') return entries(outlets);
       if (name === 'accounts') return entries([{ managerName: '测试负责人' }]);
       if (name === 'businessTasks') return entries(filters.status === 'open' ? tasks : []);
+      if (name === 'messages' && noticesAvailable) return { ...entries([{ id: 'msg-1' }]), total: 3, limit: 1, hasMore: true };
       throw new Error('消息暂不可用');
     },
   });
@@ -84,8 +86,12 @@ test('workbench keeps the pending count when unread notices cannot load', async 
   assert.equal(instance.data.error, '');
   assert.equal(instance.data.taskError, false);
   assert.equal(instance.data.openTotal, 4);
-  assert.equal(instance.data.hasUnreadNotices, false);
+  assert.equal(instance.data.unreadNoticeCount, 0);
   assert.equal(instance.data.managerName, '测试负责人');
+  noticesAvailable = true;
+  await instance.onShow();
+  assert.equal(instance.data.openTotal, 4);
+  assert.equal(instance.data.unreadNoticeCount, 3);
 });
 
 test('a slow outlet preview cannot overwrite a newer workbench scope', async t => {
@@ -163,6 +169,7 @@ test('same-outlet refresh retains the visible previews but only refreshed rows c
   assert.equal(instance.data.openTotal, 1);
   assert.equal(instance.data.activeRows[0].id, task.id);
   assert.equal(instance.data.recentRows[0].id, record.id);
+  assert.equal(instance.data.recentRows[0].icon, 'task-checked');
   assert.equal(instance.data.trainingRecord.id, 'training-cs');
   await instance.openWorkbenchTask(tap({ id: task.id }));
   await instance.openWorkbenchTask(tap({ key: instance.data.recentRows[0].rowKey }));

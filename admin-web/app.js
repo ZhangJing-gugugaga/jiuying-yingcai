@@ -792,6 +792,8 @@ function updateContentCover(editor,id){
  const actions=editor.querySelector('[data-content-cover-actions]');
  editor.querySelector('[name=imageId]').value=id;
  actions.querySelector('[data-action=view-photo]').dataset.id=id;
+ const preview=actions.querySelector('[data-cover-preview]');
+ if(preview){preview.hidden=true;preview.removeAttribute('src');}
  actions.style.display=id?'':'none';
 }
 async function uploadContentCover(input){
@@ -805,9 +807,10 @@ async function uploadContentCover(input){
   const bytes=new Uint8Array(await file.arrayBuffer());
   let binary='';
   for(let i=0;i<bytes.length;i+=32768)binary+=String.fromCharCode(...bytes.subarray(i,i+32768));
-  const saved=await api('/files',{method:'POST',body:{name:file.name,type:file.type,base64:btoa(binary)}});
+  const purpose=input.dataset.imagePurpose;
+  const saved=await api('/files',{method:'POST',body:{name:file.name,type:file.type,base64:btoa(binary),...(purpose?{purpose}:{})}});
   updateContentCover(editor,saved.id);
-  toast('封面已上传，保存并发布后公开');
+  toast(purpose==='public-outlet-photo'?'店照已上传，保存并发布后公开':'封面已上传，保存并发布后公开');
  }finally{
   input.disabled=false;
   input.value='';
@@ -827,6 +830,8 @@ function contentPublication(record,versions){
 }
 function content(){
   const key=ui.contentKey||'brand',r=state.contents?.find(x=>x.key===key),slot=Number(key.replace('service-','')),service=/^service-[1-5]$/.test(key);
+  const logo=key==='brand-logo',address=key==='headquarters-address',wechat=key==='official-wechat';
+  const withCover=service||key==='brand'||logo||wechat;
   const versions=(state.contentVersions||[]).filter(x=>x.key===key).sort((a,b)=>b.version-a.version);
   const slots=Array.from({length:5},(_,i)=>{
     const k='service-'+(i+1),v=state.contents?.find(x=>x.key===k);
@@ -835,15 +840,16 @@ function content(){
   const editor=form(service?'content.service.save':'content.update',
     field(service?'slot':'key','',service?slot:key,'hidden')+
     field('expectedVersion','',r?.version||(r?.title?1:0),'hidden')+
-    field('title','内容标题',r?.title||'','text','required')+
+    field('title',address?'地区名称':wechat?'官方微信名称':'内容标题',r?.title||'','text',address?'required maxlength="60"':'required')+
     (service?field('summary','业务摘要',r?.summary||'','text','required maxlength="1000"')+
       area('body','业务详细介绍',r?.body||r?.text||'','required minlength="3" maxlength="2000"')
-      :area('intro','公开正文',r?.text||''))+
-    (service||key==='brand'?field('imageId','',r?.imageId||'','hidden')+
+      :area('intro',address?'公开详细地址':wechat?'公开微信说明':logo?'公开标识说明':'公开正文',r?.text||'',address?'required maxlength="200"':undefined))+
+    (withCover?field('imageId','',r?.imageId||'','hidden')+
       '<div data-content-cover-actions'+(r?.imageId?'':' style="display:none"')+'>'+
-      button('预览编辑封面','view-photo',{id:r?.imageId||''})+
-      button('清除封面','content-cover-clear')+'</div>'+
-      '<label class="field">'+(service?'上传业务封面':'上传集团介绍封面')+'<input id="contentImage" type="file" accept="image/png,image/jpeg,image/webp"><small>2MB 内 PNG、JPEG 或 WebP</small></label>':'')+
+      button(wechat?'预览二维码':logo?'预览品牌标识':'预览编辑封面','view-photo',{id:r?.imageId||''})+
+      button(wechat?'清除二维码':logo?'清除品牌标识':'清除封面','content-cover-clear')+
+      (logo||wechat?'<img data-cover-preview alt="'+(wechat?'官方微信二维码':'集团品牌标识')+'" hidden style="max-width:100%;max-height:160px">':'')+'</div>'+
+      '<label class="field">'+(wechat?'上传官方微信二维码':logo?'上传集团品牌标识':service?'上传业务封面':'上传集团介绍封面')+'<input id="contentImage" type="file" accept="image/png,image/jpeg,image/webp"><small>2MB 内 PNG、JPEG 或 WebP</small></label>':'')+
     select('published','发布状态',[['false','保存草稿'],['true','发布为公开信息']],'false')+
     area('reason','本次修改原因')+submit('保存栏目'));
   const history=versions.map(v=>{
@@ -854,9 +860,9 @@ function content(){
   }).join('');
   return heading('公开内容维护','五大业务分别编辑与发布，保存草稿期间当前公开版本继续有效。')+
     '<div class="service-slots">'+slots+'</div>'+
-    select('contentKey','内容栏目',[['brand','集团介绍'],...Array.from({length:5},(_,i)=>['service-'+(i+1),'五大业务 · '+(i+1)]),['services','业务总览说明'],['news','集团动态'],['cases','门店案例'],['cooperation','合作说明']],key,'data-filter="contentKey"')+
+    select('contentKey','内容栏目',[['brand','集团介绍'],['brand-logo','集团品牌标识'],['headquarters-address','总部地址'],['official-wechat','官方微信'],...Array.from({length:5},(_,i)=>['service-'+(i+1),'五大业务 · '+(i+1)]),['services','业务总览说明'],['news','集团动态'],['cases','门店案例'],['cooperation','合作说明']],key,'data-filter="contentKey"')+
     panel(service?'编辑第 '+slot+' 项业务':'编辑栏目内容',editor)+
-    (service||key==='brand'?contentPublication(r,versions):'')+
+    (withCover||address?contentPublication(r,versions):'')+
     panel('栏目版本记录',history||empty('该栏目尚无版本记录。'),'该栏目最近 200 条版本');
 }
 async function showOfficialDelivery(chatId){
@@ -916,10 +922,21 @@ case'channel-refund-confirm':case'channel-refund-query':await op.financeAction(d
 case'op-form':return await op.open(d.cmd,d.id,d.collection);case'op-tab':if(pageCollection()!==d.tab)resetCollectionFilters();ui.opTab=d.tab;return await refresh();case'record-detail':return await op.detail(d.collection,d.id);case'import-template':return op.template(d.kind);case'activation':{const result=await api('/auth/activation',{method:'POST',body:{actor:d.actor}});modal('一次性账号激活码',notice('请通过可信渠道将登录账号和激活码交给本人。激活码仅用于首次设置或重置密码。')+pair('登录账号',result.username)+field('activationToken','激活码',result.token||result.activationToken,'text','readonly')+pair('有效期',result.expiresAt)+button('复制激活码','copy-activation')+(d.recordId?button('返回原申请','onboarding-open-record',{id:d.recordId}):''));return}case'copy-activation':await navigator.clipboard.writeText(document.querySelector('[name="activationToken"]').value);toast('已复制一次性激活码');return;case'analytics-prev':ui.analyticsOffset=Math.max(0,(ui.analyticsOffset||0)-50);return await refresh();case'analytics-next':ui.analyticsOffset=(ui.analyticsOffset||0)+50;return await refresh();case'page-prev':ui.offset=Math.max(0,ui.offset-ui.limit);return await refresh();case'page-next':ui.offset+=ui.limit;return await refresh();case'nav':return await nav(d.page);case'menu':setWorkspaceMenu(b.getAttribute('aria-expanded')!=='true');return;case'menu-close':setWorkspaceMenu(false,true);return;case'close':$('modal').close();return;case'logout':await api('/auth/logout',{method:'POST',body:{}}).catch(()=>{});session=null;sessionStorage.removeItem('jy-session');$('printArea').innerHTML='';return renderLogin();case'refresh':return await refresh();case'recent':Object.assign(ui,{period:d.period,kind:'month',mode:'settled'});return await refresh();case'store':{if(readTaskRoute(location.hash))history.pushState({workspacePage:'stores'},'',location.pathname+location.search);const record=await api('/collections/outlets/'+encodeURIComponent(d.id));if(!state.outlets.some(o=>o.id===record.id))state.outlets.push(record)}ui.detail=d.id;ui.page='stores';render();return;case'new-request':ui.requestType=d.type;return await nav('requests');case'draft':{const payload=Object.fromEntries(new FormData(b.form));ensureReportWriteScope(payload);await command('report.draft',payload);break}case'revoke':modal('总部误审批纠正 / 撤销',notice('提交后须财务复核；复核前当前有效数据保持不变，原月报永不覆盖。')+form('report.revoke.request',field('id','',d.id,'hidden')+area('reason','误审批原因与核实依据')+submit('提交撤销复核')));return;case'correct':modal('发起已审核月报更正',form('report.correct',field('id','',d.id,'hidden')+select('correctionType','更正范围',[['full','整表更正（人工确认）'],['field','单字段更正']])+select('correctionField','单字段更正项目',[...Object.entries(metrics),['note','经营说明']],'note')+notice('单字段更正仅允许修改所选项目；收入变化仍须财务复核。更正期间原有效版本保持不变。',true)+area('reason','更正原因')+submit('发起更正')));return;case'official-delivery':return await showOfficialDelivery(d.id);case'view-photo':{
  const active=session;
  if(!active)return;
- const response=await fetch('/api/files/'+encodeURIComponent(d.id),{headers:{Authorization:'Bearer '+active.token}});
+ const fileId=d.id;
+ const response=await fetch('/api/files/'+encodeURIComponent(fileId),{headers:{Authorization:'Bearer '+active.token}});
  if(!response.ok)throw Error('没有附件查看权限');
  const image=await response.blob();
  if(session!==active)return;
+ const preview=b.closest('form')?.querySelector('[data-cover-preview]');
+ if(preview){
+  if(!preview.isConnected||b.dataset.id!==fileId)return;
+  const reader=new FileReader();
+  reader.addEventListener('load',()=>{
+   if(preview.isConnected&&b.dataset.id===fileId&&session===active){preview.src=reader.result;preview.hidden=false;}
+  },{once:true});
+  reader.readAsDataURL(image);
+  return;
+ }
  const title=d.context==='support'?'工单图片':'私有现场照片',url=URL.createObjectURL(image);
  modal(title,'<img src="'+url+'" style="max-width:100%;max-height:65vh" alt="'+title+'">');
  $('modal').addEventListener('close',()=>URL.revokeObjectURL(url),{once:true});
@@ -946,7 +963,7 @@ if(['password-login','activate'].includes(cmd)){if(cmd==='activate'&&d.password!
 document.addEventListener('input',e=>{if(e.target.matches('form[data-onboarding-form="configure"] [name="payee"]'))onboarding.change(e.target)});
 document.addEventListener('change',async e=>{const n=e.target;try{if(n.hasAttribute('data-onboarding-filter')||n.matches('form[data-onboarding-form="configure"] [name="qrFile"]'))return await onboarding.change(n);if(n.dataset.exportOptions||n.hasAttribute('data-export-category')){await formExports.change(n);return}if(n.dataset.taskFilter){const route=readTaskRoute(location.hash);if(route)taskDesk.filter(route,n.dataset.taskFilter,n.value);return}
 if(n.hasAttribute('data-task-assignee')){const form=n.closest('form');form.elements.assigneeUserId.value='';for(const option of form.querySelectorAll('#task-staff-list option'))option.disabled=option.dataset.role!==n.value}
-if(n.name==='role'&&n.closest('form')?.querySelector('.grant-editor'))n.closest('form').querySelector('.grant-editor').open=n.value==='regional';resetLocationScope(n);if(n.dataset.filter){if(n.dataset.filter==='browseCollection')resetCollectionFilters();ui[n.dataset.filter]=n.value;ui.offset=0;ui.analyticsOffset=0;if(n.dataset.filter==='billingMonth')ui.billingOutletOffset=0;await refresh()}if(n.id==='importFile'&&n.files?.[0])await op.readFile(n.files[0]);if(n.id==='contentImage')await uploadContentCover(n);if(n.id==='photo')await uploadLocationPhoto(n)}catch(err){toast(err.message)}});
+if(n.name==='role'&&n.closest('form')?.querySelector('.grant-editor'))n.closest('form').querySelector('.grant-editor').open=n.value==='regional';resetLocationScope(n);if(n.dataset.filter){if(n.dataset.filter==='browseCollection')resetCollectionFilters();ui[n.dataset.filter]=n.value;ui.offset=0;ui.analyticsOffset=0;if(n.dataset.filter==='billingMonth')ui.billingOutletOffset=0;await refresh()}if(n.id==='importFile'&&n.files?.[0])await op.readFile(n.files[0]);if(n.id==='contentImage'||n.id==='outletPhoto')await uploadContentCover(n);if(n.id==='photo')await uploadLocationPhoto(n)}catch(err){toast(err.message)}});
 window.addEventListener('unhandledrejection',e=>{e.preventDefault();toast(e.reason?.message||'操作失败，请重试')});
 let pendingStaffWechatCallback=staffWechatCallback;
 async function initialize(){try{

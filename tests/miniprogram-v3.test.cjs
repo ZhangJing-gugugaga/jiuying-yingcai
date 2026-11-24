@@ -67,6 +67,98 @@ test('service directory shows the unpublished notice only when no service is pub
   assert.equal(catalog.data[notice[1]],empty);
  }
 });
+test('visitor and partner home use the same published brand mark and follow withdrawal and restoration',()=>harness(async({api,storage,downloads})=>{
+ const key='brand-logo';
+ const waitForMark=async(page,predicate)=>{
+  for(let attempt=0;attempt<50;attempt++){
+   if(predicate(page.data.brandMark))return page.data.brandMark;
+   await new Promise(resolve=>setTimeout(resolve,10));
+  }
+  assert.fail('brand mark did not settle');
+ };
+ const upload=async()=>{
+  const bytes=await require('sharp')({create:{width:12,height:12,channels:3,background:'#247bdd'}}).png().toBuffer();
+  return (await api.request('/api/files','POST',{name:'隔离标识.png',type:'image/png',base64:bytes.toString('base64')})).id;
+ };
+ const partner=api.session(),privateImage=await upload();
+ const save=(imageId,published)=>api.command('content.update',{
+  key,title:'隔离标识',text:'隔离品牌资料',reason:'隔离验收',imageId,published,
+ });
+ await assert.rejects(()=>save(privateImage,true),{code:'FORBIDDEN'});
+ await api.login('manager');
+ const manager=api.session();
+ await assert.rejects(()=>save(null,true),{code:'INPUT'});
+ await assert.rejects(()=>save(privateImage,true),{code:'FORBIDDEN'});
+ const liveImage=await upload(),draftImage=await upload();
+ const live=(await save(liveImage,true)).result;
+ const draft=(await save(draftImage,false)).result;
+ storage.set('jyyc.session',partner);
+ const workbench=page('home');await workbench.onShow();
+ await waitForMark(workbench,mark=>mark?.imageId===liveImage&&mark.coverPath);
+ assert.equal(workbench.data.publicView,false);
+ const initialDownloads=downloads.filter(row=>row.url.endsWith(liveImage)).length;
+ await workbench.refresh();
+ assert.equal(downloads.filter(row=>row.url.endsWith(liveImage)).length,initialDownloads);
+ await api.visitor();
+ const visitor=api.session(),home=page('home',{scope:'public'});await home.onShow();
+ await waitForMark(home,mark=>mark?.imageId===liveImage&&mark.coverPath);
+ assert.deepEqual((await api.collection('publicContents',{key})).items.map(row=>row.imageId),[liveImage]);
+ await assert.rejects(()=>api.download('/api/files/'+draftImage),{status:403});
+ storage.set('jyyc.session',manager);
+ const publish=(action,expectedVersion,sourceVersion)=>api.command('content.publication',{key,action,expectedVersion,sourceVersion,reason:'隔离验收'});
+ const withdrawn=(await publish('withdraw',draft.version)).result;
+ storage.set('jyyc.session',visitor);
+ await home.refresh();await waitForMark(home,mark=>mark===null);
+ await assert.rejects(()=>api.download('/api/files/'+liveImage),{status:403});
+ storage.set('jyyc.session',partner);
+ await workbench.refresh();await waitForMark(workbench,mark=>mark===null);
+ storage.set('jyyc.session',manager);
+ await publish('restore',withdrawn.version,live.version);
+ assert.deepEqual((await api.collection('contentVersions',{key})).items.map(row=>row.status).sort(),['draft','published','published','withdrawn']);
+ storage.set('jyyc.session',visitor);
+ await home.refresh();await waitForMark(home,mark=>mark?.imageId===liveImage&&mark.coverPath);
+}));
+
+test('public homepage opens the published details and refuses a withdrawn WeChat QR code before preview',()=>harness(async({api,storage,downloads})=>{
+ await api.login('manager');
+ const manager=api.session();
+ const bytes=await require('sharp')({create:{width:24,height:24,channels:3,background:'#113657'}}).png().toBuffer();
+ const imageId=(await api.request('/api/files','POST',{name:'isolated-qr.png',type:'image/png',base64:bytes.toString('base64')})).id;
+ const address={key:'headquarters-address',title:'湖南 · 长沙',text:'长沙市隔离测试大道 12 号',reason:'隔离验收'};
+ const wechat={key:'official-wechat',title:'隔离官方微信',text:'隔离图形',reason:'隔离验收',imageId};
+ const save=(record,published)=>api.command('content.update',{...record,published});
+ await assert.rejects(()=>save({...wechat,imageId:null},true),{code:'INPUT'});
+ await save(address,false);
+ await save(wechat,false);
+ await api.visitor();
+ const visitor=api.session(),home=page('home',{scope:'public'});
+ await home.onShow();
+ assert.equal(home.data.officialWechat,null);
+ assert.equal(home.data.headquartersAddress,null);
+ await assert.rejects(()=>save(address,true),{code:'FORBIDDEN'});
+ storage.set('jyyc.session',manager);
+ await save(address,true);
+ const live=(await save(wechat,true)).result;
+ storage.set('jyyc.session',visitor);
+ await home.refresh();
+ const copied=[],previews=[];
+ wx.showModal=options=>{assert.equal(options.content,address.text);options.success({confirm:true});};
+ wx.setClipboardData=options=>copied.push(options.data);
+ wx.previewImage=options=>previews.push(options.urls);
+ home.showHeadquartersAddress();
+ assert.deepEqual(copied,[address.text]);
+ await home.showOfficialWechat();
+ assert.equal(previews.length,1);
+ assert.ok(downloads.some(row=>row.status===200&&row.url.endsWith(imageId)));
+ storage.set('jyyc.session',manager);
+ await api.command('content.publication',{key:wechat.key,action:'withdraw',expectedVersion:live.version,reason:'隔离撤回'});
+ storage.set('jyyc.session',visitor);
+ await home.showOfficialWechat();
+ assert.equal(previews.length,1);
+ assert.equal(home.data.officialWechat,null);
+ await assert.rejects(()=>api.download('/api/files/'+imageId),{status:403});
+}));
+
 test('V3.3 five-service publication reaches native visitor details, isolates drafts and revokes old covers',()=>harness(async({api,storage,calls,downloads})=>{
  const cover=async()=>{const bytes=await require('sharp')({create:{width:3,height:3,channels:3,background:'#143f3a'}}).png().toBuffer();return (await api.request('/api/files','POST',{name:'测试封面.png',type:'image/png',base64:bytes.toString('base64')})).id;};
  const partnerImage=await cover();

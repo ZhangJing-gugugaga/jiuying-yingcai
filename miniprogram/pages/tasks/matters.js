@@ -45,14 +45,14 @@ function workbenchTask(row){
   const month=fmt.monthText(row.month);
   const {title,actionText}=taskCopy(row,month);
   const appearance={
-    report_missing:['经营月报','file','blue','待填写'],
-    report_returned:['经营月报（退回修改）','file','red','需修改'],
+    report_missing:['经营月报','task','blue','待填写'],
+    report_returned:['经营月报（退回修改）','file-edit','red','需修改'],
     training_material_returned:['学员资料补件','education','amber','需补件'],
     location_missing:['月度位置核验','location','blue','待提交'],
     location_exception:['位置核验补件','location','amber','需补件'],
     request_supplement:['业务申请补件','task','amber','需补件'],
-    bill_unpaid:['咨询服务费','wallet','green','待支付'],
-    bill_overdue:['咨询服务费','wallet','green','待支付'],
+    bill_unpaid:['咨询服务费','money','green','待支付'],
+    bill_overdue:['咨询服务费','money','green','待支付'],
     support_waiting:['客服工单','service','violet','需补件'],
     support_reply:['客服回复','service','violet','有回复']
   };

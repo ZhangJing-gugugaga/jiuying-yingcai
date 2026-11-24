@@ -156,12 +156,13 @@ function repository(store,{today}={}){const db=store.db;
   const limit=Number(params.limit||50),offset=Number(params.offset||0),supportDirectory=name==='outlets'&&session.actor==='support';
   core.check(Number.isInteger(limit)&&limit>=1&&limit<=200&&Number.isInteger(offset)&&offset>=0,'INPUT','limit须1—200，offset非负');
   const conditions=['('+scope.where+')'],args=[...scope.params];
+  const countOutletStatuses=validateStatus&&name==='outlets'&&params.includeStatusCounts==='true'&&!!core.own(session.actor);
   if(supportDirectory&&params.owner&&params.owner!=='all')core.fail('FORBIDDEN','客服网点目录不提供主体筛选',403);
   if(validateStatus){
    checkCollectionStatus(name,params.status);
    if(name==='requests'&&params.scope==='location')conditions.push("json_extract(data,'$.type') IN ('newOutlet','locationChange')");
   }
-  for(const key of ['status','month','outlet','owner'])if(params[key]&&params[key]!=='all'){
+  for(const key of ['status','month','outlet','owner'])if(params[key]&&params[key]!=='all'&&!(countOutletStatuses&&key==='status')){
    conditions.push(key+'=?');args.push(String(params[key]));
   }
   if(name==='reports'&&validateStatus&&params.latestOnly!==undefined){
@@ -173,8 +174,8 @@ function repository(store,{today}={}){const db=store.db;
   for(const key of ['province','city','district','type'])if(params[key]&&params[key]!=='all'){
    conditions.push(`json_extract(data,'$.${key}')=?`);args.push(String(params[key]));
   }
-  if(name==='contentVersions'&&params.key){
-   core.check(typeof params.key==='string'&&/^(brand|services|news|cases|cooperation|service-[1-5])$/.test(params.key),'INPUT','内容栏目无效');
+  if((name==='contentVersions'||name==='contents')&&params.key){
+   core.check(typeof params.key==='string'&&/^(brand|brand-logo|headquarters-address|official-wechat|services|news|cases|cooperation|service-[1-5])$/.test(params.key),'INPUT','内容栏目无效');
    conditions.push("json_extract(data,'$.key')=?");args.push(params.key);
   }
   if(params.id){conditions.push('id=?');args.push(params.id);}
@@ -187,11 +188,22 @@ function repository(store,{today}={}){const db=store.db;
    const term='%'+params.q.replace(/[\\%_]/g,'\\$&')+'%';
    args.push(...fields.map(()=>term));
   }
+  let statusCounts;
+  if(countOutletStatuses){
+   statusCounts={all:0,...Object.fromEntries(collectionStatuses.outlets.map(status=>[status,0]))};
+   const groups=db.prepare(`SELECT status,count(*) n FROM outlets WHERE ${conditions.join(' AND ')} GROUP BY status`).all(...args);
+   for(const {status,n} of groups){
+    statusCounts.all+=n;
+    if(collectionStatuses.outlets.includes(status))statusCounts[status]=n;
+   }
+   if(params.status&&params.status!=='all'){conditions.push('status=?');args.push(String(params.status));}
+  }
   const where=conditions.join(' AND ');
-  const total=db.prepare(`SELECT count(*) n FROM ${name} WHERE ${where}`).get(...args).n;
+  const total=statusCounts?statusCounts[params.status||'all']??0:
+   db.prepare(`SELECT count(*) n FROM ${name} WHERE ${where}`).get(...args).n;
   const payload=name==='settlements'&&!params.id?"json_remove(data,'$.reportValues') AS data":'data';
   const records=db.prepare(`SELECT ${payload} FROM ${name} WHERE ${where} ORDER BY rowid DESC LIMIT ? OFFSET ?`).all(...args,limit,offset).map(x=>JSON.parse(x.data));
-  return {s,records,total,offset,limit,hasMore:offset+records.length<total};
+  return {s,records,total,offset,limit,hasMore:offset+records.length<total,statusCounts};
  }
  function project(name,records,s,session){const ids=new Set(records.map(x=>x.id));s[name]=records;const related=[...new Set(records.flatMap(x=>[x.outlet]).filter(Boolean))];if(name!=='outlets')s.outlets=db.prepare('SELECT data FROM outlets WHERE id IN (SELECT value FROM json_each(?))').all(JSON.stringify(related)).map(x=>JSON.parse(x.data));if(name==='settlements'&&session.actor!=='manager'){const reportIds=[...new Set(records.flatMap(x=>x.reportIds||[]))];s.reports=db.prepare('SELECT data FROM reports WHERE id IN (SELECT value FROM json_each(?))').all(JSON.stringify(reportIds)).map(x=>JSON.parse(x.data));const oids=[...new Set([...s.reports.map(x=>x.outlet),...records.flatMap(record=>record.affectedOutletIds||[])])];s.outlets=db.prepare('SELECT data FROM outlets WHERE id IN (SELECT value FROM json_each(?))').all(JSON.stringify(oids)).map(x=>JSON.parse(x.data));}
   if(name==='reports'&&core.own(session.actor)&&records.length){const groups=records.map(r=>r.outlet+'|'+r.month);const latest=db.prepare("SELECT r.data FROM reports r JOIN (SELECT outlet,month,max(version) v FROM reports WHERE outlet||'|'||month IN (SELECT value FROM json_each(?)) GROUP BY outlet,month) x ON r.outlet=x.outlet AND r.month=x.month AND r.version=x.v").all(JSON.stringify(groups)).map(x=>JSON.parse(x.data));s.reports=[...records,...latest.filter(r=>!ids.has(r.id))];}
@@ -201,7 +213,11 @@ function repository(store,{today}={}){const db=store.db;
    for(const row of records)if(operations.timedReportTask(row)&&['open','in_progress'].includes(row.status))operations.updateReportTaskTiming(row,operations.reportTiming(s,row.month,policy));
   }
   if(name==='organizations')s.outlets=db.prepare('SELECT data FROM outlets WHERE owner IN (SELECT value FROM json_each(?))').all(JSON.stringify(records.map(x=>x.id))).map(x=>JSON.parse(x.data));
-  if(name==='pricePlans'&&core.own(session.actor))s.agreements=db.prepare('SELECT data FROM agreements WHERE owner=?').all(core.own(session.actor)).map(x=>JSON.parse(x.data));if(name==='outlets')s.publicProfiles=db.prepare("SELECT data FROM publicProfiles WHERE status='published' AND outlet IN (SELECT value FROM json_each(?))").all(JSON.stringify(records.map(x=>x.id))).map(x=>JSON.parse(x.data));const v=core.view(s,session.actor,session),rows=name==='supportChats'?v.support.chats:name==='supportTickets'?v.support.tickets:v[name];return (rows||[]).filter(x=>ids.has(x.id)).map(x=>x.outlet?{...x,outletName:s.outlets.find(o=>o.id===x.outlet)?.name||x.outlet}:x);}
+  if(name==='pricePlans'&&core.own(session.actor))s.agreements=db.prepare('SELECT data FROM agreements WHERE owner=?').all(core.own(session.actor)).map(x=>JSON.parse(x.data));
+  if(name==='outlets')s.publicProfiles=db.prepare("SELECT data FROM publicProfiles WHERE status='published' AND outlet IN (SELECT value FROM json_each(?)) ORDER BY rowid").all(JSON.stringify(records.map(x=>x.id))).map(x=>JSON.parse(x.data));
+  const v=core.view(s,session.actor,session),rows=name==='supportChats'?v.support.chats:name==='supportTickets'?v.support.tickets:v[name];
+  return (rows||[]).filter(x=>ids.has(x.id)).map(x=>x.outlet?{...x,outletName:s.outlets.find(o=>o.id===x.outlet)?.name||x.outlet}:x);
+ }
  function locationTasks(session,params={}){
   core.check(core.own(session.actor)||['manager','location'].includes(session.actor),'FORBIDDEN','当前岗位无位置待办权限',403);
   const s=contextState(session);core.view(s,session.actor,session);const month=s.today.slice(0,7),scope=access('outlets',session,s),limit=Number(params.limit??50),offset=Number(params.offset??0),status=params.status||'all';
@@ -354,7 +370,7 @@ function repository(store,{today}={}){const db=store.db;
   if(name==='locationTasks')return locationTasks(session,params);
   if(name==='businessTasks'&&core.own(session.actor))return tasks.taskList(session,{...params,queue:'partner',status:params.status||'all'});
   if(name==='publicContents'){
-   const p=query('contents',session,{id:params.id,limit:params.limit,offset:params.offset},true);
+   const p=query('contents',session,{id:params.id,key:params.key,limit:params.limit,offset:params.offset},true);
    return {items:p.records.map(operations.publicContent).filter(Boolean),total:p.total,offset:p.offset,limit:p.limit,hasMore:p.hasMore};
   }
   const p=query(name,session,params,false,validateStatus),items=project(name,p.records,p.s,session);
@@ -364,11 +380,19 @@ function repository(store,{today}={}){const db=store.db;
    const activated=new Set(activatedStaffIds(db,items.map(staff=>staff.id)));
    for(const staff of items)staff.activated=activated.has(staff.id);
   }
-  if(name==='outlets'&&params.includeSummary==='true'&&core.own(session.actor))addOutletSummaries(db,items,core.own(session.actor),p.s.today);
+  if(name==='outlets'&&params.includeSummary==='true'&&core.own(session.actor)){
+   addOutletSummaries(db,items,core.own(session.actor),p.s.today);
+   const profiles=new Map(p.s.publicProfiles.map(profile=>[profile.outlet,profile]));
+   for(const item of items){
+    const photo=profiles.get(item.id)?.imageId;
+    if(photo&&item.status!=='closed')item.publishedImageId=photo;
+   }
+  }
   if(name==='reports'&&params.includeVersionNumbers==='true')reportVersionNumbers(items);
   if(name==='refundRequests'&&core.own(session.actor))markPendingRefunds(db,items);
   if(name==='bills'&&canReadLedger(session.actor)){const metrics=billMetrics(db,items.map(b=>b.id),p.s.today);for(const bill of items)bill.ledger=metrics.get(bill.id);}
-  const result={items,total:p.total,offset:p.offset,limit:p.limit,hasMore:p.hasMore};
+  const result={items,total:p.total,offset:p.offset,limit:p.limit,hasMore:p.hasMore,
+   ...(p.statusCounts?{statusCounts:p.statusCounts}:{})};
   return validateStatus?includeStatusOptions(result,name,params):result;
  }
  function detail(name,id,session,{scope,includeSummary}={}){if(name==='businessTasks'&&core.own(session.actor))return tasks.taskDetail(session,id);const result=list(name,session,{id,limit:1,scope,includeSummary});core.check(result.items.length,'NOT_FOUND','记录不存在或无权访问',404);return result.items[0];}

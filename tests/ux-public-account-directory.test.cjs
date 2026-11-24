@@ -84,7 +84,7 @@ test('public directory loads the country options before the visitor selects a co
   await api.login('manager');
   const body = {
     owner: 'p1', countryCode: 'SG', city: '新加坡', name: '公开目录隔离网点',
-    address: '公开目录隔离地址', phone: '0000', opening: '2026-11-10',
+    address: '新加坡 · 公开目录隔离地址', phone: '0000', opening: '2026-11-10',
     enrollmentApplicable: false, status: 'open',
   };
   const id = 'ux-public-directory-outlet';
@@ -102,7 +102,7 @@ test('public directory loads the country options before the visitor selects a co
   const index = directory.data.countryChoices.findIndex(choice => choice.code === 'SG');
   assert.ok(index > 0, 'Singapore is selectable on the first tap');
   await directory.filterCountry({ detail: { value: index } });
-  assert.deepEqual(directory.data.rows.map(outlet => [outlet.id, outlet.address]), [[id, body.address]]);
+  assert.deepEqual(directory.data.rows.map(outlet => [outlet.id, outlet.area, outlet.address]), [[id, '', body.address]]);
 });
 
 test('cooperation success and notification spotlight the same authorized record', async t => {

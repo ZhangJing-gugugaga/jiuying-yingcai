@@ -7,10 +7,10 @@ function retainPublicCover(record, previous) {
   return record;
 }
 
-async function withPublicCover(record) {
+async function withPublicCover(record, { allowVisitor = true } = {}) {
   if (!record?.imageId) return record;
   try {
-    const coverPath = await api.download('/api/files/' + encodeURIComponent(record.imageId), { publishedCover: true });
+    const coverPath = await api.download('/api/files/' + encodeURIComponent(record.imageId), { publishedCover: allowVisitor });
     return { ...record, coverPath };
   } catch {
     return { ...record, coverUnavailable: true };

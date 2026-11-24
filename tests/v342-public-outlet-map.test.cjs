@@ -19,7 +19,10 @@ async function isolated(run) {
       },
       body: body ? JSON.stringify(body) : undefined,
     });
-    const result = await response.json();
+    const mime = response.headers.get('content-type');
+    const result = mime?.startsWith('image/')
+      ? { data: { type: response.headers.get('content-type'), size: (await response.arrayBuffer()).byteLength, cache: response.headers.get('cache-control') } }
+      : mime?.startsWith('text/csv') ? { data: await response.text() } : await response.json();
     trace.push({ path, status: response.status, requestId: response.headers.get('x-request-id') });
     assert.ok(trace.at(-1).requestId);
     assert.equal(response.status, status, JSON.stringify(result.error));
@@ -34,6 +37,74 @@ async function isolated(run) {
     app.store.close();
   }
 }
+
+test('dedicated store photos follow publication and respect the private directory scope', () => isolated(async ({ app, login, call, command }) => {
+  const [visitor, partner, other, manager, ops] = await Promise.all(['public','partnerA','partnerB','manager','ops'].map(login));
+  const base64 = (await require('sharp')({create:{width:16,height:12,channels:3,background:'#247bdd'}}).png().toBuffer()).toString('base64');
+  const upload = (token, purpose, status=201) => call('/files', token, {name:'store.png',type:'image/png',base64,purpose}, status);
+  const download = (token, image, status) => call('/files/'+image.id, token, undefined, status);
+  const publicDetail = (token, outlet='cs', status=200) => call('/collections/outlets/'+outlet+'?scope=public', token, undefined, status);
+  const privateDetail = (token, status=200) => call('/collections/outlets/cs?includeSummary=true',token,undefined,status);
+  const profile = (overrides={}) => ({outlet:'cs',title:'隔离公开网点',address:'公开地址',description:'公开说明',services:['咨询'],
+    publicCoords:{lat:28.2,lng:112.9,coordinateSystem:'GCJ-02'},published:true,reason:'隔离授权样本',...overrides});
+
+  await upload(partner,'public-outlet-photo',403);
+  await upload(other,'public-outlet-photo',403);
+  const photo = await upload(ops,'public-outlet-photo');
+  const replacement = await upload(manager,'public-outlet-photo');
+  const privateFile = await upload(partner,'support-ticket');
+  const genericFile = await upload(manager);
+  await command(manager,'public.profile',profile({imageId:privateFile.id}),403);
+  await command(manager,'public.profile',profile({imageId:genericFile.id}),403);
+  await command(partner,'public.profile',profile({imageId:photo.id}),403);
+  await command(manager,'content.update',{key:'brand',title:'集团',text:'介绍',imageId:photo.id,published:true,reason:'隔离样本'},403);
+  await command(manager,'request.submit',{data:{photo:{id:photo.id}}},403);
+
+  await command(ops,'public.profile',profile({imageId:photo.id,published:false}));
+  assert.equal((await download(ops,photo)).type,'image/png');
+  for (const token of [visitor,partner,other]) await download(token,photo,403);
+  await publicDetail(visitor,'cs',404);
+  assert.ok(!Object.hasOwn(await privateDetail(partner),'publishedImageId'));
+  await command(ops,'public.profile',profile());
+  assert.equal((await publicDetail(visitor)).imageId,photo.id);
+  assert.equal((await publicDetail(other)).imageId,photo.id);
+  const directory = await call('/collections/outlets?scope=public&id=cs', visitor);
+  assert.equal(directory.items[0].imageId,photo.id);
+  const maps = await call('/collections/outlets?scope=public&spatial=points&id=cs', visitor);
+  assert.equal(maps.items.length,1);
+  assert.ok(!Object.hasOwn(maps.items[0],'imageId'));
+  assert.equal((await privateDetail(partner)).publishedImageId,photo.id);
+  assert.ok(!Object.hasOwn(await call('/collections/outlets/cs',partner),'publishedImageId'));
+  const privateDirectory='/collections/outlets?includeSummary=true&id=cs';
+  assert.equal((await call(privateDirectory,partner)).items[0].publishedImageId,photo.id);
+  assert.deepEqual((await call(privateDirectory,other)).items,[]);
+  await privateDetail(other,404);
+  assert.equal((await download(visitor,photo)).cache,'private, no-store');
+  await call('/export?format=csv&period=2026-10',visitor,undefined,403);
+  for(const token of [partner,other,manager]){
+    const csv=await call('/export?format=csv&period=2026-10',token);
+    assert.ok(!csv.includes(photo.id));
+  }
+
+  await command(manager,'public.profile',profile({imageId:replacement.id}));
+  await download(visitor,photo,403);
+  assert.equal((await publicDetail(visitor)).imageId,replacement.id);
+  assert.equal((await privateDetail(partner)).publishedImageId,replacement.id);
+  await command(ops,'public.profile',profile({imageId:null}));
+  assert.ok(!Object.hasOwn(await publicDetail(visitor),'imageId'));
+  assert.ok(!Object.hasOwn(await privateDetail(partner),'publishedImageId'));
+  await download(other,replacement,403);
+  await command(manager,'public.profile',profile({imageId:replacement.id,published:false}));
+  await download(visitor,replacement,403);
+  assert.ok(!Object.hasOwn(await privateDetail(partner),'publishedImageId'));
+  await command(manager,'public.profile',profile());
+  const closed = app.store.load();
+  closed.outlets.find(outlet=>outlet.id==='cs').status='closed';
+  app.store.save(closed);
+  await download(visitor,replacement,403);
+  await publicDetail(visitor,'cs',404);
+  assert.ok(!Object.hasOwn(await privateDetail(partner),'publishedImageId'));
+}));
 
 test('public map point pages skip unapproved, closed and private data and include overseas explicit coordinates', t => isolated(async ({ app, login, call, command, trace }) => {
   const [visitor, partner, manager] = await Promise.all(['public', 'partnerA', 'manager'].map(login));

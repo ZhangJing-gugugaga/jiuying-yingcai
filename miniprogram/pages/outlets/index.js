@@ -3,6 +3,7 @@ const mapView=require('../../utils/outlet-map');
 const {publicShare,directory:directoryShare}=require('../../utils/public-share');
 const {recentSearches,addRecentSearch,clearRecentSearches}=require('../../utils/public-outlet-preferences');
 const {outletSummaryRows,outletSummaryStatus}=require('../../utils/outlet-summary');
+const {withPublicCover,retainPublicCover,markCoverUnavailable}=require('../../utils/public-content');
 
 const geography=[
   {value:'all',label:'全部地区'},
@@ -37,17 +38,20 @@ function privateRow(outlet){
     const returnedVersionId=key==='report'&&activity.status==='returned'?summary.report.returnedVersionId:undefined;
     nextAction={page,label,month:summary[key].month,monthText,text:[title,monthText,statusText].join(' · '),returnedVersionId};
   }
-  return {...outlet,area,statusText:fmt.label(status,'outlet'),statusTone:fmt.statusTone(status,'outlet'),
+  return {...outlet,area,imageId:outlet.publishedImageId,statusText:fmt.label(status,'outlet'),statusTone:fmt.statusTone(status,'outlet'),
     summaryRows:rows,businessChips:rows.filter(row=>row.key==='report'||row.key==='fee').map(row=>({...row,
       label:row.key==='report'?'月报':'服务费',tone:fmt.statusTone(summary[row.key]?.status,row.key==='fee'?'bill':'report')})),
     nextAction,waitingText:nextAction?'':waiting};
 }
 
 function publicRow(outlet){
-  const {id,name,address,status,province,city,countryCode,countryName,publicLocation,publicCoords,services}=outlet;
-  const area=[countryName,city].filter((name,index,all)=>name&&all.indexOf(name)===index).join(' · ');
+  const {id,name,address,status,province,city,countryCode,countryName,publicLocation,publicCoords,services,imageId}=outlet;
+  const locality=[...new Set([countryName,city].filter(Boolean))];
+  const addressStart=address?.split(/[·,，]/,1)[0].trim();
+  const repeatedLocality=locality.indexOf(addressStart);
+  const area=(repeatedLocality<0?locality:locality.slice(0,repeatedLocality)).join(' · ');
   return {id,name,address,area,province,city,countryCode,countryName,statusText:fmt.label(status,'outlet'),statusTone:fmt.statusTone(status,'outlet'),
-    services:Array.isArray(services)?services.slice(0,3):[],publicLocation,publicCoords};
+    services:Array.isArray(services)?services.slice(0,3):[],publicLocation,publicCoords,imageId};
 }
 
 function groupRows(rows,directory){
@@ -78,16 +82,18 @@ const page=define({
       const directory=this.data.isPublic||this.query.scope==='public';
       const {search,region,statusFilter,geo,countryCode}=this.data;
       return {q:search,province:region[0],city:region[1],district:region[2],status:directory?'all':statusFilter,
-        ...(directory?{scope:'public',geo,countryCode,includeCountries:this.data.countriesLoaded?undefined:'true'}:{includeSummary:'true'})};
+        ...(directory?{scope:'public',geo,countryCode,includeCountries:this.data.countriesLoaded?undefined:'true'}:
+          {includeSummary:'true',includeStatusCounts:'true'})};
     },
     metadata(result){
+      this.setData({statusCounts:result.statusCounts||null});
       if(!Array.isArray(result.countries))return;
       this.updateCountries(result.countries);
       this.setData({countriesLoaded:true});
     }
   }],
   data:{
-    directory:false,search:'',searchDraft:'',recentSearches:[],showRecent:false,region:[],showRegionFilters:false,statusFilter:'all',statusFilters,rows:[],groups:[],mode:'list',retainingRows:false,
+    directory:false,search:'',searchDraft:'',recentSearches:[],showRecent:false,region:[],showRegionFilters:false,statusFilter:'all',statusFilters,statusCounts:null,rows:[],groups:[],mode:'list',retainingRows:false,
     geography,geo:'all',countryCode:'',availableCountries:[],countryChoices:[allCountries],countryIndex:0,countriesLoaded:false,
     markers:[],center:null,zoom:mapView.minScale,minScale:mapView.minScale,maxScale:mapView.maxScale,
     mapLoading:false,mapError:'',pointCount:0,selectedPoint:null,clusterRows:[],clusterTotal:0
@@ -122,11 +128,14 @@ const page=define({
         s=this.data.state;
       }
     }
-    const rows=s.outlets.map(directory?publicRow:privateRow);
+    const previous=this._rowScope===scope?new Map(this.data.rows.map(row=>[row.id,row])):new Map();
+    const makeRow=directory?publicRow:privateRow;
+    const rows=s.outlets.map(outlet=>retainPublicCover(makeRow(outlet),previous.get(outlet.id)));
     this._rowScope=scope;
     this.setData({directory,rows,groups:groupRows(rows,directory),recentSearches:directory?recentSearches():[]});
     this.updatePublicShareMenu();
     wx.setNavigationBarTitle?.({title:directory?'服务网点':'我的网点'});
+    if(this.data.mode==='list')this.loadOutletCovers();
     if(directory&&this.data.mode==='map'){
       if(this._mapSerial!==this._serial)await this.loadPublicMap();
       return;
@@ -135,6 +144,30 @@ const page=define({
     const viewport=mapView.viewport(points);
     this.setData({markers:mapView.markers(rows,directory,viewport?.scale||mapView.minScale),
       center:viewport,zoom:viewport?.scale||mapView.minScale});
+  },
+  async loadOutletCovers(){
+    const serial=this._serial,scope=this._rowScope,attempt={};
+    const {directory}=this.data;
+    this._coverLoad=attempt;
+    const current=()=>this._coverLoad===attempt&&this._serial===serial&&scope===this._rowScope&&
+      directory===this.data.directory&&(directory||scope===resultScope(this));
+    const pending=this.data.rows.filter(row=>row.imageId&&!row.coverPath&&!row.coverUnavailable);
+    for(let start=0;start<pending.length&&current();start+=4){
+      const loaded=await Promise.all(pending.slice(start,start+4).map(row=>withPublicCover(row,{allowVisitor:directory})));
+      if(!current())return;
+      const ready=new Map(loaded.map(row=>[row.id,row]));
+      const rows=this.data.rows.map(row=>{
+        const result=ready.get(row.id);
+        return result&&result.imageId===row.imageId?result:row;
+      });
+      this.setData({rows,groups:groupRows(rows,directory)});
+    }
+  },
+  coverFailed(e){
+    const {id,imageId}=e.currentTarget.dataset;
+    if(!this.data.rows.some(row=>row.id===id&&row.imageId===imageId&&row.coverPath))return;
+    const rows=markCoverUnavailable(this.data.rows,id);
+    this.setData({rows,groups:groupRows(rows,this.data.directory)});
   },
   resetScope(directory){
     this._mapRequest=(this._mapRequest||0)+1;
@@ -309,6 +342,7 @@ const page=define({
   modeUnavailable(){
     this._mapRequest=(this._mapRequest||0)+1;
     this.setData({mode:'list',mapError:'',mapLoading:false,selectedPoint:null,clusterRows:[],clusterTotal:0});
+    if(this.data.directory)this.loadOutletCovers();
   },
   open(e){this.openOutlet(e.currentTarget.dataset.id);},
   openFromPrivateList(page,query){
@@ -348,6 +382,11 @@ page.refresh=async function(){
   this._returnRange=null;
   const retainingRows=this.data.mode==='list'&&this.data.hasLoaded&&this.data.rows.length>0&&
     this._rowScope===resultScope(this);
+  const countScope=JSON.stringify([api.session()?.token||'',this.query?.scope,this.data.search,this.data.region]);
+  if(countScope!==this._countScope){
+    this._countScope=countScope;
+    this.setData({statusCounts:null});
+  }
   if(retainingRows!==this.data.retainingRows)this.setData({retainingRows});
   this._returning=range?{range,serial:(this._serial||0)+1}:null;
   this.updatePublicShareMenu();

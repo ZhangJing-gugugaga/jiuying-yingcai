@@ -58,6 +58,9 @@ Page({
     if(nativeSessionLoginUrl(current))return Promise.all([this.finishSignIn(current),settings]);
     return settings;
   },
+  onHide() {
+    if(this.data.mode==='activate')this.setData({activationFocus:'',visibleActivationFields:{}});
+  },
   async loadSettings() {
     try {
       const settings=await api.request('/api/config','GET',undefined,{Authorization:''});
@@ -105,7 +108,9 @@ Page({
     if(busy||!['methods','password','activate','sms'].includes(requested)||(requested==='sms'&&!smsEnabled))return;
     const mode=requested==='methods'&&!channelsLoading&&!smsEnabled&&!wechatEnabled?'password':requested;
     if(mode===this.data.mode)return;
-    this.setData({mode,error:'',password:'',confirmPassword:'',activationField:'',activationFocus:'',visibleActivationFields:{}});
+    const leavingActivation=this.data.mode==='activate';
+    this.setData({mode,error:'',password:'',confirmPassword:'',activationField:'',activationFocus:'',visibleActivationFields:{},
+      ...(leavingActivation?{activationToken:''}:{})});
     wx.setNavigationBarTitle?.({title:mode==='activate'?'首次激活':'九盈英才'});
   },
   toggleActivationVisibility(e){

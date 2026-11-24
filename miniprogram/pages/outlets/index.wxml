@@ -23,8 +23,11 @@
     </button>
   </view>
   <view wx:elif="{{state}}" class="outlet-quick-filters outlet-status-filters" aria-label="网点营业状态">
-    <button wx:for="{{statusFilters}}" wx:key="value" class="outlet-quick-filter {{statusFilter===item.value ? 'active' : ''}}" data-status="{{item.value}}" bindtap="filterStatus"
-      aria-label="{{item.label + (statusFilter===item.value ? '，已选择' : '')}}">{{item.label}}</button>
+    <button wx:for="{{statusFilters}}" wx:key="value" wx:if="{{!statusCounts || statusCounts[item.value] || item.value==='all' || item.value===statusFilter}}"
+      class="outlet-quick-filter {{statusFilter===item.value ? 'active' : ''}}" data-status="{{item.value}}" bindtap="filterStatus"
+      aria-label="{{item.label + (statusCounts ? '，'+statusCounts[item.value]+' 家网点' : '') + (statusFilter===item.value ? '，已选择' : '')}}">
+      <text>{{item.label}}</text><text wx:if="{{statusCounts}}">（{{statusCounts[item.value]}}）</text>
+    </button>
   </view>
   <view wx:if="{{state && !isPublic}}" class="outlet-toolbar">
     <button wx:if="{{state && !isPublic}}" class="link outlet-toolbar-link" data-scope="{{directory ? 'private' : 'public'}}" bindtap="changeScope">{{directory ? '返回我的网点' : '浏览服务网点'}}</button>
@@ -92,9 +95,11 @@
     <block wx:if="{{mode==='list' || mapError || (!mapLoading && !markers.length)}}">
     <block wx:for="{{groups}}" wx:for-item="group" wx:key="key">
       <view wx:if="{{group.label}}" class="outlet-group">{{group.label}}</view>
-      <view wx:for="{{group.rows}}" wx:key="id" class="card outlet-entry {{directory || isPublic ? '' : 'outlet-private-entry'}} {{!directory && !isPublic && item.nextAction ? 'outlet-entry-with-action' : ''}}">
+      <view wx:for="{{group.rows}}" wx:key="id" class="card outlet-entry {{directory || isPublic ? 'outlet-public-entry' : 'outlet-private-entry'}} {{!directory && !isPublic && item.nextAction ? 'outlet-entry-with-action' : ''}}">
         <view class="outlet-card-link" data-id="{{item.id}}" bindtap="open" hover-class="tap-feedback" aria-role="button" aria-label="查看{{item.name}}详情" aria-disabled="{{loading}}">
-          <view class="outlet-card-icon" aria-hidden="true"><t-icon name="store" size="43rpx"/></view>
+          <image wx:if="{{item.coverPath}}" class="outlet-card-icon outlet-card-photo" src="{{item.coverPath}}" mode="aspectFill"
+            data-id="{{item.id}}" data-image-id="{{item.imageId}}" binderror="coverFailed" aria-hidden="true"/>
+          <view wx:else class="outlet-card-icon" aria-hidden="true"><t-icon name="store" size="43rpx"/></view>
           <view class="outlet-card-copy">
             <view class="outlet-heading"><view class="card-title grow">{{item.name}}</view><text wx:if="{{item.statusText}}" class="badge {{item.statusTone}}">{{item.statusText}}</text></view>
             <view wx:if="{{directory || isPublic}}" class="outlet-location">

@@ -1,6 +1,6 @@
 # 配置、迁移与部署
 
-四入口版部署前备份 SQLite 数据库，使用项目迁移命令依次应用 029（加盟申请）和 030（补件关联申请及版本）。小程序随源码提供 TDesign 组件，安装锁定依赖后可用 `npm run wechat:vendor -- --check` 校验。
+四入口版部署前备份 SQLite 数据库，使用项目迁移命令依次应用缺失的 029（加盟申请）、030（补件关联申请及版本）和 031（公开网点照片用途登记）。小程序随源码提供 TDesign 组件，安装锁定依赖后可用 `npm run wechat:vendor -- --check` 校验。
 
 Node >=24.19.0 <25，首次npm ci；pdfkit/sharp锁定，字体与许可证随包保留。默认开发样本只用于本机，不能复用为正式库。npm start不读取.env，使用start.ps1或node --env-file=.env server/index.cjs。
 

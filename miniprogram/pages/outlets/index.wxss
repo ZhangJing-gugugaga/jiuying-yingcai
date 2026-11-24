@@ -68,8 +68,8 @@
   font-size: max(23rpx, 12px);
 }
 .outlets-page button.outlet-quick-filter.active { border-color: var(--brand); color: var(--brand); }
-.outlet-status-filters { display: grid; grid-template-columns: repeat(5, minmax(44px, 1fr)); }
-.outlets-page .outlet-status-filters button.outlet-quick-filter { padding: 0 4rpx; line-height: 1.25; text-wrap: balance; }
+.outlet-status-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(44px, 1fr)); }
+.outlets-page .outlet-status-filters button.outlet-quick-filter { padding: 0 4rpx; flex-wrap: wrap; align-content: center; line-height: 1.25; text-wrap: balance; }
 .outlet-toolbar { display: flex; flex-wrap: wrap; gap: 0 var(--space-lg); align-items: center; }
 .outlets-page button.outlet-toolbar-link {
   display: inline-flex;
@@ -104,7 +104,10 @@
   background: linear-gradient(145deg, #d9ebfd, #eff6ff);
   color: var(--brand);
 }
-.outlet-private-entry .outlet-card-icon { width: 70rpx; height: 70rpx; }
+.outlet-public-entry .outlet-card-link { align-items: center; gap: var(--space-md); }
+.outlet-public-entry .outlet-card-icon { width: clamp(52px, 15vw, 64px); height: clamp(52px, 15vw, 64px); }
+.outlet-card-link .outlet-card-photo { display: block; }
+.outlet-private-entry .outlet-card-icon { width: clamp(42px, 12vw, 52px); height: clamp(42px, 12vw, 52px); }
 .outlet-card-copy { min-width: 0; flex: 1; overflow-wrap: anywhere; }
 .outlet-heading { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 4rpx var(--space-xs); }
 .outlet-heading .card-title { min-width: 0; margin: 0; line-height: 1.28; }
@@ -127,7 +130,11 @@
   font-size: var(--font-caption);
   overflow-wrap: anywhere;
 }
-.outlet-service-tag { background: var(--brand-soft); }
+.outlet-service-tag {
+  background: var(--brand-soft);
+  font-size: max(22rpx, 11px);
+  line-height: 1.35;
+}
 .outlet-business-chip {
   column-gap: 5rpx;
   padding: 2rpx 6rpx;

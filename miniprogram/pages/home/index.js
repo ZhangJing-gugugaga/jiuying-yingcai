@@ -41,7 +41,8 @@ const viewData={
   scopeOutlet:'',scopeExpanded:false,scopeOutlets:[],scopeName:'',scopeStatus:'',scopeTone:'',
   recentError:false,taskLoading:false,recentLoading:false,trainingLoading:false,openingTask:false,taskOpenError:'',
   moreBusiness:false,
-  hasUnreadNotices:false,groupIntro:null,publishedServices:[],headquartersPhone:''
+  unreadNoticeCount:0,brandMark:null,groupIntro:null,publishedServices:[],headquartersPhone:'',
+  headquartersAddress:null,officialWechat:null,headquartersQrLoading:false
 };
 const home=define({
   collections:[{name:'outlets',visible(){return !this.data.publicView&&!this.data.isPublic&&this.data.session?.role==='partner';}},
@@ -96,9 +97,13 @@ const home=define({
           return {...retainPublicCover(record,previous),tileIcon,tileTone};
         });
       const phone=String(state.support?.settings?.phone||'').replace(/[\s()-]/g,'');
+      const headquartersAddress=contents.find(record=>record.key==='headquarters-address'&&record.text)||null;
+      const officialWechat=contents.find(record=>record.key==='official-wechat'&&record.imageId)||null;
       this.setData({publicView:true,groupIntro,publishedServices,headquartersPhone:/^\+?\d{5,20}$/.test(phone)?phone:'',
-        openTotal:null,taskError:false,...(!isVisitor?{hasUnreadNotices:false}:{})});
+        headquartersAddress,officialWechat,
+        openTotal:null,taskError:false,...(!isVisitor?{unreadNoticeCount:0}:{})});
       this.updatePublicShareMenu();
+      this.loadBrandMark(contents.find(record=>record.key==='brand-logo'),()=>serial===this._serial,isVisitor);
       await Promise.all([
         groupIntro?.imageId&&!groupIntro.coverPath?withPublicCover(groupIntro).then(record=>{
           if(serial===this._serial)this.setData({groupIntro:record});
@@ -109,7 +114,7 @@ const home=define({
         }),
         isVisitor?api.collection('messages',{status:'unread',limit:1},this).catch(()=>null).then(messages=>{
           if(serial===this._serial&&api.session()?.token===session.token){
-            this.setData({hasUnreadNotices:messages?.total>0});
+            this.setData({unreadNoticeCount:messages?.total??0});
           }
         }):null
       ]);
@@ -136,10 +141,25 @@ const home=define({
     const firstApplication=needsFirstOutlet?firstOutletProgress(this).then(firstOutlet=>{
       if(isCurrent())this.setData({firstOutlet});
     }):null;
+    api.collection('publicContents',{key:'brand-logo',limit:1},this).catch(()=>null).then(result=>
+      this.loadBrandMark(result?.items?.find(record=>record.key==='brand-logo'),isCurrent,false));
     await Promise.all([firstApplication,this.loadWorkbenchTasks(),
       api.collection('messages',{status:'unread',limit:1},this).catch(()=>null).then(result=>{
-        if(isCurrent())this.setData({hasUnreadNotices:result?.total>0});
+        if(isCurrent())this.setData({unreadNoticeCount:result?.total??0});
       })]);
+  },
+  async loadBrandMark(record,isCurrent,allowVisitor){
+    if(!isCurrent())return;
+    const mark=retainPublicCover(record||null,this.data.brandMark);
+    this.setData({brandMark:mark});
+    if(!mark?.imageId||mark.coverPath)return;
+    const loaded=await withPublicCover(mark,{allowVisitor});
+    if(isCurrent())this.setData({brandMark:loaded});
+  },
+  brandMarkFailed(e){
+    const mark=this.data.brandMark;
+    if(mark?.coverPath&&mark.coverPath===e.currentTarget.dataset.coverPath)
+      this.setData({'brandMark.coverPath':''});
   },
   setOutletScope(id){
     const outlet=this.data.scopeOutlets.find(outlet=>outlet.id===id)||null;
@@ -282,6 +302,36 @@ const home=define({
     if(this.data.publicView&&phoneNumber)wx.makePhoneCall({phoneNumber,
       fail:()=>wx.showToast?.({title:'无法拨打电话，请稍后重试',icon:'none'})});
   },
+  showHeadquartersAddress(){
+    const address=this.data.headquartersAddress;
+    if(!this.data.publicView||!address?.text)return;
+    wx.showModal({title:'总部地址',content:address.text,confirmText:'复制地址',cancelText:'关闭',
+      success:({confirm})=>{
+        if(confirm&&this.data.publicView&&this.data.headquartersAddress===address)wx.setClipboardData({data:address.text,
+          fail:()=>wx.showToast?.({title:'暂时无法复制地址，请重试',icon:'none'})});
+      }});
+  },
+  async showOfficialWechat(){
+    if(!this.data.publicView||!this.data.officialWechat||this.data.headquartersQrLoading)return;
+    const serial=this._serial,current=()=>serial===this._serial&&this.data.publicView;
+    const unavailable=()=>wx.showToast?.({title:'暂时无法打开二维码，请稍后重试',icon:'none'});
+    this.setData({headquartersQrLoading:true});
+    try{
+      const result=await api.collection('publicContents',{key:'official-wechat',limit:1},this);
+      if(!current())return;
+      const record=result.items.find(item=>item.key==='official-wechat'&&item.imageId)||null;
+      this.setData({officialWechat:record});
+      if(!record)return unavailable();
+      const {coverPath}=await withPublicCover(record,{allowVisitor:this.data.session?.role==='public'});
+      if(!current())return;
+      if(coverPath)wx.previewImage({urls:[coverPath],fail:unavailable});
+      else unavailable();
+    }catch{
+      if(current())unavailable();
+    }finally{
+      if(current())this.setData({headquartersQrLoading:false});
+    }
+  },
   openOutlets(){
     if(this.data.firstOutlet?.actionText&&!this.data.error)return this.openFirstOutlet();
     go('outlets','scope=private');
@@ -307,7 +357,7 @@ home.refresh=async function(){
   }
   this._workbenchRows=[];
   this._workbenchOpen=null;
-  this.setData({publicView,session,scopeExpanded:false,...(changed?viewData:this.data.firstOutlet?{firstOutlet:firstOutletLoading}:{}),
+  this.setData({publicView,session,scopeExpanded:false,headquartersQrLoading:false,...(changed?viewData:this.data.firstOutlet?{firstOutlet:firstOutletLoading}:{}),
     ...(!publicView?{taskLoading:true,recentLoading:true,trainingLoading:true,openingTask:false,taskOpenError:''}:{})});
   this.updatePublicShareMenu();
   const pending=refresh.call(this);

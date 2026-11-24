@@ -267,6 +267,7 @@ function createServer({dbPath=process.env.DB_PATH||path.join(ROOT,'var/local.db'
      core.check(name.length>0,'INPUT','附件名称无效');
      store.transaction(()=>{
       const fresh=sessionFor(req);
+      uploads.checkUploadPurpose(purpose,fresh);
       const target=purpose==='onboarding-proof'?onboarding.authorizeProofUpload(fresh,applicationId,applicationVersion):null;
       store.db.prepare('INSERT INTO files VALUES(?,?,?,?,?,?,?,?,?)').run(id,session.subject,core.own(session.actor),name,type,sanitized.bytes.length,hash(sanitized.bytes),sanitized.bytes,new Date().toISOString());
       store.db.prepare('INSERT INTO file_metadata VALUES(?,?,?,?,?)').run(id,sanitized.originalDigest,sanitized.width,sanitized.height,sanitized.transformVersion);

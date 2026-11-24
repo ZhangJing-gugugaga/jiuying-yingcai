@@ -3,7 +3,7 @@
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const { getNativeRoutes, isInside } = require('./wechat-routes.cjs');
 const { collectComponentEntries, componentDeclarations } = require('./wechat-components.cjs');
-const TAGS=new Set(['view','text','label','button','input','textarea','form','block','picker','switch','map','image','scroll-view','checkbox','checkbox-group','radio','radio-group','navigator','loading','icon','cover-view','cover-image']);
+const TAGS=new Set(['view','text','label','button','input','textarea','form','block','template','picker','switch','map','image','scroll-view','checkbox','checkbox-group','radio','radio-group','navigator','loading','icon','cover-view','cover-image']);
 
 function packageReferences(file, contents) {
  const extension=path.extname(file);
@@ -82,5 +82,5 @@ function validate(directory,{production=false}={}){const root=path.resolve(direc
  const allJS=files.filter(x=>x.endsWith('.js')).map(x=>fs.readFileSync(x,'utf8')).join('\n');for(const name of ['getLocation','chooseLocation'])if(allJS.includes('wx.'+name)&&!app.requiredPrivateInfos?.includes(name))errors.push('定位隐私声明缺失 '+name);if(production){if(project.setting?.urlCheck!==true)errors.push('非开发构建必须urlCheck:true');if(project.appid==='touristappid')errors.push('非开发构建禁止touristappid');if(/partnerA|partnerB|customActor|\/api\/auth\/dev/.test(allJS))errors.push('构建中仍有开发身份代码');}
  warnings.push('静态校验不替代微信开发者工具编译、模拟器、真机或平台审核');return {valid:errors.length===0,pages:routes.length,routeManifest,files:files.length,errors,warnings,wechatCompiled:false};}
 if(require.main===module){const root=process.argv[2]||path.resolve(__dirname,'../miniprogram');const result=validate(root,{production:process.argv.includes('--production')});console.log(JSON.stringify(result,null,2));if(!result.valid)process.exitCode=1;}
-module.exports={validate,readWxml};
+module.exports={validate,readWxml,nativeWxmlTags:TAGS};
 

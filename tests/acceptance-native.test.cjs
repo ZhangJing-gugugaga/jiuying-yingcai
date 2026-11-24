@@ -151,6 +151,30 @@ test('workbench business history paginates three authorized record types and ope
   assert.deepEqual(history.data.businessRows,[]);
 }));
 
+test('activation masks fields when hidden and clears credentials when switching to sign-in', () => nativeRun(async ({ calls }) => {
+  await api.visitor();
+  const login=page('login',{mode:'activate',token:'isolated-prefilled-token'});
+  await login.onShow();
+  login.setData({password:'isolated-password',confirmPassword:'isolated-password',activationFocus:'password'});
+  login.toggleActivationVisibility(tap({field:'activationToken'}));
+  login.toggleActivationVisibility(tap({field:'password'}));
+  login.contact();
+  assert.ok(calls.some(call=>call.navigateTo==='/pages/support/index?section=home'));
+  login.onHide();
+  assert.deepEqual(login.data.visibleActivationFields,{});
+  assert.equal(login.data.activationFocus,'');
+  await login.onShow();
+  assert.equal(login.data.activationToken,'isolated-prefilled-token');
+  assert.equal(login.data.password,'isolated-password');
+  assert.equal(login.data.confirmPassword,'isolated-password');
+  login.mode(tap({mode:'password'}));
+  assert.equal(login.data.mode,'password');
+  assert.deepEqual([login.data.activationToken,login.data.password,login.data.confirmPassword],['','','']);
+  login.mode(tap({mode:'activate'}));
+  assert.equal(login.data.activationToken,'');
+  assert.deepEqual(login.data.visibleActivationFields,{});
+}));
+
 test('the activation form reports errors at the corresponding field and redeems the invitation once', () => nativeRun(async ({ calls }) => {
   await api.login('manager');
   const invitation = await api.request('/api/auth/activation', 'POST', { actor: 'partnerB', username: 'activation.review' });

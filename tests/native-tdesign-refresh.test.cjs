@@ -29,7 +29,7 @@ test('visitor and workbench surfaces use native TDesign while preserving the exi
   const home = read('pages/home/index.wxml');
   assert.match(home, /class="home-public-hero"[\s\S]*?src="\/assets\/home-skyline.webp"/);
   assert.match(home, /data-query="scope=public&mode=map" bindtap="nav"/);
-  assert.match(home, /<t-badge wx:if="{{hasUnreadNotices}}"/);
+  assert.match(home, /<t-badge count="{{unreadNoticeCount}}"/);
   assert.match(home, /data-page="fees" bindtap="openScopedTool"/);
   assert.match(home, /data-page="outlets" bindtap="openOutlets"/);
   assert.match(home, /data-page="tasks" data-query="section=notices" bindtap="nav"/);

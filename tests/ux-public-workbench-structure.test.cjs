@@ -161,7 +161,7 @@ test('zero-outlet workbench retries an unreadable application and keeps existing
   assert.equal(page.data.firstOutlet?.status, 'error');
   assert.match(page.data.firstOutlet.detail, /暂时无法确认申请进度/);
   assert.equal(page.data.openTotal, 1);
-  assert.equal(page.data.hasUnreadNotices, true);
+  assert.equal(page.data.unreadNoticeCount, 1);
   page.openFirstOutlet();
   assert.deepEqual(routes, []);
   retry = true;

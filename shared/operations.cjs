@@ -36,6 +36,7 @@ function publicOutlet(outlet,profile){
  const code=regions.countryCode(profile?.countryCode);
  const result={id,outlet:id,name:profile?profile.title:outlet.name,address:profile?.address??null,province,city,district,status};
  if(profile?.status==='published'){
+  if(profile.imageId)result.imageId=profile.imageId;
   if(Array.isArray(profile.services)&&profile.services.length)result.services=profile.services;
   if(profile.contactPublished===true&&profile.contact)result.contact=profile.contact;
   if(profile.businessHours)result.businessHours=profile.businessHours;
@@ -113,6 +114,12 @@ function saveContent(s,a,p,ctx,key){
  const body=text(p.body??p.text??p.intro,'正文'),title=text(p.title,'标题'),reason=text(p.reason,'修改依据');
  check(typeof p.published==='boolean','INPUT','发布状态须布尔值');
  check(p.imageId==null||typeof p.imageId==='string'&&p.imageId.startsWith('file-'),'INPUT','封面须已上传附件ID');
+ if(key==='brand-logo'&&p.published)check(!!p.imageId,'INPUT','请先上传要发布的集团品牌标识');
+ if(key==='official-wechat'&&p.published)check(!!p.imageId,'INPUT','请先上传官方微信二维码');
+ if(key==='headquarters-address'){
+  check(title.length<=60&&body.length<=200,'INPUT','地区名称最多 60 字，详细地址最多 200 字');
+  check(!p.imageId,'INPUT','总部地址栏目只接受文字');
+ }
  let r=s.contents.find(x=>x.key===key);
  if(p.expectedVersion!==undefined){
   check(Number.isInteger(p.expectedVersion)&&p.expectedVersion>=0,'INPUT','内容版本号无效');
@@ -132,7 +139,7 @@ function saveContent(s,a,p,ctx,key){
  return r;
 }
 function changeContentPublication(s,a,ctx,p){
- check(typeof p.key==='string'&&/^(brand|service-[1-5])$/.test(p.key),'INPUT','公开内容栏目无效');
+ check(typeof p.key==='string'&&/^(brand|brand-logo|headquarters-address|official-wechat|service-[1-5])$/.test(p.key),'INPUT','公开内容栏目无效');
  check(['withdraw','restore'].includes(p.action),'INPUT','发布处理动作无效');
  check(Number.isInteger(p.expectedVersion)&&p.expectedVersion>=1,'INPUT','内容版本号无效');
  const reason=text(p.reason,'发布处理依据'),r=s.contents.find(x=>x.key===p.key);
@@ -293,6 +300,10 @@ function execute(s,a,c,p={},ctx={}){
   role(a,['manager','ops']);
   const o=getOutlet(s,p.outlet,a);
   r=s.publicProfiles.find(x=>x.outlet===o.id)||put(s,'publicProfiles','profile',o,'draft',a,ctx,{publicCoords:null});
+  if(Object.hasOwn(p,'imageId')){
+   check(p.imageId===null||typeof p.imageId==='string'&&/^file-[a-z0-9-]+$/i.test(p.imageId),'INPUT','公开店照编号无效');
+   r.imageId=p.imageId;
+  }
   const explicit=Object.hasOwn(p,'countryCode');
   const before=regions.countryCode(r.countryCode)||'CN';
   const code=explicit?regions.countryCode(p.countryCode):(regions.countryCode(r.countryCode)||regions.countryCode(o.countryCode)||'CN');

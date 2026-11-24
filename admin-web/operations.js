@@ -98,6 +98,11 @@ export function operations(c){
    +field('contact','联系电话（内部保留，授权后才公开）',r.contact||'','text','required')
    +select('contactPublished','联系电话公开授权',[['false','不向公众展示'],['true','已获授权，公开此联系电话']],String(r.contactPublished===true))
    +field('businessHours','对外服务时间（选填）',r.businessHours||'','text','maxlength="160" placeholder="仅填写已确认可公开的服务时间"')
+   +'<input type="hidden" name="imageId" value="'+esc(r.imageId||'')+'" data-original-image="'+esc(r.imageId||'')+'">'
+   +'<div class="actions" data-content-cover-actions'+(r.imageId?'':' style="display:none"')+'>'
+   +button('预览店照','view-photo',{id:r.imageId||''})
+   +button('移除店照','content-cover-clear')+'<img data-cover-preview alt="公开店照" hidden style="max-width:100%;max-height:240px"></div>'
+   +'<label class="field">公开店照（选填）<input id="outletPhoto" data-image-purpose="public-outlet-photo" type="file" accept="image/png,image/jpeg,image/webp"><small>请使用已获公开授权的店照，2MB 内 PNG、JPEG 或 WebP。保存并发布档案后公开。</small></label>'
    +field('address','公开服务地址',r.address||'','text','required')+bool('published','发布状态',r.status==='published')
    +`<h3 class="section-title">公开地区及地图位置</h3>`
    +field('countryCode','国家或地区代码（选填）',r.countryCode||'','text','maxlength="2" pattern="[A-Za-z]{2}" placeholder="例如 CN、SG。留空沿用档案"')
@@ -125,6 +130,9 @@ export function operations(c){
   if(cmd==='faq.save'){d.keywords=split(d.keywords);d.published=d.published==='true'}
   if(cmd==='public.profile'){
    d.contactPublished=d.contactPublished==='true';d.services=split(d.services);d.published=d.published==='true';
+   const photo=f?.elements.imageId;
+   if(photo&&photo.value===photo.dataset.originalImage)delete d.imageId;
+   else if(Object.hasOwn(d,'imageId'))d.imageId=d.imageId||null;
    if(d.countryCode?.trim())d.countryCode=d.countryCode.trim().toUpperCase();else delete d.countryCode;
    if(!d.city?.trim())delete d.city;
    if(d.publicCoordsMode==='publish'){

@@ -111,6 +111,34 @@ test('private outlet cards display authoritative month, review, settlement and m
   assert.equal(legacy.summaryRows.length,0);
 });
 
+test('a private directory refresh cannot restore an older published photo', async t => {
+  let publishedImageId='file-initial';
+  const {storage}=wxHarness(t,'partnerA',()=>result([
+    {id:'own',name:'自己的网点',owner:'p1',status:'open',publishedImageId},
+    {id:'legacy',name:'无店照网点',owner:'p1',status:'open',imageId:'file-unrelated-attachment'},
+  ]));
+  const pending=[];
+  wx.downloadFile=options=>pending.push(options);
+  const page=nativePage('outlets');
+  global.getCurrentPages=()=>[page];
+  await page.refresh();
+  publishedImageId='file-replacement';
+  await page.refresh();
+  assert.deepEqual(pending.map(request=>new URL(request.url).pathname),[
+    '/api/files/file-initial','/api/files/file-replacement',
+  ]);
+  pending[1].success({statusCode:200,tempFilePath:'wxfile://replacement'});
+  pending[0].success({statusCode:200,tempFilePath:'wxfile://initial'});
+  await new Promise(setImmediate);
+  assert.equal(page.data.groups[0].rows[0].coverPath,'wxfile://replacement');
+  assert.equal(page.data.rows[1].coverPath,undefined);
+  page.coverFailed(tap({id:'own',imageId:'file-initial'}));
+  assert.equal(page.data.rows[0].coverPath,'wxfile://replacement');
+  page.coverFailed(tap({id:'own',imageId:'file-replacement'}));
+  assert.equal(page.data.groups[0].rows[0].coverPath,'');
+  assert.equal(storage.get('jyyc.session').role,'partner');
+});
+
 test('public outlet markers never use private GPS or retain it when switching to the directory', async t => {
   const {requests} = wxHarness(t,'partnerA',url => result(url.searchParams.get('scope')==='public'?[{
     id:'public',name:'服务网点',address:'公开地址',status:'open',coords:{lat:31,lng:120},owner:'unexpected',summary:{fee:{status:'unpaid'}}

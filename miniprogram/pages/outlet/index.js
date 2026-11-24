@@ -3,6 +3,7 @@ const {workContactBehavior}=require('../../utils/work-contacts');
 const {publicShare,outletShare}=require('../../utils/public-share');
 const {favorites,changeFavorite}=require('../../utils/public-outlet-preferences');
 const {outletSummaryRows}=require('../../utils/outlet-summary');
+const {withPublicCover}=require('../../utils/public-content');
 
 const statusNotes={
   preparing:'网点正在筹备，开业后由总部确认营业状态。',
@@ -30,6 +31,9 @@ const page=define({
         statusText:fmt.label(raw.status,'outlet'),statusTone:fmt.statusTone(raw.status,'outlet'),
         area:[raw.countryName,raw.province,raw.city,raw.district].filter((label,index,all)=>label&&all.indexOf(label)===index).join(' · ')}});
       this.updatePublicShareMenu();
+      if(raw.imageId)withPublicCover(raw).then(({coverPath})=>{
+        if(serial===this._serial&&coverPath)this.setData({'outlet.coverPath':coverPath});
+      });
       return;
     }
     const internal=!!raw.owner;
@@ -72,6 +76,9 @@ const page=define({
         enrollText:totals?.enroll==null?'暂无数据':totals.enroll+' 人'
       }:null
     });
+  },
+  coverFailed(e){
+    if(this.data.outlet?.coverPath===e.currentTarget.dataset.path)this.setData({'outlet.coverPath':''});
   },
   toggleFavorite(){
     const id=this._publicOutlet?.id;

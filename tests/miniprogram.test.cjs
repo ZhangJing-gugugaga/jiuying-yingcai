@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const { readWxml } = require('../scripts/wechat-validate.cjs');
+const { readWxml, nativeWxmlTags } = require('../scripts/wechat-validate.cjs');
 const { componentDeclarations } = require('../scripts/wechat-components.cjs');
 const { getNativeRoutes } = require('../scripts/wechat-routes.cjs');
 const root = path.resolve(__dirname, '../miniprogram');
@@ -29,7 +29,7 @@ test('native pages exist, event handlers resolve, and no WebView substitutes nat
     for(const [,handler] of xml.matchAll(/(?:bind|catch)(?::)?[\w-]+="([A-Za-z_]\w*)"/g)) assert.equal(typeof definition[handler],'function',page+': '+handler);
     const stack=[];
     for(const tag of xml.matchAll(/<\/?([a-z][\w-]*)(?:\s[^>]*?)?\s*\/?>/gi)){
-      assert.ok(['view','text','label','button','input','textarea','form','block','picker','switch','map','image','scroll-view'].includes(tag[1]) || Object.hasOwn(components,tag[1]),page+' uses a native or locally registered component '+tag[1]);
+      assert.ok(nativeWxmlTags.has(tag[1]) || Object.hasOwn(components,tag[1]),page+' uses a native or locally registered component '+tag[1]);
       if(tag[0].startsWith('</')) assert.equal(stack.pop(),tag[1],page+' balanced native markup');
       else if(!tag[0].endsWith('/>')) stack.push(tag[1]);
     }
