@@ -147,6 +147,24 @@
 .table-wrap tbody tr:hover { background: var(--table-head); }
 .metric b, .task-count { font-family: inherit; font-variant-numeric: tabular-nums; letter-spacing: -.035em; }
 .metric .unit { letter-spacing: 0; }
+.coverage-grid.billing-amounts {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.billing-amounts .pair {
+  flex: 1 1 max(7rem, calc((100% - 24px) / 3));
+  max-width: 100%;
+  padding: 12px;
+}
+
+.billing-amounts .pair b {
+  margin-top: 4px;
+  font-size: 1.125rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.35;
+  overflow-wrap: break-word;
+}
 .panel .pill:not(.warn):not(.bad):not(.good), .record .pill:not(.warn):not(.bad):not(.good) {
   background: var(--table-head);
   color: var(--muted);

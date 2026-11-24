@@ -38,7 +38,7 @@ const emptyWorkbench={activeRows:[],recentRows:[],openTotal:null,trainingRecord:
 const viewData={
   ...emptyWorkbench,
   outletCount:null,managerName:'',firstOutlet:null,displayDate:'',taskError:false,
-  scopeOutlet:'',scopeIndex:0,scopeOutlets:[],scopeLabels:[],scopeName:'',scopeStatus:'',scopeTone:'',
+  scopeOutlet:'',scopeExpanded:false,scopeOutlets:[],scopeName:'',scopeStatus:'',scopeTone:'',
   recentError:false,taskLoading:false,recentLoading:false,trainingLoading:false,openingTask:false,taskOpenError:'',
   moreBusiness:false,
   hasUnreadNotices:false,groupIntro:null,publishedServices:[],headquartersPhone:''
@@ -129,7 +129,7 @@ const home=define({
       ?await api.detail('outlets',prior).catch(()=>null):null;
     if(!isCurrent())return;
     const choices=retained?.id===prior?[retained,...scopeOutlets]:scopeOutlets;
-    this.setData({outletCount,scopeOutlets:choices,scopeLabels:['全部授权网点',...choices.map(row=>[row.name,row.city,row.district].filter(Boolean).join(' · '))],
+    this.setData({outletCount,scopeOutlets:choices,
       managerName:state.accounts?.[0]?.managerName||'',
       displayDate:fmt.dateText(state.today),firstOutlet:needsFirstOutlet?firstOutletLoading:null});
     this.setOutletScope(outletCount===1?choices[0]?.id:prior);
@@ -142,17 +142,31 @@ const home=define({
       })]);
   },
   setOutletScope(id){
-    const index=this.data.scopeOutlets.findIndex(outlet=>outlet.id===id);
-    const outlet=index>=0?this.data.scopeOutlets[index]:null;
+    const outlet=this.data.scopeOutlets.find(outlet=>outlet.id===id)||null;
     this._selectedOutlet=outlet;
-    this.setData({scopeOutlet:outlet?.id||'',scopeIndex:index+1,scopeName:outlet?.name||'全部授权网点',
+    this.setData({scopeOutlet:outlet?.id||'',scopeName:outlet?.name||'全部授权网点',
       scopeStatus:outlet?.status?fmt.label(outlet.status,'outlet'):'',scopeTone:outlet?.status?fmt.statusTone(outlet.status,'outlet'):''});
   },
+  toggleWorkbenchScope(e){
+    if(!this.isWorkbenchSession()||this.data.loading||this.data.outletCount<=1)return;
+    if(e?.currentTarget?.dataset?.fromMore){
+      this.setData({scopeExpanded:true},()=>wx.pageScrollTo?.({selector:'#workbench-scope',duration:180}));
+      return;
+    }
+    this.setData({scopeExpanded:!this.data.scopeExpanded});
+  },
   chooseWorkbenchOutlet(e){
-    const index=Number(e.detail.value);
-    if(!this.isWorkbenchSession()||!Number.isInteger(index)||index<0||index>this.data.scopeOutlets.length||index===this.data.scopeIndex)return;
-    this.setOutletScope(this.data.scopeOutlets[index-1]?.id);
+    const {id,all}=e.currentTarget.dataset;
+    const selected=all?'':id;
+    if(!this.isWorkbenchSession()||this.data.loading||!this.data.scopeExpanded)return;
+    if(selected!==''&&!this.data.scopeOutlets.some(outlet=>outlet.id===selected))return;
+    this.setData({scopeExpanded:false});
+    if(selected===this.data.scopeOutlet)return;
+    this.setOutletScope(selected);
     return this.loadWorkbenchTasks();
+  },
+  onHide(){
+    if(this.data.scopeExpanded)this.setData({scopeExpanded:false});
   },
   isWorkbenchSession(){
     const session=api.session();
@@ -293,7 +307,7 @@ home.refresh=async function(){
   }
   this._workbenchRows=[];
   this._workbenchOpen=null;
-  this.setData({publicView,session,...(changed?viewData:this.data.firstOutlet?{firstOutlet:firstOutletLoading}:{}),
+  this.setData({publicView,session,scopeExpanded:false,...(changed?viewData:this.data.firstOutlet?{firstOutlet:firstOutletLoading}:{}),
     ...(!publicView?{taskLoading:true,recentLoading:true,trainingLoading:true,openingTask:false,taskOpenError:''}:{})});
   this.updatePublicShareMenu();
   const pending=refresh.call(this);

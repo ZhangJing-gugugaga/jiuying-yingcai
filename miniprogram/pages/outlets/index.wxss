@@ -86,6 +86,13 @@
 .recent-searches .card-title { margin: 0; }
 .outlet-group { margin: var(--space-sm) 0 var(--space-xs); color: var(--muted); font-size: var(--font-caption); font-weight: 650; }
 .outlet-entry { padding: var(--space-sm) var(--space-md); margin: var(--space-sm) 0; }
+.outlet-private-entry {
+  display: grid;
+  column-gap: var(--space-sm);
+  align-items: center;
+}
+.outlet-entry-with-action { grid-template-columns: minmax(0, 1fr) auto; }
+.outlet-private-entry .outlet-card-link { grid-column: 1; grid-row: 1; }
 .outlet-card-link { display: flex; align-items: flex-start; gap: var(--space-sm); min-height: 44px; }
 .outlet-card-icon {
   display: grid;
@@ -106,7 +113,7 @@
 .outlet-detail-label { align-self: center; color: var(--muted); flex-shrink: 0; }
 .outlet-service-tags, .outlet-business-chips { display: flex; gap: 6rpx; flex-wrap: wrap; }
 .outlet-service-tags { margin-top: var(--space-xs); }
-.outlet-business-chips { flex: 1 1 310rpx; min-width: 0; }
+.outlet-business-chips { grid-column: 1 / -1; min-width: 0; margin-top: var(--space-xs); }
 .outlet-service-tag, .outlet-business-chip {
   display: inline-flex;
   flex-wrap: wrap;
@@ -133,28 +140,32 @@
   font-size: inherit;
 }
 .outlet-settlement { color: var(--muted); }
-.outlet-business-footer {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-xs);
-  margin-top: var(--space-2xs);
-}
 .outlets-page button.outlet-next-button:not([size="mini"]) {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  flex: none;
-  width: auto;
+  grid-column: 2;
+  grid-row: 1;
+  width: clamp(80px, 21vw, 106px);
   min-height: 44px;
   max-width: 100%;
-  margin: 0 0 0 auto;
-  padding: 4rpx 13rpx;
+  margin: 0;
+  padding: 4rpx 8rpx;
   line-height: 1.25;
 }
 .outlet-next-period { color: var(--muted); font-size: var(--font-caption); }
-.outlet-waiting { margin-top: var(--space-xs); }
+.outlet-waiting { grid-column: 1 / -1; margin-top: var(--space-xs); }
+@media (max-width: 359px) {
+  .outlet-private-entry { grid-template-columns: minmax(0, 1fr); }
+  .outlets-page button.outlet-next-button:not([size="mini"]) {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: end;
+    width: auto;
+    margin-top: var(--space-xs);
+  }
+}
 .country-filter{display:block;margin:0 0 16rpx}
 .region-filter{margin-bottom:12rpx}
 .filter button.pill{width:auto;margin:0;line-height:1.48}

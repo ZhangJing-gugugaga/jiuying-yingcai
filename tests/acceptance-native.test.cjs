@@ -128,8 +128,8 @@ test('workbench business history paginates three authorized record types and ope
   assert.equal(second.hasMore,true);
   const home=page('home');
   await home.onShow();
-  const i=home.data.scopeOutlets.findIndex(row=>row.id==='cs');
-  await home.chooseWorkbenchOutlet(change(i+1));
+  home.toggleWorkbenchScope();
+  await home.chooseWorkbenchOutlet(tap({ id:'cs' }));
   assert.deepEqual(home.data.recentRows.map(row=>row.id),[training.id,ticket.id,report.id]);
   home.openWorkbenchList(tap({section:'records'}));
   assert.equal(calls.at(-1).navigateTo,'/pages/tasks/index?section=records&outlet=cs');
@@ -220,8 +220,8 @@ test('workbench keeps the selected outlet across preview and task list and clear
   const home = page('home');
   await home.onShow();
   assert.equal(home.data.scopeName, '全部授权网点');
-  const outletIndex = home.data.scopeOutlets.findIndex(row => row.id === 'zz');
-  await home.chooseWorkbenchOutlet(change(String(outletIndex + 1)));
+  home.toggleWorkbenchScope();
+  await home.chooseWorkbenchOutlet(tap({ id:'zz' }));
   assert.equal(home.data.scopeOutlet, 'zz');
   assert.equal(home.data.scopeStatus, '营业中');
   const item = home.data.activeRows.find(row => row.reason.includes('仅 zz'));

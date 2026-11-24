@@ -90,7 +90,7 @@ test('workbench keeps the pending count when unread notices cannot load', async 
 
 test('a slow outlet preview cannot overwrite a newer workbench scope', async t => {
   let finishFirst;
-  const { instance } = page('home', {}, t, {
+  const { instance, scrolls } = page('home', {}, t, {
     async request(route) {
       return route === '/api/context' ? { actor: 'partnerA', today } : { items: [] };
     },
@@ -103,13 +103,32 @@ test('a slow outlet preview cannot overwrite a newer workbench scope', async t =
     },
   });
   await instance.onShow();
-  const selectFirst = instance.chooseWorkbenchOutlet({ detail: { value: '1' } });
-  await instance.chooseWorkbenchOutlet({ detail: { value: '2' } });
+  const choose = id => instance.chooseWorkbenchOutlet({
+    currentTarget: { dataset:id ? {id} : {all:true} }
+  });
+  instance.toggleMoreBusiness();
+  instance.toggleWorkbenchScope(tap({fromMore:true}));
+  assert.equal(instance.data.scopeExpanded, true);
+  assert.deepEqual(scrolls, ['#workbench-scope']);
+  await choose('unavailable');
+  assert.equal(instance.data.scopeExpanded, true);
+  assert.equal(instance.data.scopeOutlet, '');
+  const selectFirst = choose('cs');
+  assert.equal(instance.data.scopeExpanded, false);
+  assert.equal(instance.data.moreBusiness, true);
+  instance.toggleWorkbenchScope();
+  await choose('zz');
   assert.equal(instance.data.scopeOutlet, 'zz');
   assert.deepEqual(instance.data.activeRows.map(row => row.id), ['task-zz']);
   finishFirst(entries([{ id: 'stale', kind: 'report_missing', outlet: 'cs', status: 'open' }]));
   await selectFirst;
   assert.deepEqual(instance.data.activeRows.map(row => row.id), ['task-zz']);
+  instance.toggleWorkbenchScope();
+  await choose('');
+  assert.equal(instance.data.scopeOutlet, '');
+  instance.toggleWorkbenchScope();
+  instance.onHide();
+  assert.equal(instance.data.scopeExpanded, false);
 });
 
 test('same-outlet refresh retains the visible previews but only refreshed rows can open', async t => {

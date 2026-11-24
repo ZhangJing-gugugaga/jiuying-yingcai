@@ -61,9 +61,10 @@ function workbenchTask(row){
   const amount=Number.isFinite(row.amount)&&['bill_unpaid','bill_overdue'].includes(row.kind)?'¥'+fmt.money(row.amount):'';
   const outletName=row.outlet&&row.outletName!==row.outlet?row.outletName:'';
   const scopeDetail=[month,amount].filter(Boolean).join(' · ');
+  const workbenchAction={report_returned:'立即修改',training_material_returned:'补充资料'};
   return {id:row.id,title:completed?(taskLabels[row.kind]?.subject||name):name,icon,tone,
     status:completed?'已完成':status,outletName,scopeDetail,scope:[outletName,scopeDetail].filter(Boolean).join(' · '),
-    reason:completed?'':row.returnReason||'',actionText:completed?'查看记录':row.kind==='report_returned'?'立即修改':actionText,canOpen:canOpenRecord(row)};
+    reason:completed?'':row.returnReason||'',actionText:completed?'查看记录':workbenchAction[row.kind]||actionText,canOpen:canOpenRecord(row)};
 }
 
 const categories={

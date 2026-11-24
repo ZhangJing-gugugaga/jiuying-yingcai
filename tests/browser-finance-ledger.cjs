@@ -45,6 +45,46 @@ const output=path.resolve(process.env.FINANCE_BROWSER_OUTPUT||path.join(__dirnam
   await dialog.getByText('finance-browser-receipt-186',{exact:true}).waitFor();
   assert.match(await dialog.textContent(),/209\.07.*0\.01.*209\.06/);
   await page.screenshot({path:path.join(output,'02-hq-receipt-page.png'),fullPage:true});
+  async function checkAmountCards(viewportWidth,expected){
+   await page.setViewportSize({width:viewportWidth,height:950});
+   const layout=await dialog.locator('.billing-amounts .pair b').evaluateAll(nodes=>nodes.map(node=>{
+    const range=document.createRange();
+    range.selectNodeContents(node);
+    const lines=[...range.getClientRects()];
+    const card=node.parentElement.getBoundingClientRect();
+    return {text:node.textContent,lines:lines.length,inside:lines.every(rect=>rect.left>=card.left-1&&rect.right<=card.right+1)};
+   }));
+   assert.equal(layout.length,6);
+   assert.ok(layout.some(item=>item.text===expected),JSON.stringify(layout));
+   assert.ok(layout.every(item=>item.lines===1&&item.inside),JSON.stringify(layout));
+   assert.ok(await dialog.evaluate(node=>node.scrollWidth<=node.clientWidth+1));
+  }
+  await checkAmountCards(1440,'¥\u00a0209.07');
+  await checkAmountCards(390,'¥\u00a0209.07');
+  await checkAmountCards(320,'¥\u00a0209.07');
+  await dialog.evaluate(node=>{node.scrollTop=0;});
+  await page.screenshot({path:path.join(output,'04-hq-amount-narrow.png')});
+
+  // Keep the original receipt and CSV checks on the HTTP fixture. Supply
+  // large integer-cents values only to exercise the detail layout and formatter.
+  const largeDetail='**/api/finance/bills/'+bill.id+'?*';
+  await page.route(largeDetail,async route=>{
+   const response=await route.fetch();
+   const json=await response.json();
+   Object.assign(json.data.bill.ledger,{receivableCents:Number.MAX_SAFE_INTEGER,netReceivedCents:-12345678901,overdueCents:null});
+   await route.fulfill({response,json});
+  });
+  await dialog.getByRole('button',{name:'支付尝试 0',exact:true}).click();
+  const stable=dialog.locator('.billing-amounts .pair b');
+  await stable.getByText('¥ 90,071,992,547,409.91',{exact:true}).waitFor();
+  assert.ok((await stable.allTextContents()).includes('¥\u00a0-123,456,789.01'));
+  assert.ok((await stable.allTextContents()).includes('待确认'));
+  await checkAmountCards(1440,'¥\u00a090,071,992,547,409.91');
+  await checkAmountCards(390,'¥\u00a090,071,992,547,409.91');
+  await checkAmountCards(320,'¥\u00a090,071,992,547,409.91');
+  await page.screenshot({path:path.join(output,'05-hq-long-amount-narrow.png')});
+  await page.unroute(largeDetail);
+  await page.setViewportSize({width:1440,height:1050});
   await dialog.getByRole('button',{name:'关闭',exact:true}).click();
   const download=page.waitForEvent('download');
   await page.getByRole('button',{name:'导出账务 CSV'}).click();

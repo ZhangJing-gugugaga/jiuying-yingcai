@@ -18,7 +18,13 @@ const reviewReasons={
  CLOSURE_REVIEW:'关闭期间待复核',PREPARATION_REVIEW:'筹备期待复核',
  PARTIAL_MONTH_REVIEW:'部分月待复核',FULL_MONTH_OPERATION_UNCONFIRMED:'完整经营月证据不足',
 };
-const cents=value=>value==null?'待确认':'¥ '+(value/100).toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2});
+function cents(value){
+ if(value==null)return '待确认';
+ const absolute=Math.abs(value);
+ const fraction=absolute%100;
+ const whole=(absolute-fraction)/100;
+ return '¥\u00a0'+(value<0?'-':'')+whole.toLocaleString('zh-CN')+'.'+String(fraction).padStart(2,'0');
+}
 function financialStatus(section,row,labels){
  if(section==='refundRequests'){
   if(row.status==='approved')return row.channelRefundStatus==='pending'?'退款办理中':'退款申请已通过';
@@ -29,7 +35,7 @@ function financialStatus(section,row,labels){
 }
 export function billingLedger({api,esc,pair,panel,button,modal,empty,labels}){
  function metrics(ledger){
-  return `<div class="coverage-grid">${amounts.map(([k,label])=>pair(label,cents(ledger[k]))).join('')}</div>`;
+  return `<div class="coverage-grid billing-amounts">${amounts.map(([k,label])=>pair(label,cents(ledger[k]))).join('')}</div>`;
  }
 
  function overview(snapshot){

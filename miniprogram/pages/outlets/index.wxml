@@ -92,7 +92,7 @@
     <block wx:if="{{mode==='list' || mapError || (!mapLoading && !markers.length)}}">
     <block wx:for="{{groups}}" wx:for-item="group" wx:key="key">
       <view wx:if="{{group.label}}" class="outlet-group">{{group.label}}</view>
-      <view wx:for="{{group.rows}}" wx:key="id" class="card outlet-entry {{directory || isPublic ? '' : 'outlet-private-entry'}}">
+      <view wx:for="{{group.rows}}" wx:key="id" class="card outlet-entry {{directory || isPublic ? '' : 'outlet-private-entry'}} {{!directory && !isPublic && item.nextAction ? 'outlet-entry-with-action' : ''}}">
         <view class="outlet-card-link" data-id="{{item.id}}" bindtap="open" hover-class="tap-feedback" aria-role="button" aria-label="查看{{item.name}}详情" aria-disabled="{{loading}}">
           <view class="outlet-card-icon" aria-hidden="true"><t-icon name="store" size="43rpx"/></view>
           <view class="outlet-card-copy">
@@ -108,21 +108,19 @@
           <t-icon class="outlet-detail-label" name="chevron-right" size="33rpx" aria-hidden="true"/>
         </view>
         <block wx:if="{{!directory && !isPublic}}">
-          <view wx:if="{{item.businessChips.length || item.nextAction}}" class="outlet-business-footer">
-            <view wx:if="{{item.businessChips.length}}" class="outlet-business-chips">
-              <view wx:for="{{item.businessChips}}" wx:for-item="chip" wx:key="key" class="outlet-business-chip"
-                aria-label="{{chip.title+'，'+chip.monthText+'，'+chip.statusText}}">
-                <text>{{chip.label}}</text>
-                <text class="badge outlet-business-state {{chip.tone}}">{{chip.stateText}}</text>
-                <text wx:if="{{chip.settlementText}}" class="outlet-settlement">{{chip.settlementText}}</text>
-              </view>
+          <view wx:if="{{item.businessChips.length}}" class="outlet-business-chips">
+            <view wx:for="{{item.businessChips}}" wx:for-item="chip" wx:key="key" class="outlet-business-chip"
+              aria-label="{{chip.title+'，'+chip.monthText+'，'+chip.statusText}}">
+              <text>{{chip.label}}</text>
+              <text class="badge outlet-business-state {{chip.tone}}">{{chip.stateText}}</text>
+              <text wx:if="{{chip.settlementText}}" class="outlet-settlement">{{chip.settlementText}}</text>
             </view>
-            <button wx:if="{{item.nextAction}}" class="outline small outlet-next-button" data-id="{{item.id}}" bindtap="outletAction" aria-disabled="{{loading}}"
-              aria-label="{{item.name+'，'+item.nextAction.text+'，'+item.nextAction.label}}">
-              <text>{{item.nextAction.label}}</text>
-              <text class="outlet-next-period">{{item.nextAction.monthText}}</text>
-            </button>
           </view>
+          <button wx:if="{{item.nextAction}}" class="outline small outlet-next-button" data-id="{{item.id}}" bindtap="outletAction" aria-disabled="{{loading}}"
+            aria-label="{{item.name+'，'+item.nextAction.text+'，'+item.nextAction.label}}">
+            <text>{{item.nextAction.label}}</text>
+            <text class="outlet-next-period">{{item.nextAction.monthText}}</text>
+          </button>
           <view wx:if="{{item.waitingText}}" class="muted outlet-waiting">{{item.waitingText}}</view>
         </block>
       </view>
