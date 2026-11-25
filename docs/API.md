@@ -1,6 +1,6 @@
 # 九盈英才 API 契约
 
-本页按迭代记录接口约定，[OpenAPI 文件](openapi.json)标记为 V3.3。查询 V4.1 的入口、权限和新增模块时，同时参见[架构](ARCHITECTURE.md)与[服务端路由](../server/index.cjs)。
+本页按迭代记录接口约定，[OpenAPI 文件](openapi.json)标记为 V3.3。查询当前 V3.4.4 的入口、权限和新增模块时，同时参见[架构](ARCHITECTURE.md)与[服务端路由](../server/index.cjs)。
 
 OpenAPI3.1见openapi.json；所有JSON成功{data,requestId}、失败{error:{code,message},requestId}，Bearer资源权限由服务端判定。命令POST /api/commands，{command,payload}，Idempotency-Key为8—128字符；同subject同键同请求重放，载荷变化409，当前授权重查。金额CNY元输入、最多两位小数，整数分运算；null不是0。
 
@@ -134,7 +134,7 @@ staff grants增加validFrom/validUntil精确ISO时间，撤权立即影响SQL to
 
 Dashboard新增reportingCoverage(expected/submitted/pendingReview/approved/exempt/overdue/notApplicable/awaitingEnrollment/notRequired/settled/complete)，免报单列不补0；settlement保存覆盖快照。导出成功写export.generated审计，包含范围/格式/行数/方法版本/requestId。公开/内部字段隔离必须由服务端实施。
 
-供应商请求有超时与响应体边界；微信/腾讯/商户/公众号代码已实现，真实授权联调未通过。订阅消息/地理编码另外仍未接。生产未配置能力明确拒绝，不回落Mock。
+供应商请求有超时与响应体边界；微信/腾讯/商户/公众号代码已实现，正式环境联调待验。订阅消息/地理编码另外仍未接。生产未配置能力明确拒绝，不回落Mock。
 
 公开电话：public.profile新增contactPublished布尔值，默认false；只有明确发布且contactPublished=true才返回publicProfiles.contact。outlets.phone仍不默认公开，未授权电话不得从其他字段旁路披露。
 

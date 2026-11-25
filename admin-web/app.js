@@ -1,6 +1,6 @@
 import {createClient} from './client.js';
 import {operations} from './operations.js';
-import {readTaskRoute, tasks} from './tasks.js';
+import {readTaskRoute, taskDate, tasks} from './tasks.js';
 import {approvalHistory} from './approval-history.js';
 import {billingLedger} from './billing-ledger.js';
 import {staffLoginUi} from './staff-login.js';
@@ -209,7 +209,15 @@ async function loadPage(isCurrent){
   if(ui.collectionQ)params.q=ui.collectionQ;
   if(ui.collectionStatus)params.status=ui.collectionStatus;
   if(ui.collectionCity)params.city=ui.collectionCity;
-  if(ui.page==='reports'){params.month=ui.month;if(own()&&ui.shop)params.outlet=ui.shop;}
+  if(ui.page==='reports'){
+    params.month=ui.month;
+    if(own()&&ui.shop)params.outlet=ui.shop;
+    if(['manager','ops','finance'].includes(session.actor)){
+      params.includeRevenueComparison='true';
+      params.includeSubmitter='true';
+      params.includeOutletPhoto='true';
+    }
+  }
   if(ui.page==='locations'&&key==='requests')params.scope='location';
   if(ui.page==='billing'){
     if(ui.billingOutlet)params.outlet=ui.billingOutlet;
@@ -288,7 +296,8 @@ async function refreshTasks(route,isCurrent){
       if(!isCurrent())return;
       if(row.queue!==route.queue||!row.canViewBusiness||!row.businessType||!row.businessId)throw queueError('无权查看关联业务',403);
       const [record,replacement]=await Promise.all([
-        api('/collections/'+encodeURIComponent(row.businessType)+'/'+encodeURIComponent(row.businessId)),
+        api('/collections/'+encodeURIComponent(row.businessType)+'/'+encodeURIComponent(row.businessId)
+          +(row.businessType==='reports'&&['manager','ops','finance'].includes(session.actor)?'?includeRevenueComparison=true&includeSubmitter=true&includeOutletPhoto=true':'')),
         row.resultSettlementId?api('/collections/settlements/'+encodeURIComponent(row.resultSettlementId)):null
       ]);
       if(!isCurrent())return;
@@ -457,6 +466,26 @@ function shell(body){
       <main class="content" id="workspace-body">${body}</main>
     </div>
   </div>`;
+  loadReportOutletPhotos($('workspace-body'));
+}
+function loadReportOutletPhotos(workspace){
+  const photos=new Map();
+  for(const frame of workspace.querySelectorAll('[data-report-outlet-photo]')){
+    const query=new URLSearchParams({publishedOutletPhoto:frame.dataset.outlet});
+    const path='/files/'+encodeURIComponent(frame.dataset.reportOutletPhoto)+'?'+query;
+    if(!photos.has(path))photos.set(path,api(path,{binary:true,ignoreUnauthorized:true}));
+    photos.get(path).then(async ({blob})=>{
+      if(!frame.isConnected)return;
+      const url=URL.createObjectURL(blob);
+      try{
+        const image=new Image();
+        image.alt='';
+        image.src=url;
+        await image.decode();
+        if(frame.isConnected)frame.replaceChildren(image);
+      }finally{URL.revokeObjectURL(url);}
+    }).catch(()=>{});
+  }
 }
 const mobileWorkspace=window.matchMedia('(max-width: 760px)');
 function setWorkspaceMenu(open,restoreFocus=false){
@@ -542,7 +571,65 @@ function ensureReportWriteScope(payload){
   if(ui.page!=='reports'||payload.outlet!==ui.shop||payload.month!==ui.month||
      loaded?.outlet!==ui.shop||loaded?.month!==ui.month)throw Error('网点或月份正在切换，请等待所选记录加载。');
 }
-function reportCard(r,withHistory=false){return `<section class="record report-record"><div class="record-top"><div><h3>${esc(r.outletName || name(r.outlet))} · ${esc(r.month)}</h3><small>V${esc(r.version)} ${r.current?'· 当前有效版':''} ${r.late?'· 逾期补报':''}${r.dueOn?' · 报送截止 '+esc(r.dueOn):''}</small></div>${chip(r.status)}</div>${r.summaryOnly?notice('历史版本仅展示处理摘要；完整原始数据与内部审批记录由总部保留。',true):reportValues(r)}${r.correctionType?pair('更正分类',r.correctionType==='field'?'单字段更正':'整表更正'):''}${Object.keys(r.correctionDiff||{}).length?panel('本次变更对照',Object.entries(r.correctionDiff).map(([k,v])=>pair(metrics[k]||({note:'经营说明'})[k]||k,String(v.before??'未填')+' → '+String(v.after??'未填'))).join('')):''}${r.reviewNote?notice('处理意见：'+r.reviewNote):''}${r.revoked?notice('该版本已走复核撤销流程，原数据和审批记录保留；不再计入有效统计。'):''}${own()&&r.current?button('发起更正','correct',{id:r.id}):''}${session.actor==='manager'&&r.current?button('发起误审批纠正 / 撤销','revoke',{id:r.id}):''}${assignmentNotice(r,"review.report")}${canReviewReport(r)?form('review.report',field('id','',r.id,'hidden')+select('decision','处理决定',[['approve',r.status==='finance'?'复核通过':'审核通过'],['return','退回修改']])+area('note','审批意见（退回必填）','','maxlength="800"')+submit(r.status==='finance'?'确认财务复核':'确认审核')):''}${withHistory?approval.mount('reports',r.id):approval.trigger('reports',r.id)}</section>`}
+function reportRevenueComparison(comparison) {
+  if(!comparison)return '';
+  const {month, percent}=comparison;
+  const label='营业收入较上月（'+month+'）';
+  if(!Number.isFinite(percent))return pair(label,'暂无可比数据');
+  const text=Intl.NumberFormat('zh-CN',{
+    style:'percent',signDisplay:'exceptZero',maximumFractionDigits:2
+  }).format(percent/100);
+  const direction=percent>0?' is-up':percent<0?' is-down':'';
+  return `<div class="pair report-revenue-comparison"><span>${esc(label)}</span><b class="report-revenue-change${direction}">${esc(text)}</b></div>`;
+}
+function reportCard(r, withHistory = false) {
+  const version = [
+    'V' + r.version,
+    r.current ? '当前有效版' : '',
+    r.late ? '逾期补报' : ''
+  ].filter(Boolean).join(' · ');
+  const values = r.summaryOnly
+    ? notice('历史版本仅展示处理摘要；完整原始数据与内部审批记录由总部保留。', true)
+    : `<section class="report-record-values"><h4>本期数据</h4>${reportValues(r)}${reportRevenueComparison(r.revenueComparison)}</section>`;
+  const diff = Object.entries(r.correctionDiff || {});
+  const financeReview = r.status === 'finance';
+  const review = canReviewReport(r) ? form('review.report',
+    field('id', '', r.id, 'hidden')
+      + area('note', '审批意见（退回必填）', '', 'maxlength="800"')
+      + `<div class="form-actions report-review-actions">
+        <button class="button" type="submit" name="decision" value="return">退回修改</button>
+        <button class="button primary" type="submit" name="decision" value="approve">${financeReview ? '财务复核通过' : '审核通过'}</button>
+      </div>`
+  ) : '';
+  return `<section class="record report-record">
+    <div class="report-record-context">
+      <div class="record-top">
+        <div class="report-record-identity">
+          <span class="report-record-icon"${r.outletPhotoId ? ` data-report-outlet-photo="${esc(r.outletPhotoId)}" data-outlet="${esc(r.outlet)}"` : ''}>${I('store')}</span>
+          <div>
+            <h3>${esc(r.outletName || name(r.outlet))} · ${esc(r.month)}</h3>
+            <small>${esc(version)}${r.dueOn ? ` <span class="report-record-deadline">· 报送截止 ${esc(r.dueOn)}</span>` : ''}</small>
+          </div>
+        </div>
+        ${chip(r.status)}
+      </div>
+      ${Object.hasOwn(r, 'submitterName') ? pair('提交人', r.submitterName || '未留存姓名') : ''}
+      ${r.createdAt ? pair('提交时间', taskDate(r.createdAt)) : ''}
+    </div>
+    ${values}
+    ${r.correctionType ? pair('更正分类', r.correctionType === 'field' ? '单字段更正' : '整表更正') : ''}
+    ${diff.length ? panel('本次变更对照', diff.map(([key, value]) =>
+      pair(metrics[key] || (key === 'note' ? '经营说明' : key), String(value.before ?? '未填') + ' → ' + String(value.after ?? '未填'))
+    ).join('')) : ''}
+    ${r.reviewNote ? notice('处理意见：' + r.reviewNote) : ''}
+    ${r.revoked ? notice('该版本已走复核撤销流程，原数据和审批记录保留；不再计入有效统计。') : ''}
+    ${own() && r.current ? button('发起更正', 'correct', {id: r.id}) : ''}
+    ${session.actor === 'manager' && r.current ? button('发起误审批纠正 / 撤销', 'revoke', {id: r.id}) : ''}
+    ${assignmentNotice(r, 'review.report')}
+    ${review}
+    ${withHistory ? approval.mount('reports', r.id) : approval.trigger('reports', r.id)}
+  </section>`;
+}
 function reports(){
   const partner=own();
   const rs=(state.reports||[]).filter(r=>r.month===ui.month&&(!partner||!ui.shop||r.outlet===ui.shop)).sort((a,b)=>b.version-a.version);
@@ -949,7 +1036,25 @@ case'billing-catchup':return await financeLedger.reviewQueue(Number(d.offset)||0
 case'billing-review-generate':modal('复核后人工出账',pair('协议',d.id)+pair('账期',d.month)+form('billing.generate',field('agreementId','',d.id,'hidden')+field('month','',d.month,'hidden')+area('reason','已确认整月收费依据')+submit('确认按协议出账')));return;
 case'billing-export':{const result=await api('/finance/export?'+new URLSearchParams(billingScope()),{binary:true});download(result.blob,'九盈英才_财务对账.csv',result.type);return;}
 case'payment-close':modal('确认关闭已到期订单',pair('支付订单',d.id)+notice('服务器会先核验订单未支付且已经到期，符合条件才向支付渠道申请关闭。关闭订单不等于退款；状态仍以渠道核验结果为准。',true)+button('确认核验并关闭','payment-close-confirm',{id:d.id},'primary'));return;case'payment-query':case'payment-close-confirm':{if(ui.busy)return toast('上一项操作仍在处理中，请稍候');ui.busy=true;b.disabled=true;try{const result=await api('/payments/'+encodeURIComponent(d.id)+(d.action==='payment-query'?'/query':'/close'),{method:'POST',body:{}});if($('modal').open)$('modal').close();await refresh();modal('支付核验结果',pair('支付订单',result.payment.id)+pair('支付状态',result.payment.status==='pending'?'待确认':labels[result.payment.status]||result.payment.status)+pair('账单状态',labels[result.bill.status]||result.bill.status)+notice('以上为服务端核验结果，付款与实收记录由服务端确认后更新。',true))}catch(error){const message='支付状态未确认：'+error.message+(error.requestId?' · 请求编号 '+error.requestId:'');if($('modal').open){let alert=$('modalBody').querySelector('.payment-error');if(!alert){alert=document.createElement('div');alert.className='form-error payment-error';alert.setAttribute('role','alert');$('modalBody').querySelector('header').after(alert)}alert.textContent=message}toast(message)}finally{ui.busy=false;b.disabled=false}return}case'pay':await command('payment.start',{billId:d.id});break;case'payment-result':await command('payment.resolve',{id:d.id,outcome:d.outcome});break;case'faq':toast(d.text);return;case'human':await command('support.human',{id:d.id});break;case'claim':await command('support.claim',{id:d.id});break;case'read':await command('message.read',{id:d.id});break;case'export':return await exportData(d.format)}toast('操作已保存');await refresh()}catch(err){toast(err.message)}});
-document.addEventListener('submit',async e=>{const joiningForm=e.target.closest('form[data-onboarding-form]');if(joiningForm){e.preventDefault();return await onboarding.save(joiningForm,e.submitter)}const f=e.target.closest('form[data-command]');if(!f)return;e.preventDefault();let cmd=f.dataset.command,d=Object.fromEntries(new FormData(f));const submitButton=f.querySelector('button[type="submit"]');if(submitButton?.disabled)return;try{if(submitButton)submitButton.disabled=true;
+document.addEventListener('submit',async e=>{
+  const joiningForm=e.target.closest('form[data-onboarding-form]');
+  if(joiningForm){e.preventDefault();return await onboarding.save(joiningForm,e.submitter)}
+  const f=e.target.closest('form[data-command]');
+  if(!f)return;
+  e.preventDefault();
+  let cmd=f.dataset.command,d=Object.fromEntries(new FormData(f));
+  const submitButtons=[...f.querySelectorAll('button[type="submit"]:enabled')];
+  if(e.submitter?.disabled||!submitButtons.length)return;
+  try{
+    for(const button of submitButtons)button.disabled=true;
+    if(cmd==='review.report'){
+      d.decision=e.submitter?.value;
+      if(!['approve','return'].includes(d.decision))throw Error('请选择退回修改或审核通过。');
+      if(d.decision==='return'&&!d.note?.trim()){
+        f.elements.note.focus();
+        throw Error('请填写退回意见。');
+      }
+    }
 if(cmd.startsWith('approval-export-')){
  const outcome=await formExports.submitAction(cmd,f,d);
  if(outcome!=='refresh'&&$('modal').open)$('modal').close();
@@ -959,7 +1064,7 @@ if(cmd.startsWith('approval-export-')){
 if(cmd==='staff-sms-login')return await acceptStaffSession(await staffIdentity.verifySms(d));
 if(cmd==='staff-wechat-start'||cmd==='staff-wechat-bind')return await staffIdentity.beginWechat(d.password);
 if(cmd==='staff-mobile-configure')return await staffIdentity.configureMobile(d);
-if(['password-login','activate'].includes(cmd)){if(cmd==='activate'&&d.password!==d.confirmPassword)throw Error('两次输入的密码不一致');const result=await api(cmd==='activate'?'/auth/activate':'/auth/password',{method:'POST',body:cmd==='activate'?{token:d.token,password:d.password}:{username:d.username,password:d.password}});if(!result.token){ui.loginMode='password';renderLogin();toast('激活完成，请使用个人账号登录');return}session=result;sessionStorage.setItem('jy-session',JSON.stringify(session));ui.page='home';await refresh();return}if(cmd==='login'){const actor=d.customActor?.trim()||d.actor;const s=await api('/auth/dev',{method:'POST',body:{actor}});session=s;sessionStorage.setItem('jy-session',JSON.stringify(session));ui={...ui,page:'home',outlet:'all',owner:'all',detail:null};await refresh();return}if(cmd==='report.correct'){d.fields=d.correctionType==='field'?[d.correctionField]:[];delete d.correctionField}if(cmd==='enrollment.confirm')d.applicable=d.applicable==='true';if(cmd==='report.submit')ensureReportWriteScope(d);if(cmd==='request.submit'){const {type,outlet,...data}=d;if(type==='enrollment')data.applicable=data.applicable==='true';if(['newOutlet','locationChange'].includes(type)){const evidence=locationEvidenceForWrite(f);data.coords=evidence.coords;data.photo=evidence.photo;data.note=data.reason}d={type,outlet,data}}if(cmd==='location.submit'){const evidence=locationEvidenceForWrite(f);d={...d,coords:evidence.coords,photo:evidence.photo,capturedAt:evidence.coords?.capturedAt};}if(cmd==='location.baseline.confirm'){d={outlet:d.outlet,coords:{lat:Number(d.latitude),lng:Number(d.longitude),source:'manual',coordinateSystem:'GCJ-02'},reference:d.reference,reason:d.reason}}if(cmd==='content.service.save')d={...d,slot:Number(d.slot),expectedVersion:Number(d.expectedVersion),imageId:d.imageId||null,published:d.published==='true'};if(cmd==='content.publication')d={...d,expectedVersion:Number(d.expectedVersion),...(d.sourceVersion?{sourceVersion:Number(d.sourceVersion)}:{})};if(cmd==='grant.set'){const fd=new FormData(f);d={outlets:fd.getAll('outlets'),metrics:fd.getAll('metrics'),reviewOutlets:fd.getAll('reviewOutlets')}}if(cmd==='account.update'&&!d.mobile)delete d.mobile;if(cmd==='summary.adjust'){d={outlet:d.outlet,month:d.month,values:{[d.metric]:d.value},reason:d.reason}}if(cmd==='support.action'){const requestSupplement=d.operation==='requestSupplement';cmd='support.'+(requestSupplement?'reply':d.operation);d={id:d.id,text:d.text,note:d.text,reason:d.text,department:d.department,...(requestSupplement?{requestSupplement:true}:{})}}if(cmd==='support.settings'){const minutes=x=>/^\d+$/.test(x)?Number(x):null;d={hours:d.hours,phone:d.phone?.trim()||null,sla:{complaint:minutes(d.complaint),aftersale:minutes(d.aftersale),exception:minutes(d.exception)}}}if(cmd==='support.rate')d.rating=Number(d.rating);if(cmd==='content.update')d={...d,key:d.key||'brand',expectedVersion:Number(d.expectedVersion),text:d.intro,imageId:d.imageId||null,published:d.published==='true'};if(cmd==='support.ticket'&&!d.linkedTicketId)delete d.linkedTicketId;d=taskDesk.normalize(cmd,op.normalize(cmd,d,f));const saved=await command(cmd,d);if(cmd==='import.preview'){await refresh();await op.detail('importBatches',saved.id);toast(saved.errorCount?'存在校验错误，请修正后重新预览':'校验通过，可在批次列表确认导入');return}if(cmd==='jobs.run'){await refresh();modal('周期检查结果',pair('批次编号',saved.id)+pair('状态',saved.status)+pair('后续游标',saved.nextCursor??'已处理完本批范围')+notice('业务待办与站内提醒已按已配置规则生成。外部推送取决于真实服务接入。',true));return}if(cmd==='account.create'){modal('负责人账号已创建',pair('个人登录账号',saved.actor||saved.account?.actor||'请查看账号记录')+notice('账号创建后，签发一次性激活码给本人设置密码。',true)+button('签发激活码','activation',{actor:saved.actor||saved.account?.actor}));await refresh();return}if($('modal').open)$('modal').close();toast('已保存至后台数据库');await refresh()}catch(err){let error=f.querySelector('.form-error');if(!error){error=document.createElement('div');error.className='form-error';error.setAttribute('role','alert');f.prepend(error)}error.textContent=err.message+(err.requestId?' · 请求编号 '+err.requestId:'');toast(err.message)}finally{if(submitButton)submitButton.disabled=false}});
+if(['password-login','activate'].includes(cmd)){if(cmd==='activate'&&d.password!==d.confirmPassword)throw Error('两次输入的密码不一致');const result=await api(cmd==='activate'?'/auth/activate':'/auth/password',{method:'POST',body:cmd==='activate'?{token:d.token,password:d.password}:{username:d.username,password:d.password}});if(!result.token){ui.loginMode='password';renderLogin();toast('激活完成，请使用个人账号登录');return}session=result;sessionStorage.setItem('jy-session',JSON.stringify(session));ui.page='home';await refresh();return}if(cmd==='login'){const actor=d.customActor?.trim()||d.actor;const s=await api('/auth/dev',{method:'POST',body:{actor}});session=s;sessionStorage.setItem('jy-session',JSON.stringify(session));ui={...ui,page:'home',outlet:'all',owner:'all',detail:null};await refresh();return}if(cmd==='report.correct'){d.fields=d.correctionType==='field'?[d.correctionField]:[];delete d.correctionField}if(cmd==='enrollment.confirm')d.applicable=d.applicable==='true';if(cmd==='report.submit')ensureReportWriteScope(d);if(cmd==='request.submit'){const {type,outlet,...data}=d;if(type==='enrollment')data.applicable=data.applicable==='true';if(['newOutlet','locationChange'].includes(type)){const evidence=locationEvidenceForWrite(f);data.coords=evidence.coords;data.photo=evidence.photo;data.note=data.reason}d={type,outlet,data}}if(cmd==='location.submit'){const evidence=locationEvidenceForWrite(f);d={...d,coords:evidence.coords,photo:evidence.photo,capturedAt:evidence.coords?.capturedAt};}if(cmd==='location.baseline.confirm'){d={outlet:d.outlet,coords:{lat:Number(d.latitude),lng:Number(d.longitude),source:'manual',coordinateSystem:'GCJ-02'},reference:d.reference,reason:d.reason}}if(cmd==='content.service.save')d={...d,slot:Number(d.slot),expectedVersion:Number(d.expectedVersion),imageId:d.imageId||null,published:d.published==='true'};if(cmd==='content.publication')d={...d,expectedVersion:Number(d.expectedVersion),...(d.sourceVersion?{sourceVersion:Number(d.sourceVersion)}:{})};if(cmd==='grant.set'){const fd=new FormData(f);d={outlets:fd.getAll('outlets'),metrics:fd.getAll('metrics'),reviewOutlets:fd.getAll('reviewOutlets')}}if(cmd==='account.update'&&!d.mobile)delete d.mobile;if(cmd==='summary.adjust'){d={outlet:d.outlet,month:d.month,values:{[d.metric]:d.value},reason:d.reason}}if(cmd==='support.action'){const requestSupplement=d.operation==='requestSupplement';cmd='support.'+(requestSupplement?'reply':d.operation);d={id:d.id,text:d.text,note:d.text,reason:d.text,department:d.department,...(requestSupplement?{requestSupplement:true}:{})}}if(cmd==='support.settings'){const minutes=x=>/^\d+$/.test(x)?Number(x):null;d={hours:d.hours,phone:d.phone?.trim()||null,sla:{complaint:minutes(d.complaint),aftersale:minutes(d.aftersale),exception:minutes(d.exception)}}}if(cmd==='support.rate')d.rating=Number(d.rating);if(cmd==='content.update')d={...d,key:d.key||'brand',expectedVersion:Number(d.expectedVersion),text:d.intro,imageId:d.imageId||null,published:d.published==='true'};if(cmd==='support.ticket'&&!d.linkedTicketId)delete d.linkedTicketId;d=taskDesk.normalize(cmd,op.normalize(cmd,d,f));const saved=await command(cmd,d);if(cmd==='import.preview'){await refresh();await op.detail('importBatches',saved.id);toast(saved.errorCount?'存在校验错误，请修正后重新预览':'校验通过，可在批次列表确认导入');return}if(cmd==='jobs.run'){await refresh();modal('周期检查结果',pair('批次编号',saved.id)+pair('状态',saved.status)+pair('后续游标',saved.nextCursor??'已处理完本批范围')+notice('业务待办与站内提醒已按已配置规则生成。外部推送取决于真实服务接入。',true));return}if(cmd==='account.create'){modal('负责人账号已创建',pair('个人登录账号',saved.actor||saved.account?.actor||'请查看账号记录')+notice('账号创建后，签发一次性激活码给本人设置密码。',true)+button('签发激活码','activation',{actor:saved.actor||saved.account?.actor}));await refresh();return}if($('modal').open)$('modal').close();toast('已保存至后台数据库');await refresh()}catch(err){let error=f.querySelector('.form-error');if(!error){error=document.createElement('div');error.className='form-error';error.setAttribute('role','alert');f.prepend(error)}error.textContent=err.message+(err.requestId?' · 请求编号 '+err.requestId:'');toast(err.message)}finally{for(const button of submitButtons)button.disabled=false}});
 document.addEventListener('input',e=>{if(e.target.matches('form[data-onboarding-form="configure"] [name="payee"]'))onboarding.change(e.target)});
 document.addEventListener('change',async e=>{const n=e.target;try{if(n.hasAttribute('data-onboarding-filter')||n.matches('form[data-onboarding-form="configure"] [name="qrFile"]'))return await onboarding.change(n);if(n.dataset.exportOptions||n.hasAttribute('data-export-category')){await formExports.change(n);return}if(n.dataset.taskFilter){const route=readTaskRoute(location.hash);if(route)taskDesk.filter(route,n.dataset.taskFilter,n.value);return}
 if(n.hasAttribute('data-task-assignee')){const form=n.closest('form');form.elements.assigneeUserId.value='';for(const option of form.querySelectorAll('#task-staff-list option'))option.disabled=option.dataset.role!==n.value}

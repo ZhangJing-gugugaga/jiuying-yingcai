@@ -1,6 +1,6 @@
 # 数据字典与前向迁移
 
-V4.1 共有 28 项迁移。本页按演进阶段记录，下面的表数和退款能力描述对应各阶段。完整结构以[编号 SQL](../database/)为准。
+V3.4.4 当前工作区含 001–032 号迁移，V4.1 历史基线截至 028。下文表数和退款能力描述对应各自演进阶段。完整结构以[编号 SQL](../database/)为准。
 
 现有20业务表、003新增15表、007合作留言，009增加contentVersions，业务实体共37；每表id/owner/outlet/status/month/version/current/amount_cents/data/created_at，JSON保留领域细节，投影便于查询和约束。不是全字段关系规范化模型，多数关联由事务和业务校验保证。
 
@@ -97,3 +97,12 @@ schema_migrations逐版本记录。编号按序事务执行，失败ROLLBACK；�
 - [026_approval_export_grants](../database/026_approval_export_grants.sql)
 - [027_training](../database/027_training.sql)
 - [028_support_ticket_files](../database/028_support_ticket_files.sql)
+
+## V3.4.4 扩展迁移
+
+| 迁移 | 数据与兼容 |
+| --- | --- |
+| [029](../database/029_onboarding.sql) | 新增加盟申请记录。 |
+| [030](../database/030_onboarding_supplement_scope.sql) | 记录补件所属申请及版本。 |
+| [031](../database/031_public_outlet_photos.sql) | 登记公开网点照片用途。 |
+| [032](../database/032_report_submitter_name.sql) | 为月报提交事件留存姓名快照。历史事件继续可读，缺失姓名保留为空。 |

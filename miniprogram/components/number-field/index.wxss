@@ -1,5 +1,7 @@
 .number-field { min-width: 0; }
-.number-label { display: block; margin-bottom: var(--space-sm); color: var(--text); font-weight: 600; }
+.number-label { display: block; margin-bottom: var(--space-sm); color: var(--text); font-size: var(--number-label-size, inherit); font-weight: 600; }
+.number-required { margin-left: var(--space-xs); color: var(--error-text); }
+.number-control-wrap { position: relative; }
 .number-control {
   box-sizing: border-box;
   width: 100%;
@@ -8,10 +10,26 @@
   border: 1rpx solid var(--border-strong);
   border-radius: var(--radius-control);
   color: var(--text);
-  background: var(--background);
+  background: var(--number-control-background, var(--background));
+  font-size: var(--number-value-size, inherit);
 }
 .number-control.focused { border-color: var(--brand); box-shadow: 0 0 0 3rpx var(--focus-ring); }
 .number-control.invalid { border-color: var(--error-text); }
+.number-control.number-control-formatted { color: transparent; }
+.number-preview {
+  position: absolute;
+  top: 50%;
+  right: var(--space-lg);
+  left: var(--space-lg);
+  transform: translateY(-50%);
+  overflow: hidden;
+  color: var(--text);
+  font-size: var(--number-value-size, inherit);
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
 .number-hint, .number-error { margin-top: var(--space-xs); font-size: var(--font-caption); overflow-wrap: anywhere; }
 .number-hint { color: var(--muted); }
 .number-error { color: var(--error-text); }

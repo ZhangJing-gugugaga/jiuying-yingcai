@@ -96,12 +96,15 @@ test('workbench keeps the pending count when unread notices cannot load', async 
 
 test('a slow outlet preview cannot overwrite a newer workbench scope', async t => {
   let finishFirst;
+  const sameNameOutlets = outlets.map(outlet => ({
+    ...outlet, name: '中心校', city: outlet.id === 'cs' ? '长沙' : '株洲',
+  }));
   const { instance, scrolls } = page('home', {}, t, {
     async request(route) {
       return route === '/api/context' ? { actor: 'partnerA', today } : { items: [] };
     },
     async collection(name, filters) {
-      if (name === 'outlets') return entries(outlets);
+      if (name === 'outlets') return entries(sameNameOutlets);
       if (name !== 'businessTasks' || filters.status !== 'open') return entries([]);
       if (filters.outlet === 'cs') return new Promise(resolve => { finishFirst = resolve; });
       return filters.outlet === 'zz' ? entries([{ id: 'task-zz', kind: 'report_missing',
@@ -122,9 +125,12 @@ test('a slow outlet preview cannot overwrite a newer workbench scope', async t =
   const selectFirst = choose('cs');
   assert.equal(instance.data.scopeExpanded, false);
   assert.equal(instance.data.moreBusiness, true);
+  assert.deepEqual(scrolls, ['#workbench-scope', '#workbench-more']);
   instance.toggleWorkbenchScope();
   await choose('zz');
   assert.equal(instance.data.scopeOutlet, 'zz');
+  assert.deepEqual(scrolls, ['#workbench-scope', '#workbench-more']);
+  assert.match(instance.data.scopeName, /^中心校 · 株洲/);
   assert.deepEqual(instance.data.activeRows.map(row => row.id), ['task-zz']);
   finishFirst(entries([{ id: 'stale', kind: 'report_missing', outlet: 'cs', status: 'open' }]));
   await selectFirst;
@@ -143,7 +149,7 @@ test('same-outlet refresh retains the visible previews but only refreshed rows c
   let delay = false;
   let failContext = false;
   const task = { id: 'pending-cs', kind: 'report_missing', status: 'open', outlet: 'cs', month: '2027-02' };
-  const record = { id: 'recent-cs', kind: 'report', outlet: 'cs', month: '2027-02', status: 'approved' };
+  const record = { id: 'recent-cs', kind: 'report', outlet: 'cs', month: '2027-02', status: 'approved', occurredAt: '2027-03-03T18:30:00Z' };
   const { instance, routes } = page('home', {}, t, {
     async request(route) {
       if (route === '/api/context') {
@@ -170,6 +176,8 @@ test('same-outlet refresh retains the visible previews but only refreshed rows c
   assert.equal(instance.data.activeRows[0].id, task.id);
   assert.equal(instance.data.recentRows[0].id, record.id);
   assert.equal(instance.data.recentRows[0].icon, 'task-checked');
+  assert.equal(instance.data.recentRows[0].previewTime, '03-04 02:30');
+  assert.equal(instance.data.recentRows[0].timeText, '2027年03月04日 02:30');
   assert.equal(instance.data.trainingRecord.id, 'training-cs');
   await instance.openWorkbenchTask(tap({ id: task.id }));
   await instance.openWorkbenchTask(tap({ key: instance.data.recentRows[0].rowKey }));

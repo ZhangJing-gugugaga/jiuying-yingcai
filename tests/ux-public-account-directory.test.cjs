@@ -103,6 +103,54 @@ test('public directory loads the country options before the visitor selects a co
   assert.ok(index > 0, 'Singapore is selectable on the first tap');
   await directory.filterCountry({ detail: { value: index } });
   assert.deepEqual(directory.data.rows.map(outlet => [outlet.id, outlet.area, outlet.address]), [[id, '', body.address]]);
+  assert.equal(directory.data.rows[0].locationText, body.address);
+  assert.equal(directory.data.rows[0].servicesText, '公开服务');
+});
+
+test('clearing draft search keeps the current directory results and geography', async t => {
+  await runtime(t);
+  await api.visitor();
+  const directory = page('outlets', { scope: 'public', geo: 'mainland' });
+  let refreshes = 0;
+  directory.refresh = async () => { refreshes++; };
+
+  directory.searchInput({ detail: { value: '长沙' } });
+  await directory.clearSearch();
+  assert.equal(directory.data.searchDraft, '');
+  assert.equal(directory.data.showRecent, true);
+  assert.equal(refreshes, 0);
+
+  await directory.search({ detail: { value: '长沙' } });
+  await directory.clearSearch();
+  assert.equal(directory.data.search, '');
+  assert.equal(directory.data.searchDraft, '');
+  assert.equal(directory.data.geo, 'mainland');
+  assert.equal(refreshes, 2);
+});
+
+test('clearing the selected country keeps overseas geography and the applied search', async t => {
+  await runtime(t);
+  await api.visitor();
+  const directory = page('outlets', { scope: 'public', geo: 'overseas' });
+  let refreshes = 0;
+  directory.refresh = async () => { refreshes++; };
+  directory.updateCountries([{ code: 'CN', name: '中国' }, { code: 'SG', name: '新加坡' }]);
+  await directory.filterCountry({ detail: { value: 1 } });
+  assert.equal(directory.data.countryCode, 'SG');
+  await directory.search({ detail: { value: '校区' } });
+
+  await directory.clearRegion();
+  assert.equal(directory.data.search, '校区');
+  assert.equal(directory.data.searchDraft, '校区');
+  assert.equal(directory.data.geo, 'overseas');
+  assert.equal(directory.data.countryCode, '');
+  assert.equal(directory.data.countryIndex, 0);
+  assert.equal(refreshes, 3);
+
+  await directory.clearFilters();
+  assert.equal(directory.data.search, '');
+  assert.equal(directory.data.geo, 'all');
+  assert.equal(refreshes, 4);
 });
 
 test('cooperation success and notification spotlight the same authorized record', async t => {

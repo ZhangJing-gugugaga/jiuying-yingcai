@@ -43,7 +43,10 @@ async function run(){
   async function submit(tab,command,fields={}){
    const form=tab.locator(`form[data-command="${command}"]`);
    for(const [field,value] of Object.entries(fields))await form.locator(`[name="${field}"]`).fill(String(value));
-   return commandAction(tab,command,form.locator('button[type=submit]'));
+   const submitButton=command==='review.report'
+     ? form.locator('button[name="decision"][value="approve"]')
+     : form.locator('button[type=submit]');
+   return commandAction(tab,command,submitButton);
   }
   async function analytics(tab,month,outlet){
    await nav(tab,'analytics','经营数据看板');
@@ -102,7 +105,7 @@ async function run(){
   assert.equal(app.store.load().reports.find(row=>row.id===corrected.id).status,'finance');
   await finance.reload();
   await nav(finance,'reports','经营月报');
-  await finance.getByRole('button',{name:'确认财务复核'}).waitFor();
+  await finance.getByRole('button',{name:'财务复核通过'}).waitFor();
   await submit(finance,'review.report',{note:'财务确认修正收入'});
   const task=app.store.load().businessTasks.find(row=>row.kind==='report_resettlement'&&row.businessId===original.id);
   assert.equal(task.status,'open');assert.equal(task.impacts[0].previousReportId,baseReport.id);assert.equal(task.impacts[0].reportId,corrected.id);

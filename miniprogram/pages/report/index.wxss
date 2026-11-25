@@ -27,6 +27,7 @@
 .report-fact + .report-fact { border-top: 1rpx solid var(--border); }
 .report-fact-label { display: flex; align-items: center; gap: var(--space-xs); color: var(--muted); }
 .report-fact-icon { color: var(--brand); }
+.report-fact-value { color: var(--text); font-weight: 600; overflow-wrap: anywhere; }
 .report-outlet-name{min-width:0;overflow-wrap:anywhere}
 .report-status{flex-wrap:wrap}
 .report-form-context { margin-bottom: var(--space-md); }
@@ -42,16 +43,30 @@
 .report-return-title { display: flex; align-items: flex-start; gap: var(--space-xs); font-weight: 700; }
 .report-return-icon { flex: none; margin-top: 3rpx; }
 .report-return-reason, .report-return-note { margin-top: var(--space-xs); white-space: pre-wrap; }
+.report-return-reason { color: var(--text); }
+.report-return-reason-label { font-weight: 600; }
 .report-return-note { font-size: var(--font-caption); }
 .report-return-inline { margin-bottom: var(--space-lg); }
 .report-fields-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 var(--space-sm); }
 .report-field { margin-top: var(--space-lg); scroll-margin-top: var(--space-lg); }
+.report-returned-editor {
+  --number-control-background: var(--surface);
+  --number-label-size: max(28rpx, 15px);
+  --number-value-size: max(30rpx, 16px);
+}
 .report-returned-editor .report-context, .report-returned-editor #report-edit {
   margin: var(--space-md) 0;
   padding: var(--space-md) var(--space-lg);
 }
-.report-returned-editor .report-return { padding: var(--space-sm) var(--space-md); }
-.report-returned-editor .report-return-reason { font-size: var(--font-caption); }
+.report-returned-editor .report-return { padding: var(--space-md) var(--space-lg); border-left: 0; border-radius: var(--radius-card); }
+.report-returned-editor .report-return-title { align-items: center; font-size: max(30rpx, 16px); }
+.report-returned-editor .report-return-icon { margin-top: 0; color: #c72e44; }
+.report-returned-editor .report-context { background: #f4f8fe; }
+.report-returned-editor .report-fact { font-size: max(27rpx, 14px); }
+.report-returned-editor .report-fact .badge { border-radius: 999rpx; }
+.report-returned-editor .report-return-reason { font-size: max(26rpx, 14px); line-height: 1.45; }
+.report-returned-editor #report-edit .report-section-title { font-size: max(33rpx, 17px); }
+.report-returned-editor #report-edit textarea { background: var(--surface); }
 .report-returned-editor .report-edit-notice { margin: var(--space-xs) 0 0; padding: var(--space-xs) var(--space-sm); }
 .report-returned-editor .report-field { margin-top: var(--space-md); }
 .report-returned-editor .report-fields-heading + .report-field { margin-top: var(--space-xs); }
@@ -73,11 +88,24 @@
 .report-actions.action-dock .report-action-buttons { grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; }
 .report-page .report-action-buttons button { width: 100%; margin: 0; }
 .report-page .report-actions.action-dock .report-action-buttons button { padding: var(--space-md) var(--space-xs); line-height: 1.25; }
+.report-returned-editor .report-actions.action-dock {
+  margin-inline: calc(-1 * var(--space-lg));
+  padding-inline: var(--space-lg);
+}
+.report-returned-editor .report-actions.action-dock .report-action-buttons button { min-height: 48px; }
+.report-returned-editor .report-action-buttons button.outline {
+  border-color: var(--border);
+  background: var(--surface-muted);
+  color: var(--text);
+}
+.report-returned-editor .report-action-buttons button.primary:not([disabled]) {
+  background: linear-gradient(100deg, #2478df, #0758bd);
+}
 .version-card.linked-version + .version-grid{margin-top:16rpx}
 #report-history + .version-grid{margin:0 0 20rpx}
 
 .field-error{margin-top:8rpx;color:#a62532;color:var(--error-text);font-size:24rpx}
-.report-confirmation{position:fixed;inset:0;z-index:10;display:flex;align-items:flex-end}
+.report-confirmation{position:fixed;inset:0;z-index:10;display:flex;align-items:flex-end;overflow:hidden}
 .report-confirmation-mask{position:absolute;inset:0;background:rgba(10,22,42,.48)}
 .report-confirmation-panel{
   position:relative;
@@ -98,7 +126,7 @@
 .report-confirmation-body .hint { margin: var(--space-sm) 0; }
 .report-confirmation-note { flex-direction: column; align-items: stretch; gap: var(--space-xs); }
 .report-confirmation-note text { white-space: pre-wrap; overflow-wrap: anywhere; }
-.report-confirmation-note text:last-child { text-align: left; }
+.report-confirmation-note > text:last-child { max-width: none; text-align: left; }
 .report-confirmation-panel .report-confirmation-actions {
   flex: none;
   display: grid;

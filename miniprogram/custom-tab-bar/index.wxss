@@ -26,8 +26,8 @@
   min-height: max(88rpx, 44px);
   gap: var(--space-2xs, 4rpx);
   color: var(--muted);
-  font-size: var(--font-caption, 24rpx);
-  line-height: 1.35;
+  font-size: max(25rpx, 13px);
+  line-height: 1.3;
 }
 
 .activity-tab-active {
@@ -35,26 +35,14 @@
   font-weight: 650;
 }
 
-.activity-tab-icon-well {
-  width: 82rpx;
-  height: 49rpx;
-  border-radius: 999rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.activity-tab-active .activity-tab-icon-well {
-  background-color: var(--brand-soft);
-}
-
 .activity-tab:active {
   background-color: var(--surface-muted);
 }
 
 .activity-tab-icon {
-  width: 39rpx;
-  height: 39rpx;
+  width: max(46rpx, 23px);
+  height: max(46rpx, 23px);
+  flex: none;
 }
 
 .activity-tab-label {

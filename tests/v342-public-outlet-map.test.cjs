@@ -54,6 +54,10 @@ test('dedicated store photos follow publication and respect the private director
   const replacement = await upload(manager,'public-outlet-photo');
   const privateFile = await upload(partner,'support-ticket');
   const genericFile = await upload(manager);
+  const report = (await command(partner,'report.submit',{outlet:'cs',month:'2026-10',revenue:12,orders:2,traffic:3,enroll:0})).result;
+  const reportPath='/collections/reports/'+report.id;
+  const reportPhoto=(token=ops)=>call(reportPath+'?includeOutletPhoto=true',token);
+  const publishedBytes=(token,image,outlet='cs',status=200)=>call('/files/'+image.id+'?publishedOutletPhoto='+outlet,token,undefined,status);
   await command(manager,'public.profile',profile({imageId:privateFile.id}),403);
   await command(manager,'public.profile',profile({imageId:genericFile.id}),403);
   await command(partner,'public.profile',profile({imageId:photo.id}),403);
@@ -62,10 +66,20 @@ test('dedicated store photos follow publication and respect the private director
 
   await command(ops,'public.profile',profile({imageId:photo.id,published:false}));
   assert.equal((await download(ops,photo)).type,'image/png');
+  assert.equal((await reportPhoto()).outletPhotoId,undefined);
+  await publishedBytes(ops,photo,'cs',403);
+  await publishedBytes(manager,genericFile,'cs',404);
   for (const token of [visitor,partner,other]) await download(token,photo,403);
   await publicDetail(visitor,'cs',404);
   assert.ok(!Object.hasOwn(await privateDetail(partner),'publishedImageId'));
   await command(ops,'public.profile',profile());
+  assert.equal((await reportPhoto()).outletPhotoId,photo.id);
+  assert.equal((await call('/collections/reports?includeOutletPhoto=true&id='+report.id,ops)).items[0].outletPhotoId,photo.id);
+  assert.equal((await call(reportPath,ops)).outletPhotoId,undefined);
+  assert.equal((await reportPhoto(partner)).outletPhotoId,undefined);
+  await call(reportPath+'?includeOutletPhoto=true',other,undefined,404);
+  assert.equal((await publishedBytes(ops,photo)).cache,'private, no-store');
+  await publishedBytes(ops,photo,'zz',403);
   assert.equal((await publicDetail(visitor)).imageId,photo.id);
   assert.equal((await publicDetail(other)).imageId,photo.id);
   const directory = await call('/collections/outlets?scope=public&id=cs', visitor);
@@ -87,10 +101,14 @@ test('dedicated store photos follow publication and respect the private director
   }
 
   await command(manager,'public.profile',profile({imageId:replacement.id}));
+  assert.equal((await reportPhoto()).outletPhotoId,replacement.id);
+  await publishedBytes(ops,photo,'cs',403);
   await download(visitor,photo,403);
   assert.equal((await publicDetail(visitor)).imageId,replacement.id);
   assert.equal((await privateDetail(partner)).publishedImageId,replacement.id);
   await command(ops,'public.profile',profile({imageId:null}));
+  assert.equal((await reportPhoto()).outletPhotoId,undefined);
+  await publishedBytes(ops,replacement,'cs',403);
   assert.ok(!Object.hasOwn(await publicDetail(visitor),'imageId'));
   assert.ok(!Object.hasOwn(await privateDetail(partner),'publishedImageId'));
   await download(other,replacement,403);
@@ -101,6 +119,8 @@ test('dedicated store photos follow publication and respect the private director
   const closed = app.store.load();
   closed.outlets.find(outlet=>outlet.id==='cs').status='closed';
   app.store.save(closed);
+  assert.equal((await reportPhoto()).outletPhotoId,undefined);
+  await publishedBytes(manager,replacement,'cs',403);
   await download(visitor,replacement,403);
   await publicDetail(visitor,'cs',404);
   assert.ok(!Object.hasOwn(await privateDetail(partner),'publishedImageId'));

@@ -103,9 +103,11 @@ async function run() {
     assert.equal(await page.locator('.nav [data-page="team"]').count(),0);
     await reportLink.click();
     const review = page.locator('form[data-command="review.report"]');
-    await review.locator('[name="decision"]').selectOption('return');
+    const returnButton=review.getByRole('button',{name:'退回修改',exact:true});
+    await returnButton.click();
+    await review.getByRole('alert').filter({hasText:'请填写退回意见。'}).waitFor();
     await review.locator('[name="note"]').fill('请补充三角色试用的客流说明');
-    const returnRequest = await submitCommand('review.report',review.getByRole('button',{name:'确认审核',exact:true}));
+    const returnRequest = await submitCommand('review.report',returnButton);
     await page.getByText('已保存至后台数据库',{exact:true}).waitFor();
 
     assert.equal(await bar.getByRole('button',{name:'查看这笔加盟申请'}).count(),0);
@@ -194,7 +196,7 @@ async function run() {
     assert.equal(noteLayout.text,resubmitNote);
     assert.equal(noteLayout.whitespace,'pre-wrap');
     assert.equal(noteLayout.scrollWidth,noteLayout.width);
-    const reviewButton=reviewedRecord.getByRole('button',{name:'确认审核',exact:true});
+    const reviewButton=reviewedRecord.getByRole('button',{name:'审核通过',exact:true});
     assert.ok((await reviewButton.boundingBox()).height>=44);
     await page.setViewportSize({width:1280,height:850});
 

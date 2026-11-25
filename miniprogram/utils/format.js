@@ -72,12 +72,32 @@ function timeText(value){
  }
  return dateText(value);
 }
+function compactTimeText(value,today){
+ const date=businessDate(value);
+ if(!date)return '';
+ const day=date.slice(0,4)===today?.slice(0,4)?date.slice(5):date;
+ const hour=typeof value==='string'&&value.includes('T')
+  ?new Date(Date.parse(value)+8*3600000).toISOString().slice(11,16):'';
+ return hour?day+' '+hour:day;
+}
+function groupInteger(value){
+ return value.replace(/\B(?=(\d{3})+(?!\d))/g,',');
+}
 function money(value){
  if(value===null||value===undefined||value==='')return '—';
  const amount=Number(value);
  if(!Number.isFinite(amount)||Math.abs(amount)>=1e21)return '—';
  const [whole,fraction]=amount.toFixed(2).split('.');
- return whole.replace(/\B(?=(\d{3})+(?!\d))/g,',')+'.'+fraction;
+ return groupInteger(whole)+'.'+fraction;
+}
+function reportAmountText(value){
+ try {
+  if(reportDraft({revenue:value}).revenue==null)return '';
+ }catch{
+  return '';
+ }
+ const [whole,fraction='']=String(value).split('.');
+ return groupInteger(whole.replace(/^0+(?=\d)/,''))+'.'+fraction.padEnd(2,'0');
 }
 function month(offset=0){const d=new Date();const local=new Date(d.getTime()+8*3600000);const m=new Date(Date.UTC(local.getUTCFullYear(),local.getUTCMonth()+offset,1));return m.getUTCFullYear()+'-'+String(m.getUTCMonth()+1).padStart(2,'0');}
 function date(){return new Date(Date.now()+8*3600000).toISOString().slice(0,10);}
@@ -101,4 +121,4 @@ function outletOptionLabel(outlet){
   const area=[...new Set([outlet.city||outlet.province,outlet.district].filter(Boolean))].join(' ');
   return [outlet.name,area||outlet.address].filter(Boolean).join(' · ');
 }
-module.exports={outletOptionLabel,label,statusTone,taskLabel,money,month,date,addMonth,change,reportInput,reportDraft,decorate,monthText,dateText,timeText};
+module.exports={outletOptionLabel,label,statusTone,taskLabel,money,reportAmountText,month,date,addMonth,change,reportInput,reportDraft,decorate,monthText,dateText,timeText,compactTimeText};

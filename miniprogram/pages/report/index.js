@@ -411,10 +411,13 @@ const editor = define({
     } catch (error) {
       const errors = Object.fromEntries(numericFields.filter(field => field !== 'enroll' || applicable)
         .map(field => [field, fieldError(field, values[field])]).filter(([, message]) => message));
-      this.setData({ fieldErrors: errors });
-      this.actionFailure(error.message);
       const invalidField = Object.keys(errors)[0];
-      if (invalidField) wx.pageScrollTo?.({ selector: '#report-field-' + invalidField, duration: 200 });
+      this.setData({
+        fieldErrors: errors, error: invalidField ? '' : error.message,
+        showActionError: !invalidField, actionNotice: '',
+      }, () => {
+        if (invalidField) wx.pageScrollTo?.({ selector: '#report-field-' + invalidField, duration: 200 });
+      });
       return;
     }
     this._confirming = true;

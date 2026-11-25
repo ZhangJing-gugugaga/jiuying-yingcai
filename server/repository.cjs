@@ -6,6 +6,7 @@ const {routingOptions,hasAssignedAction}=require('../shared/task-routing.cjs');
 const {activatedStaffIds}=require('./staff-activation.cjs');
 const {billMetrics,markPendingRefunds,canRead:canReadLedger}=require('./finance.cjs');
 const {addOutletSummaries}=require('./outlet-summaries.cjs');
+const {qualifiedOutletLabels}=require('./workbench-outlets.cjs');
 const regions=require('../shared/outlet-regions.cjs');
 const approvalCommandsByCollection = {
   reports: ['review.report'],
@@ -249,6 +250,64 @@ function repository(store,{today}={}){const db=store.db;
   const numbers=new Map(rows.map(row=>[key(row),{effective:row.effective,latest:row.latest}]));
   for(const item of items)item.versionNumbers=numbers.get(key(item));
  }
+ function addReportRevenueComparisons(items){
+  const visible=items.filter(item=>Number.isFinite(item.revenue)&&item.outlet&&/^\d{4}-(0[1-9]|1[0-2])$/.test(item.month));
+  if(!visible.length)return;
+  const keys=visible.map(item=>({id:item.id,outlet:item.outlet,owner:item.owner,month:operations.previousMonth(item.month)}));
+  const prior=new Map(db.prepare(`
+    WITH periods AS (
+      SELECT json_extract(value,'$.id') id,json_extract(value,'$.outlet') outlet,
+        json_extract(value,'$.owner') owner,json_extract(value,'$.month') month
+      FROM json_each(?)
+    )
+    SELECT p.id,p.month,json_extract(r.data,'$.revenue') revenue
+    FROM periods p LEFT JOIN reports r ON r.outlet=p.outlet AND r.owner IS p.owner AND r.month=p.month
+      AND r.current=1 AND r.status='approved' AND NOT COALESCE(json_extract(r.data,'$.revoked'),0)
+  `).all(JSON.stringify(keys)).map(row=>[row.id,row]));
+  for(const item of visible){
+   const baseline=prior.get(item.id);
+   const previous=Number.isFinite(baseline.revenue)?Math.round(baseline.revenue*100):null;
+   const current=Math.round(item.revenue*100);
+   const comparison={month:baseline.month,percent:null};
+   if(Number.isSafeInteger(previous)&&previous>0&&Number.isSafeInteger(current)){
+    const denominator=BigInt(previous);
+    const delta=(BigInt(current)-denominator)*10000n;
+    const magnitude=((delta<0n?-delta:delta)+denominator/2n)/denominator;
+    comparison.percent=Number(delta<0n?-magnitude:magnitude)/100;
+   }
+   item.revenueComparison=comparison;
+  }
+ }
+ function addReportSubmitterNames(items){
+  if(!items.length)return;
+  const rows=db.prepare(`
+   SELECT requested.value id, (
+    SELECT event.submitter_name
+    FROM approval_events event
+    WHERE event.collection='reports' AND event.object_id=requested.value AND event.action='report.submit'
+    ORDER BY event.seq LIMIT 1
+   ) submitterName
+   FROM json_each(?) requested
+  `).all(JSON.stringify(items.map(item=>item.id)));
+  const names=new Map(rows.map(row=>[row.id,row.submitterName]));
+  for(const item of items)item.submitterName=names.get(item.id);
+ }
+ function addReportOutletPhotos(items){
+  if(!items.length)return;
+  const ids=[...new Set(items.map(item=>item.outlet))];
+  const rows=db.prepare(`
+   SELECT o.id, photo.file_id imageId
+   FROM outlets o
+   JOIN publicProfiles p ON p.id=(
+    SELECT candidate.id FROM publicProfiles candidate
+    WHERE candidate.outlet=o.id AND candidate.status='published' ORDER BY candidate.rowid DESC LIMIT 1
+   )
+   JOIN public_outlet_photos photo ON photo.file_id=json_extract(p.data,'$.imageId')
+   WHERE o.status<>'closed' AND o.id IN (SELECT value FROM json_each(?))
+  `).all(JSON.stringify(ids));
+  const photos=new Map(rows.map(row=>[row.id,row.imageId]));
+  for(const item of items)if(photos.has(item.outlet))item.outletPhotoId=photos.get(item.outlet);
+ }
  function publicOutlets(params,publishedOnly){
   const limit=Number(params.limit??50),offset=Number(params.offset??0);
   core.check(Number.isInteger(limit)&&limit>=1&&limit<=200&&Number.isSafeInteger(offset)&&offset>=0,'INPUT','limit须1—200，offset非负');
@@ -389,13 +448,16 @@ function repository(store,{today}={}){const db=store.db;
    }
   }
   if(name==='reports'&&params.includeVersionNumbers==='true')reportVersionNumbers(items);
+  if(name==='reports'&&params.includeRevenueComparison==='true'&&all.includes(session.actor))addReportRevenueComparisons(items);
+  if(name==='reports'&&params.includeSubmitter==='true'&&all.includes(session.actor))addReportSubmitterNames(items);
+  if(name==='reports'&&params.includeOutletPhoto==='true'&&all.includes(session.actor))addReportOutletPhotos(items);
   if(name==='refundRequests'&&core.own(session.actor))markPendingRefunds(db,items);
   if(name==='bills'&&canReadLedger(session.actor)){const metrics=billMetrics(db,items.map(b=>b.id),p.s.today);for(const bill of items)bill.ledger=metrics.get(bill.id);}
   const result={items,total:p.total,offset:p.offset,limit:p.limit,hasMore:p.hasMore,
    ...(p.statusCounts?{statusCounts:p.statusCounts}:{})};
   return validateStatus?includeStatusOptions(result,name,params):result;
  }
- function detail(name,id,session,{scope,includeSummary}={}){if(name==='businessTasks'&&core.own(session.actor))return tasks.taskDetail(session,id);const result=list(name,session,{id,limit:1,scope,includeSummary});core.check(result.items.length,'NOT_FOUND','记录不存在或无权访问',404);return result.items[0];}
+ function detail(name,id,session,{scope,includeSummary,includeRevenueComparison,includeSubmitter,includeOutletPhoto}={}){if(name==='businessTasks'&&core.own(session.actor))return tasks.taskDetail(session,id);const result=list(name,session,{id,limit:1,scope,includeSummary,includeRevenueComparison,includeSubmitter,includeOutletPhoto});core.check(result.items.length,'NOT_FOUND','记录不存在或无权访问',404);return result.items[0];}
  function approvalRecord(name,id,session){const page=query(name,session,{id,limit:1});core.check(page.records.length,'NOT_FOUND','记录不存在或无权访问',404);return page.records[0];}
  function context(session){const s=contextState(session),v=core.view(s,session.actor,session);return {actor:session.actor,subject:session.subject,today:s.today,mode:s.mode,capabilities:v.capabilities,grants:v.grants,support:{settings:v.support.settings},...(session.actor==='manager'?{routingOptions}:{})};}
  // The legacy snapshot applies the same status to every collection. Individual lists validate their own enum.
@@ -529,6 +591,11 @@ function repository(store,{today}={}){const db=store.db;
   const total=db.prepare(sql+' SELECT count(*) AS total FROM visible').get(...args).total;
   const items=db.prepare(sql+` SELECT kind,id,outlet,outletName,month,title,status,occurredAt FROM visible
     ORDER BY julianday(occurredAt) DESC,kind,id LIMIT ? OFFSET ?`).all(...args,limit,offset);
+  const outletLabels=qualifiedOutletLabels(db,owner,items.map(item=>item.outlet));
+  for(const item of items){
+   const outletLabel=outletLabels.get(item.outlet);
+   if(outletLabel)item.outletLabel=outletLabel;
+  }
   return {items,total,offset,limit,hasMore:offset+items.length<total};
  }
  return {reportContext,reportWorklist,workbenchRecords,list,detail,approvalRecord,context,snapshot,commandState,contextState,access,...tasks};

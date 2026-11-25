@@ -103,7 +103,7 @@ test('the report scroll target retains the selected outlet, month and return rea
   const formHeader = report.slice(report.indexOf('id="report-edit"'), report.indexOf('id="report-field-revenue"'));
   assert.match(formHeader, /{{outletNames\[outletIndex \+ 1\]}}/);
   assert.match(formHeader, /{{monthDisplay \|\| month}}/);
-  assert.match(formHeader, /wx:if="{{canEdit && returnedReason && !directReturnedEdit}}"[\s\S]*?class="report-return-reason">{{returnedReason}}/);
+  assert.match(formHeader, /wx:if="{{canEdit && returnedReason && !directReturnedEdit}}"[\s\S]*?class="report-return-reason"><text[^>]*>退回原因：<\/text>{{returnedReason}}/);
 });
 
 test('the native tab bar has an opaque background and keeps its height without inherited page tokens', () => {

@@ -41,6 +41,10 @@ function taskCopy(row,month){
   };
 }
 
+function taskOutletName(row){
+  return row.outletLabel||(row.outlet&&row.outletName!==row.outlet?row.outletName:'');
+}
+
 function workbenchTask(row){
   const month=fmt.monthText(row.month);
   const {title,actionText}=taskCopy(row,month);
@@ -59,11 +63,18 @@ function workbenchTask(row){
   const [name,icon,tone,status]=appearance[row.kind]||[title,'task','blue','待处理'];
   const completed=row.status==='resolved';
   const amount=Number.isFinite(row.amount)&&['bill_unpaid','bill_overdue'].includes(row.kind)?'¥'+fmt.money(row.amount):'';
-  const outletName=row.outlet&&row.outletName!==row.outlet?row.outletName:'';
+  const outletName=taskOutletName(row);
   const scopeDetail=[month,amount].filter(Boolean).join(' · ');
-  const workbenchAction={report_returned:'立即修改',training_material_returned:'补充资料'};
+  const workbenchAction={
+    report_returned:'立即修改',
+    training_material_returned:'补充资料',
+    location_missing:'提交资料',
+    location_exception:'补充资料',
+    request_supplement:'补充材料',
+    support_waiting:'补充资料'
+  };
   return {id:row.id,title:completed?(taskLabels[row.kind]?.subject||name):name,icon,tone,
-    status:completed?'已完成':status,outletName,scopeDetail,scope:[outletName,scopeDetail].filter(Boolean).join(' · '),
+    status:completed?'已完成':status,outletName,outletLabel:row.outletLabel||'',scopeDetail,scope:[outletName,scopeDetail].filter(Boolean).join(' · '),
     reason:completed?'':row.returnReason||'',actionText:completed?'查看记录':workbenchAction[row.kind]||actionText,canOpen:canOpenRecord(row)};
 }
 
@@ -155,7 +166,7 @@ function mattersPage(initialSection='tasks'){
         const outlet=this.data.scopeOutlet;
         const scoped=outlet?await api.detail('outlets',outlet).catch(()=>null):null;
         if(serial!==this._serial)return;
-        this.setData({scopeName:scoped?.name||(outlet?'所选网点':'')});
+        this.setData({scopeName:scoped?fmt.outletOptionLabel(scoped):(outlet?'所选网点':'')});
         await this.loadTasks(state.businessTasks,unread?.items||[]);
       }
     },
@@ -167,12 +178,16 @@ function mattersPage(initialSection='tasks'){
       const limit=reset?Math.min(100,Math.max(recordPageSize,this.data.businessRows.length)):recordPageSize;
       this.setData({businessLoading:true,businessError:''});
       try{
-        const result=await loadBusinessRecords(outlet,limit,offset,this);
+        const [result,scoped]=await Promise.all([
+          loadBusinessRecords(outlet,limit,offset,this),
+          reset&&outlet?api.detail('outlets',outlet).catch(()=>null):null,
+        ]);
         if(!current())return;
         const rows=(result.items||[]).map(businessRecord);
         const previous=reset?[]:this.data.businessRows;
         const keys=new Set(previous.map(row=>row.rowKey));
-        const scopeName=outlet?rows.find(row=>row.outlet===outlet)?.outletName||this.data.scopeName||'所选网点':'全部授权网点';
+        const scopeName=outlet?(scoped?fmt.outletOptionLabel(scoped):
+          this.data.scopeName||rows.find(row=>row.outlet===outlet)?.outletName||'所选网点'):'全部授权网点';
         this.setData({scopeName,businessRows:[...previous,...rows.filter(row=>!keys.has(row.rowKey))],
           businessTotal:result.total,businessOffset:offset+rows.length,businessMore:result.hasMore});
       }catch(error){
@@ -203,7 +218,7 @@ function mattersPage(initialSection='tasks'){
       const rows=tasks.map(row=>{
         const month=fmt.monthText(row.month);
         return {
-          id:row.id,...taskCopy(row,month),outletName:row.outletName!==row.outlet&&row.outlet?row.outletName:'',
+          id:row.id,...taskCopy(row,month),outletName:taskOutletName(row),
           amountText:Number.isFinite(row.amount)&&['bill_unpaid','bill_overdue'].includes(row.kind)?'应付 '+fmt.money(row.amount)+' 元':'',
           month,notifiedText:fmt.timeText(row.createdAt),dueText:fmt.dateText(row.dueAt)||fmt.dateText(row.dueOn),overdue:row.overdue===true,
           unreadNoticeIds:noticesByTask.get(row.id)||[],

@@ -39,7 +39,7 @@ async function withBusinessServer(run){
  function businessDate(day){
   app.store.db.prepare("UPDATE settings SET value=? WHERE key='today'").run(JSON.stringify(day));
  }
- try{await run({app,login,get,command,row,businessDate});}
+ try{await run({app,login,get,request,command,row,businessDate});}
  finally{
   try{await new Promise(resolve=>app.server.close(resolve));}
   finally{app.store.close();}
@@ -50,6 +50,67 @@ const october={outlet:'cs',month:'2026-10',revenue:'100.15',orders:2,traffic:5,e
 const approved={decision:'approve',note:'核对业务证据'};
 const reportContext='/api/reports/context?outlet=cs&month=2026-10';
 const octoberStats='/api/dashboard?period=2026-10&outlet=cs';
+
+test('HQ report submitter names are bound to each submitted version and survive a manager handover',()=>withBusinessServer(async f=>{
+ const partner=await f.login('partnerA'),other=await f.login('partnerB'),ops=await f.login('ops'),manager=await f.login('manager');
+ const key=randomUUID();
+ const first=(await f.command(partner,'report.submit',october,{key})).result;
+ assert.equal((await f.command(partner,'report.submit',october,{key})).result.id,first.id);
+ const path=id=>'/api/collections/reports/'+id;
+ const option='includeSubmitter=true';
+ const submitter=async id=>(await f.get(ops,path(id)+'?'+option)).submitterName;
+ assert.equal(await submitter(first.id),'示范负责人甲');
+ assert.equal((await f.get(ops,path(first.id))).submitterName,undefined);
+ assert.equal((await f.get(partner,path(first.id)+'?'+option)).submitterName,undefined);
+ await f.get(other,path(first.id)+'?'+option,404);
+
+ await f.command(ops,'review.report',{id:first.id,decision:'return',note:'待换绑后重新核对'});
+ await f.command(manager,'account.update',{owner:'p1',status:'active',managerName:'接任负责人',reason:'隔离换绑验证'});
+ await f.get(partner,path(first.id),401);
+ const invite=await f.request('/api/auth/activation',{token:manager,body:{actor:'partnerA',username:'handover-report-owner'}});
+ assert.equal(invite.status,200);
+ const redeemed=await f.request('/api/auth/activate',{body:{token:invite.data.data.token,password:'Handover-Report-Fixture-32!'}});
+ assert.equal(redeemed.status,200);
+ const successor=redeemed.data.data.token;
+ const second=(await f.command(successor,'report.submit',{...october,traffic:6})).result;
+ assert.equal(second.version,2);
+ assert.equal(await submitter(first.id),'示范负责人甲');
+ assert.equal(await submitter(second.id),'接任负责人');
+ const list=await f.get(ops,'/api/collections/reports?outlet=cs&month=2026-10&'+option);
+ for(const [id,name] of [[first.id,'示范负责人甲'],[second.id,'接任负责人']]){
+  assert.equal(list.items.find(row=>row.id===id).submitterName,name);
+ }
+ const legacy=await f.get(ops,'/api/collections/reports?outlet=cs&month=2026-09&'+option);
+ assert.equal(legacy.items[0].submitterName,null);
+}));
+
+test('HQ revenue comparison uses only the preceding effective report from the same outlet owner',()=>withBusinessServer(async f=>{
+ const partner=await f.login('partnerA'),other=await f.login('partnerB'),ops=await f.login('ops');
+ const report=(await f.command(partner,'report.submit',october)).result;
+ const original=f.app.store.db.prepare("SELECT id,data FROM reports WHERE outlet='cs' AND month='2026-09' AND current=1").get();
+ const update=f.app.store.db.prepare('UPDATE reports SET owner=?,data=? WHERE id=?');
+ const previous=JSON.parse(original.data);
+ const setPrevious=(revenue,owner=previous.owner,revoked=false)=>
+  update.run(owner,JSON.stringify({...previous,owner,revenue,revoked}),original.id);
+ const detail='/api/collections/reports/'+report.id;
+ const option='includeRevenueComparison=true';
+ const compare=async()=> (await f.get(ops,detail+'?'+option)).revenueComparison;
+
+ setPrevious(100.05);
+ assert.deepEqual(await compare(),{month:'2026-09',percent:0.1});
+ const listed=await f.get(ops,'/api/collections/reports?outlet=cs&month=2026-10&'+option);
+ assert.deepEqual(listed.items.find(row=>row.id===report.id).revenueComparison,{month:'2026-09',percent:0.1});
+ assert.equal((await f.get(ops,detail)).revenueComparison,undefined);
+ assert.equal((await f.get(partner,detail+'?'+option)).revenueComparison,undefined);
+ await f.get(other,detail+'?'+option,404);
+
+ setPrevious(200.30);
+ assert.deepEqual(await compare(),{month:'2026-09',percent:-50});
+ for(const baseline of [[0],[null],[100.05,previous.owner,true],[100.05,'p2']]){
+  setPrevious(...baseline);
+  assert.deepEqual(await compare(),{month:'2026-09',percent:null});
+ }
+}));
 
 test('T06 and T13: returned V1 remains immutable; V2 and settlement finish the linked task exactly once',()=>withBusinessServer(async f=>{
  const partner=await f.login('partnerA'),ops=await f.login('ops'),manager=await f.login('manager');

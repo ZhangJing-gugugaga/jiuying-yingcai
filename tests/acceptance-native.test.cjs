@@ -230,7 +230,13 @@ test('the activation form reports errors at the corresponding field and redeems 
   assert.equal(activationRequests().at(-1).status, 409);
 }));
 
-test('workbench keeps the selected outlet across preview and task list and clears rows after an account switch', () => nativeRun(async ({ calls }) => {
+test('workbench distinguishes same-name outlets across previews and pages and clears rows after an account switch', () => nativeRun(async ({ app, calls }) => {
+  const state = app.store.load();
+  for (const id of ['cs', 'zz']) state.outlets.find(outlet => outlet.id === id).name = '中心校';
+  const otherPartner = state.outlets.find(outlet => outlet.id === 'gz');
+  Object.assign(otherPartner, { name: '中心校', city: '长沙', district: '示范区' });
+  app.store.save(state);
+
   const month = '2026-10';
   const submit = async (outlet, enroll) => (await api.command('report.submit', {
     outlet, month, revenue: 1200, orders: 4, traffic: 6, enroll, note: '工作台隔离验证',
@@ -244,6 +250,18 @@ test('workbench keeps the selected outlet across preview and task list and clear
   const home = page('home');
   await home.onShow();
   assert.equal(home.data.scopeName, '全部授权网点');
+  const expectedLabels = { cs: '中心校 · 长沙 示范区', zz: '中心校 · 株洲 示范区' };
+  for (const outlet of ['cs', 'zz']) {
+    const preview = home.data.activeRows.find(row => row.reason.includes('仅 ' + outlet));
+    assert.equal(preview.outletName, expectedLabels[outlet]);
+    assert.ok(preview.scope.includes(expectedLabels[outlet]));
+    assert.equal(home.data.recentRows.find(row => row.outlet === outlet).outletName, expectedLabels[outlet]);
+    const taskPage = await api.collection('businessTasks', { status: 'open', outlet, limit: 1 });
+    assert.equal(taskPage.items[0].outletName, '中心校');
+    assert.equal(taskPage.items[0].outletLabel, expectedLabels[outlet]);
+    const recordPage = await api.request('/api/workbench/records?outlet=' + outlet + '&limit=1');
+    assert.equal(recordPage.items[0].outletLabel, expectedLabels[outlet]);
+  }
   home.toggleWorkbenchScope();
   await home.chooseWorkbenchOutlet(tap({ id:'zz' }));
   assert.equal(home.data.scopeOutlet, 'zz');
@@ -272,6 +290,9 @@ test('workbench keeps the selected outlet across preview and task list and clear
   await assert.rejects(api.detail('businessTasks', item.id), { status: 404 });
   const forbidden = await api.collection('businessTasks', { status: 'open', outlet: 'zz' });
   assert.equal(forbidden.total, 0);
+  const otherRecords = await api.request('/api/workbench/records?outlet=gz&limit=1');
+  assert.equal(otherRecords.items[0].outletName, '中心校');
+  assert.equal(otherRecords.items[0].outletLabel, undefined);
   await home.onShow();
   assert.notEqual(home.data.scopeOutlet, 'zz');
   assert.doesNotMatch(JSON.stringify(home.data.activeRows), /仅 zz/);

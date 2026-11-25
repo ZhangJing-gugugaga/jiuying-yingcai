@@ -55,7 +55,10 @@ function record(store,{before,after,result,command,payload,session,requestId,at,
  if(!targets.length)return;
  const audit=after.audit.at(-1);
  core.check(audit?.command===command&&audit.requestId===requestId&&audit.subject===session.subject&&audit.actor===session.actor&&audit.recordId===result.id,'INTERNAL','审批审计事件缺少关联来源',500);
- const insert=store.db.prepare('INSERT INTO approval_events(id,collection,object_id,audit_record_id,original_entry,action,role,occurred_at,data) VALUES(?,?,?,?,?,?,?,?,?)');
+ const submitter=command==='report.submit'&&session.subject===session.principal
+  ?before.accounts?.find(account=>account.actor===session.principal&&account.owner===result.owner):null;
+ const submitterName=typeof submitter?.managerName==='string'?submitter.managerName.trim()||null:null;
+ const insert=store.db.prepare('INSERT INTO approval_events(id,collection,object_id,audit_record_id,original_entry,action,role,occurred_at,data,submitter_name) VALUES(?,?,?,?,?,?,?,?,?,?)');
  for(const target of targets){
   const {collection,previous,current,action,relation}=target;
   const entry=current.trail?.length>(previous?.trail?.length||0)?current.trail.at(-1):null;
@@ -71,7 +74,8 @@ function record(store,{before,after,result,command,payload,session,requestId,at,
    ...((collection==='requests'&&['review.request','review.revoke','location.review'].includes(action)||collection==='verifications'&&action==='location.review')&&current.publicNote?{publicNote:current.publicNote}:{}),
    decision:['approve','return','supplement','exception'].includes(payload.decision)?payload.decision:null,
    requestId,source,related:relation||primaryRelation,auditId:audit.id};
-  insert.run(event.id,collection,current.id,audit.id,originalEntry,action,event.role,event.at,JSON.stringify(event));
+  insert.run(event.id,collection,current.id,audit.id,originalEntry,action,event.role,event.at,JSON.stringify(event),
+   collection==='reports'&&action==='report.submit'?submitterName:null);
  }
 }
 

@@ -21,7 +21,7 @@ function businessRecord(record){
   const [status,statusTone]=record.kind==='training'?(trainingStatus[record.status]||['状态暂不可查看','gray']):
     [fmt.label(record.status,type.target==='reports'?'report':'support'),tones[fmt.statusTone(record.status,record.kind)]||'gray'];
   const icon=record.kind==='report'&&record.status==='approved'?'task-checked':type.icon;
-  return {...record,rowKey:record.kind+':'+record.id,icon,tone:type.tone,statusText:status,statusTone,
+  return {...record,outletName:record.outletLabel||record.outletName,rowKey:record.kind+':'+record.id,icon,tone:type.tone,statusText:status,statusTone,
     displayTitle:[type.label,subject].filter(Boolean).join(' · '),timeText:fmt.timeText(record.occurredAt)};
 }
 

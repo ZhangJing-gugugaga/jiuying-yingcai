@@ -20,9 +20,16 @@ assert.equal(await page.locator('main .record .list-controls').count(),0,'filter
 assert.equal(await page.locator('main .list-controls .pagination').count(),1,'the reports list has one paginator');
 assert.deepEqual(await page.locator('select[name="collectionStatus"] option').evaluateAll(options=>options.map(x=>x.value)),['','pending','finance','returned','approved']);
 assert.equal(await page.getByRole('heading',{name:'本次变更对照'}).count(),0,'first submission has no correction comparison');
-await submit('review.report',{note:'请补充经营说明'},{decision:'return'});assert.equal(backend().reports.find(r=>r.month==='2026-10').status,'returned');
+const returnReport=page.locator('form[data-command="review.report"]').first();
+await returnReport.locator('[name="note"]').fill('请补充经营说明');
+await Promise.all([page.waitForResponse(r=>r.url().endsWith('/api/commands')&&r.request().postDataJSON()?.command==='review.report'),returnReport.getByRole('button',{name:'退回修改',exact:true}).click()]);
+assert.equal(backend().reports.find(r=>r.month==='2026-10').status,'returned');
 await login('partnerA');await nav('reports');await page.locator('select[name=shop]').selectOption('cs');await submit('report.submit',{revenue:'12500.50',note:'已核实并补充经营说明'});assert.equal(backend().reports.filter(r=>r.month==='2026-10').length,2);
-await login('ops');await nav('reports');await submit('review.report',{note:'资料已核对'});assert.equal(backend().reports.find(r=>r.month==='2026-10'&&r.version===2).status,'approved');record('B01','月报V1提交→总部退回→V2重报→总部通过，数据库保留两个版本');
+await login('ops');await nav('reports');
+const approveReport=page.locator('form[data-command="review.report"]').first();
+await approveReport.locator('[name="note"]').fill('资料已核对');
+await Promise.all([page.waitForResponse(r=>r.url().endsWith('/api/commands')&&r.request().postDataJSON()?.command==='review.report'),approveReport.getByRole('button',{name:'审核通过',exact:true}).click()]);
+assert.equal(backend().reports.find(r=>r.month==='2026-10'&&r.version===2).status,'approved');record('B01','月报V1提交→总部退回→V2重报→总部通过，数据库保留两个版本');
 await login('manager');await nav('analytics');await page.locator('[data-filter="period"]').fill('2026-10');await page.locator('[data-filter="period"]').dispatchEvent('change');await page.waitForTimeout(150);await submit('settle');assert.ok(backend().settlements.some(x=>x.month==='2026-10'&&x.status==='approved'));
 let dlPromise=page.waitForEvent('download');await page.locator('[data-action="export"][data-format="xlsx"]').click();let dl=await dlPromise;await dl.saveAs(path.join(output,'经营报告.xlsx'));dlPromise=page.waitForEvent('download');await page.locator('[data-action="export"][data-format="pdf"]').click();dl=await dlPromise;await dl.saveAs(path.join(output,'经营报告.pdf'));assert.equal(fs.readFileSync(path.join(output,'经营报告.pdf')).subarray(0,5).toString(),'%PDF-');assert.equal(fs.readFileSync(path.join(output,'经营报告.xlsx')).subarray(0,2).toString(),'PK');record('B02','管理层结算及服务端真实XLSX和嵌入字体PDF下载');
 const dashboardFilter=page.locator('[data-filter="period"]');

@@ -3,7 +3,7 @@
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const { getNativeRoutes, isInside } = require('./wechat-routes.cjs');
 const { collectComponentEntries, componentDeclarations } = require('./wechat-components.cjs');
-const TAGS=new Set(['view','text','label','button','input','textarea','form','block','template','picker','switch','map','image','scroll-view','checkbox','checkbox-group','radio','radio-group','navigator','loading','icon','cover-view','cover-image']);
+const TAGS=new Set(['view','text','label','button','input','textarea','form','block','template','picker','switch','map','image','scroll-view','checkbox','checkbox-group','radio','radio-group','navigator','loading','icon','cover-view','cover-image','page-meta']);
 
 function packageReferences(file, contents) {
  const extension=path.extname(file);

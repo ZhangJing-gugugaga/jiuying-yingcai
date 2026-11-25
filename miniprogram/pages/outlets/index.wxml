@@ -3,7 +3,7 @@
   <view class="outlet-search-bar">
     <view class="outlet-search">
       <t-icon name="search" size="35rpx" aria-hidden="true"/>
-      <input aria-label="搜索网点" placeholder="网点名称、城市或编号" value="{{searchDraft}}" bindinput="searchInput" bindconfirm="search" bindfocus="searchFocus" maxlength="100" confirm-type="search" cursor-spacing="24"/>
+      <input aria-label="搜索网点" placeholder="{{directory || isPublic ? '搜索网点名称、城市' : '网点名称、城市或编号'}}" value="{{searchDraft}}" bindinput="searchInput" bindconfirm="search" bindfocus="searchFocus" maxlength="100" confirm-type="search" cursor-spacing="24"/>
       <button wx:if="{{searchDraft || search}}" class="outlet-search-clear" bindtap="clearSearch" disabled="{{loading}}" aria-label="清除搜索">
         <t-icon name="close" size="31rpx" aria-hidden="true"/>
       </button>
@@ -16,7 +16,7 @@
   <view wx:if="{{directory || isPublic}}" class="outlet-directory-controls">
     <view class="outlet-quick-filters" aria-label="服务网点地域">
       <button wx:for="{{geography}}" wx:key="value" class="outlet-quick-filter {{geo===item.value ? 'active' : ''}}" data-geo="{{item.value}}" bindtap="filterGeography"
-        aria-label="{{item.label + (geo===item.value ? '，已选择' : '')}}">{{item.label}}</button>
+        aria-label="{{item.label + (geo===item.value ? '，已选择' : '')}}"><text>{{item.value==='all' ? '全部' : item.label}}</text></button>
     </view>
     <button class="link outlet-toolbar-link outlet-map-toggle" data-mode="{{mode==='map' ? 'list' : 'map'}}" bindtap="mode">
       <t-icon name="{{mode==='map' ? 'view-list' : 'map'}}" size="32rpx" aria-hidden="true"/><text>{{mode==='map' ? '返回列表' : '查看地图'}}</text>
@@ -41,7 +41,7 @@
   </view>
   <view wx:if="{{state && !showRegionFilters && (countryCode || region.length)}}" class="row between outlet-filter-summary">
     <text class="muted grow">{{countryCode ? countryChoices[countryIndex].name : region[0] + ' / ' + region[1] + ' / ' + region[2]}}</text>
-    <button class="link" bindtap="clearFilters" disabled="{{loading}}">清除筛选</button>
+    <button class="link" bindtap="clearRegion" disabled="{{loading}}">清除地区</button>
   </view>
   <view wx:if="{{showRegionFilters}}" class="card outlet-filter-panel">
     <picker wx:if="{{directory && countryChoices.length>1}}" class="country-filter" range="{{countryChoices}}" range-key="name" value="{{countryIndex}}" bindchange="filterCountry">
@@ -95,15 +95,20 @@
     <block wx:if="{{mode==='list' || mapError || (!mapLoading && !markers.length)}}">
     <block wx:for="{{groups}}" wx:for-item="group" wx:key="key">
       <view wx:if="{{group.label}}" class="outlet-group">{{group.label}}</view>
-      <view wx:for="{{group.rows}}" wx:key="id" class="card outlet-entry {{directory || isPublic ? 'outlet-public-entry' : 'outlet-private-entry'}} {{!directory && !isPublic && item.nextAction ? 'outlet-entry-with-action' : ''}}">
-        <view class="outlet-card-link" data-id="{{item.id}}" bindtap="open" hover-class="tap-feedback" aria-role="button" aria-label="查看{{item.name}}详情" aria-disabled="{{loading}}">
+      <view wx:for="{{group.rows}}" wx:key="id" class="card outlet-entry {{directory || isPublic ? 'outlet-public-entry' : 'outlet-private-entry'}}">
+        <view class="outlet-card-link" data-id="{{item.id}}" bindtap="open" hover-class="tap-feedback" aria-role="button"
+          aria-label="{{'查看'+item.name+'详情'+((item.locationText || item.area) ? '，'+(item.locationText || item.area) : '')+(item.statusText ? '，'+item.statusText : '')+(item.servicesText ? '，'+item.servicesText : '')}}" aria-disabled="{{loading}}">
           <image wx:if="{{item.coverPath}}" class="outlet-card-icon outlet-card-photo" src="{{item.coverPath}}" mode="aspectFill"
             data-id="{{item.id}}" data-image-id="{{item.imageId}}" binderror="coverFailed" aria-hidden="true"/>
           <view wx:else class="outlet-card-icon" aria-hidden="true"><t-icon name="store" size="43rpx"/></view>
           <view class="outlet-card-copy">
-            <view class="outlet-heading"><view class="card-title grow">{{item.name}}</view><text wx:if="{{item.statusText}}" class="badge {{item.statusTone}}">{{item.statusText}}</text></view>
+            <view class="outlet-heading">
+              <view class="card-title grow">{{item.name}}</view>
+              <text wx:if="{{!directory && !isPublic && item.statusText}}" class="badge {{item.statusTone}}">{{item.statusText}}</text>
+            </view>
             <view wx:if="{{directory || isPublic}}" class="outlet-location">
-              <text wx:if="{{item.area}}" class="muted">{{item.area}} · </text><text>{{item.address || '暂无可查看地址'}}</text>
+              <text>{{item.locationText}}</text>
+              <text wx:if="{{item.statusText}}" class="badge outlet-public-status {{item.statusTone}}">{{item.statusText}}</text>
             </view>
             <view wx:elif="{{item.area}}" class="muted outlet-area">{{item.area}}</view>
             <view wx:if="{{(directory || isPublic) && item.services.length}}" class="outlet-service-tags">
@@ -112,27 +117,27 @@
           </view>
           <t-icon class="outlet-detail-label" name="chevron-right" size="33rpx" aria-hidden="true"/>
         </view>
-        <block wx:if="{{!directory && !isPublic}}">
+        <view wx:if="{{!directory && !isPublic && (item.businessChips.length || item.nextAction || item.waitingText)}}" class="outlet-card-business">
           <view wx:if="{{item.businessChips.length}}" class="outlet-business-chips">
             <view wx:for="{{item.businessChips}}" wx:for-item="chip" wx:key="key" class="outlet-business-chip"
               aria-label="{{chip.title+'，'+chip.monthText+'，'+chip.statusText}}">
-              <text>{{chip.label}}</text>
+              <text>{{chip.label}}：</text>
               <text class="badge outlet-business-state {{chip.tone}}">{{chip.stateText}}</text>
               <text wx:if="{{chip.settlementText}}" class="outlet-settlement">{{chip.settlementText}}</text>
             </view>
           </view>
-          <button wx:if="{{item.nextAction}}" class="outline small outlet-next-button" data-id="{{item.id}}" bindtap="outletAction" aria-disabled="{{loading}}"
+          <button wx:if="{{item.nextAction}}" class="outline small outlet-next-button" data-id="{{item.id}}" bindtap="outletAction" hover-class="tap-feedback" aria-disabled="{{loading}}"
             aria-label="{{item.name+'，'+item.nextAction.text+'，'+item.nextAction.label}}">
             <text>{{item.nextAction.label}}</text>
             <text class="outlet-next-period">{{item.nextAction.monthText}}</text>
           </button>
           <view wx:if="{{item.waitingText}}" class="muted outlet-waiting">{{item.waitingText}}</view>
-        </block>
+        </view>
       </view>
     </block>
     <view wx:if="{{!rows.length}}" class="empty">
       {{search || region.length || countryCode || (!directory && statusFilter!=='all') ? '未找到符合条件的网点，请调整筛选。' : directory ? geo==='overseas' ? '当前暂无已公开的境外网点。' : '当前暂无可查看的服务网点。' : '您当前还没有网点，可提交新增网点申请。'}}
-      <button wx:if="{{search || region.length || countryCode || (!directory && statusFilter!=='all')}}" class="link top-gap" bindtap="clearFilters">清除筛选</button>
+      <button wx:if="{{search || region.length || countryCode || (!directory && statusFilter!=='all')}}" class="link top-gap" bindtap="clearFilters">清除全部条件</button>
       <button wx:elif="{{geo!=='all'}}" class="link top-gap" bindtap="clearFilters">查看全部服务网点</button>
       <button wx:elif="{{directory}}" class="link top-gap" data-page="support" bindtap="nav">联系总部</button>
       <button wx:else class="outline small top-gap" data-page="requests" data-query="type=newOutlet" bindtap="nav">申请新增网点</button>

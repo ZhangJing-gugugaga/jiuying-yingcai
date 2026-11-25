@@ -33,19 +33,20 @@
       <button wx:if="{{sessionCleanupRequired}}" class="outline staff-handoff-button" bindtap="retrySessionCleanup">重试退出本机</button>
       <view wx:for="{{activationFields}}" wx:key="name" id="activation-field-{{item.name}}" class="activation-field">
         <label class="activation-label" for="activation-{{item.name}}">
-          <t-icon name="{{index===0 ? 'task' : 'lock-on'}}" size="28rpx" aria-hidden="true"/>
+          <t-icon name="{{index===0 ? 'task' : 'lock-on'}}" size="18px" aria-hidden="true"/>
           <text>{{item.label}}</text>
         </label>
         <view class="activation-input-shell {{activationField===item.name ? 'activation-input-error' : ''}}">
           <input id="activation-{{item.name}}" class="activation-input" type="text" password="{{!visibleActivationFields[item.name]}}"
             data-field="{{item.name}}" value="{{item.name==='activationToken' ? activationToken : item.name==='password' ? password : confirmPassword}}"
             placeholder="{{item.placeholder}}" aria-label="{{activationField===item.name ? item.label+'，'+error : item.label}}"
+            aria-invalid="{{activationField===item.name}}"
             maxlength="128" disabled="{{busy}}" cursor-spacing="24" focus="{{activationFocus===item.name}}"
             confirm-type="{{index===activationFields.length-1 ? 'done' : 'next'}}" confirm-hold="{{index<activationFields.length-1}}"
             bindinput="input" bindconfirm="confirmActivationField" bindblur="blurActivationField"/>
           <button class="activation-visibility" data-field="{{item.name}}" bindtap="toggleActivationVisibility" disabled="{{busy}}" hover-class="tap-feedback"
             aria-label="{{(visibleActivationFields[item.name] ? '隐藏' : '显示')+item.label}}" aria-pressed="{{!!visibleActivationFields[item.name]}}">
-            <t-icon name="{{visibleActivationFields[item.name] ? 'browse-off' : 'browse'}}" size="34rpx" aria-hidden="true"/>
+            <t-icon name="{{visibleActivationFields[item.name] ? 'browse' : 'browse-off'}}" size="34rpx" aria-hidden="true"/>
           </button>
         </view>
         <view wx:if="{{activationField===item.name}}" class="activation-field-error" aria-live="polite">{{error}}</view>

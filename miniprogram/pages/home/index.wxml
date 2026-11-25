@@ -5,7 +5,7 @@
     <button class="home-contact" data-page="discover" data-query="section=cooperation" bindtap="nav" hover-class="tap-feedback"><t-icon name="chat" size="36rpx" aria-hidden="true"/><text>合作咨询</text></button>
   </view>
 </template>
-<view class="page tab-page home-page {{publicView ? 'home-public' : 'home-member'}}">
+<view class="page tab-page home-page {{publicView ? 'home-public' : 'home-member'}} {{!publicView && activeRows.length===4 ? 'workbench-compact' : ''}}">
   <block wx:if="{{!publicView && session.role==='partner'}}">
     <view class="workbench-hero">
       <image class="home-public-art" src="/assets/home-skyline.webp" mode="aspectFill" aria-hidden="true"/>
@@ -91,12 +91,13 @@
         <view class="home-tool-copy"><text class="home-tool-label">更多业务</text><text class="home-tool-note">停业停费等</text></view>
       </button>
     </view>
-    <view wx:if="{{moreBusiness}}" class="home-public-section workbench-more">
+    <view wx:if="{{moreBusiness}}" id="workbench-more" class="home-public-section workbench-more">
       <block wx:if="{{!scopeOutlet}}">
         <button wx:if="{{outletCount>1}}" class="outline small" bindtap="toggleWorkbenchScope" data-from-more="{{true}}" disabled="{{loading}}">选择办理网点</button>
         <button wx:else class="outline small" bindtap="openOutlets" disabled="{{loading}}">查看我的网点</button>
       </block>
       <block wx:else>
+        <view class="workbench-more-scope">办理网点：{{scopeName}}</view>
         <button wx:if="{{scopeTone==='ok'}}" class="outline small" data-page="requests" data-type="statusChange" bindtap="openOutletBusiness">申请暂停营业</button>
         <button wx:if="{{scopeStatus==='营业中' || scopeStatus==='暂停营业'}}" class="outline small" data-page="requests" data-type="pauseFee" bindtap="openOutletBusiness">申请暂停收费</button>
         <button class="outline small" data-page="location" bindtap="openOutletBusiness">月度位置核验</button>
@@ -115,20 +116,21 @@
       <view wx:if="{{taskError}}" class="workbench-meta">暂时无法读取待办。<button class="home-text-action" bindtap="loadWorkbenchTasks">重试</button></view>
       <view wx:elif="{{taskLoading && !error && !activeRows.length}}" class="workbench-meta" aria-live="polite">正在加载待办…</view>
       <view wx:elif="{{!error && !activeRows.length}}" class="workbench-meta">当前暂无待办。</view>
-      <view wx:for="{{activeRows}}" wx:key="id" class="workbench-task workbench-pending {{item.reason ? 'workbench-pending-with-reason' : ''}}">
+      <view wx:for="{{activeRows}}" wx:key="id" class="workbench-task workbench-pending">
         <t-icon class="workbench-task-icon {{item.tone}}" name="{{item.icon}}" size="40rpx" aria-hidden="true"/>
-        <view class="workbench-task-copy">
-          <view class="workbench-task-title">{{item.title}}</view>
-          <view wx:if="{{item.scope}}" class="workbench-meta workbench-row-meta">
-            <text wx:if="{{item.outletName}}" class="workbench-row-outlet">{{item.outletName}}</text>
-            <text wx:if="{{item.scopeDetail}}" class="workbench-row-detail">{{item.scopeDetail}}</text>
-          </view>
-        </view>
+        <view class="workbench-task-title">{{item.title}}</view>
         <text class="workbench-badge workbench-task-state {{item.tone}}">{{item.status}}</text>
+        <view wx:if="{{item.scope}}" class="workbench-meta workbench-row-meta">
+          <text wx:if="{{item.outletName}}" class="workbench-row-outlet {{item.outletLabel ? 'workbench-row-outlet-qualified' : ''}}">{{item.outletName}}</text>
+          <text wx:if="{{item.scopeDetail}}" class="workbench-row-detail">{{item.scopeDetail}}</text>
+        </view>
         <view wx:if="{{item.reason}}" class="workbench-reason">{{item.reason}}</view>
-        <button wx:if="{{item.canOpen}}" class="workbench-task-action" data-id="{{item.id}}" bindtap="openWorkbenchTask" aria-disabled="{{loading || taskLoading}}" disabled="{{openingTask}}"
+        <button wx:if="{{item.canOpen}}" class="workbench-task-action" data-id="{{item.id}}" bindtap="openWorkbenchTask" hover-class="tap-feedback" aria-disabled="{{loading || taskLoading}}" disabled="{{openingTask}}"
           aria-label="{{item.actionText+'，'+item.title+(item.scope ? '，'+item.scope : '')}}">
-          {{item.actionText}} <text aria-hidden="true">›</text>
+          <view class="workbench-action-pill">
+            <text class="workbench-action-label">{{item.actionText}}</text>
+            <text aria-hidden="true">›</text>
+          </view>
         </button>
       </view>
     </view>
@@ -146,9 +148,9 @@
         <t-icon class="workbench-task-icon {{item.tone}}" name="{{item.icon}}" size="40rpx" aria-hidden="true"/>
         <view class="workbench-task-copy">
           <view class="workbench-task-title">{{item.displayTitle}}</view>
-          <view wx:if="{{item.outletName || item.timeText}}" class="workbench-meta workbench-row-meta">
-            <text wx:if="{{item.outletName}}" class="workbench-row-outlet">{{item.outletName}}</text>
-            <text wx:if="{{item.timeText}}" class="workbench-row-detail">{{item.timeText}}</text>
+          <view wx:if="{{item.outletName || item.timeText}}" class="workbench-meta workbench-row-meta {{item.outletLabel ? 'workbench-row-meta-qualified' : ''}}">
+            <text wx:if="{{item.outletName}}" class="workbench-row-outlet {{item.outletLabel ? 'workbench-row-outlet-qualified' : ''}}">{{item.outletName}}</text>
+            <text wx:if="{{item.previewTime}}" class="workbench-row-detail">{{item.previewTime}}</text>
           </view>
         </view>
         <view class="workbench-record-state">
@@ -231,15 +233,15 @@
         </button>
       </view>
       <view wx:if="{{headquartersPhone || officialWechat || headquartersAddress}}" class="home-contact-channels">
-        <button wx:if="{{headquartersPhone}}" class="home-contact" bindtap="dialHeadquarters" hover-class="tap-feedback" aria-label="拨打总部电话 {{headquartersPhone}}"><t-icon name="call" size="36rpx" aria-hidden="true"/><view class="home-contact-copy"><text>服务热线</text><text class="home-contact-detail">{{headquartersPhone}}</text></view></button>
-        <button wx:if="{{officialWechat}}" class="home-contact" bindtap="showOfficialWechat" hover-class="tap-feedback" disabled="{{headquartersQrLoading}}" aria-label="查看{{officialWechat.title}}二维码"><t-icon name="logo-wechat-stroke" size="36rpx" aria-hidden="true"/><view class="home-contact-copy"><text>官方微信</text><text class="home-contact-detail">{{headquartersQrLoading ? '正在打开…' : '查看二维码'}}</text></view></button>
-        <button wx:if="{{headquartersAddress}}" class="home-contact" bindtap="showHeadquartersAddress" hover-class="tap-feedback" aria-label="查看总部地址"><t-icon name="location" size="36rpx" aria-hidden="true"/><view class="home-contact-copy"><text>总部地址</text><text class="home-contact-detail">{{headquartersAddress.title}}</text></view></button>
+        <button wx:if="{{headquartersPhone}}" class="home-contact" bindtap="dialHeadquarters" hover-class="tap-feedback" aria-label="拨打总部电话 {{headquartersPhone}}"><t-icon class="home-contact-icon" name="call" size="40rpx" aria-hidden="true"/><view class="home-contact-copy"><text>服务热线</text><text class="home-contact-detail">{{headquartersPhone}}</text></view></button>
+        <button wx:if="{{officialWechat}}" class="home-contact" bindtap="showOfficialWechat" hover-class="tap-feedback" disabled="{{headquartersQrLoading}}" aria-label="查看{{officialWechat.title}}二维码"><t-icon class="home-contact-icon" name="logo-wechat-stroke" size="40rpx" aria-hidden="true"/><view class="home-contact-copy"><text>官方微信</text><text class="home-contact-detail">{{headquartersQrLoading ? '正在打开…' : '查看二维码'}}</text></view></button>
+        <button wx:if="{{headquartersAddress}}" class="home-contact" bindtap="showHeadquartersAddress" hover-class="tap-feedback" aria-label="查看总部地址"><t-icon class="home-contact-icon" name="location" size="40rpx" aria-hidden="true"/><view class="home-contact-copy"><text>总部地址</text><text class="home-contact-detail">{{headquartersAddress.title}}</text></view></button>
       </view>
       <template wx:else is="homeContactLinks"/>
     </view>
 
     <button wx:if="{{!session || session.role==='public'}}" class="home-signin" data-page="login" bindtap="nav" hover-class="tap-feedback">
-      <t-icon name="user" size="48rpx" aria-hidden="true"/>
+      <t-icon name="user" size="56rpx" aria-hidden="true"/>
       <view class="home-signin-copy"><view>加盟商登录</view><text>已合作网点负责人办理经营与服务事项</text></view>
       <t-icon name="chevron-right" size="36rpx" aria-hidden="true"/>
     </button>

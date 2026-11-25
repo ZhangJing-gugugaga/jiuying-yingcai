@@ -28,7 +28,7 @@ async function run() {
     const screenshot = async (tab, name) => {
       if (screenshotPath) await tab.screenshot({ path: path.join(screenshotPath, name + '.png'), fullPage: true });
     };
-    async function call(url, token, payload) {
+    async function call(url, token, payload, status = 200) {
       const response = await fetch(base + '/api' + url, {
         method: payload ? 'POST' : 'GET',
         headers: {
@@ -38,10 +38,18 @@ async function run() {
         body: payload ? JSON.stringify(payload) : undefined,
       });
       const body = await response.json();
-      assert.equal(response.status, 200, JSON.stringify(body));
+      assert.equal(response.status, status, JSON.stringify(body));
       return body;
     }
     const token = (await call('/auth/dev', null, { actor: 'manager' })).data.token;
+    const photoBytes = await require('sharp')({ create: { width: 16, height: 12, channels: 3, background: '#247bdd' } }).png().toBuffer();
+    const { data: photo } = await call('/files', token, {
+      name: 'routing-store.png', type: 'image/png', purpose: 'public-outlet-photo', base64: photoBytes.toString('base64'),
+    }, 201);
+    await call('/commands', token, { command: 'public.profile', payload: {
+      outlet: 'cs', title: '长沙验收网点', address: '长沙验收地址', description: '审批卡本机验收',
+      published: true, imageId: photo.id, services: ['咨询'], reason: '浏览器隔离验收',
+    } });
     const password = 'Routing-Local-' + randomUUID() + '!';
     for (const [subject, role, name] of [['web_route_manager', 'manager', '验收管理层'], ['web_route_ops', 'ops', '长沙验收运营'], ['web_route_peer', 'ops', '同岗位验收人员']]) {
       await call('/commands', token, { command: 'staff.create', payload: { subject, name, role, reason: '浏览器隔离验收' } });
@@ -102,11 +110,14 @@ async function run() {
     await screenshot(ops, '02-本人指定月报队列');
     await ops.getByRole('link', { name: '查看业务', exact: true }).click();
     const approve = ops.locator('form[data-command="review.report"]');
-    await approve.locator('[name="decision"]').selectOption('approve');
+    await ops.locator('.focused-business .report-record-icon img').waitFor();
+    await ops.locator('.report-record-context .pair').filter({hasText:'提交人'}).getByText('示范负责人甲',{exact:true}).waitFor();
+    await ops.getByText('营业收入较上月（2026-09）', {exact:true}).waitFor();
+    await ops.getByText('-90%', {exact:true}).waitFor();
     const [approved] = await Promise.all([
       ops.waitForResponse(response => response.url().endsWith('/api/commands')
         && response.request().postDataJSON()?.command === 'review.report'),
-      approve.locator('button[type="submit"]').click(),
+      approve.getByRole('button',{name:'审核通过',exact:true}).click(),
     ]);
     assert.equal(approved.status(), 200);
     const finished = (await approved.json()).data.result;

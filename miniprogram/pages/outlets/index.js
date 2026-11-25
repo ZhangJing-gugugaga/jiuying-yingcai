@@ -50,8 +50,11 @@ function publicRow(outlet){
   const addressStart=address?.split(/[·,，]/,1)[0].trim();
   const repeatedLocality=locality.indexOf(addressStart);
   const area=(repeatedLocality<0?locality:locality.slice(0,repeatedLocality)).join(' · ');
-  return {id,name,address,area,province,city,countryCode,countryName,statusText:fmt.label(status,'outlet'),statusTone:fmt.statusTone(status,'outlet'),
-    services:Array.isArray(services)?services.slice(0,3):[],publicLocation,publicCoords,imageId};
+  const locationText=[area,address||'暂无可查看地址'].filter(Boolean).join(' · ');
+  const serviceTags=Array.isArray(services)?services.slice(0,3):[];
+  return {id,name,address,area,locationText,province,city,countryCode,countryName,
+    statusText:fmt.label(status,'outlet'),statusTone:fmt.statusTone(status,'outlet'),
+    services:serviceTags,servicesText:serviceTags.join('、'),publicLocation,publicCoords,imageId};
 }
 
 function groupRows(rows,directory){
@@ -208,8 +211,9 @@ const page=define({
     await this.refresh();
   },
   async clearSearch(){
-    this.setData({search:'',searchDraft:'',showRecent:this.data.directory});
-    await this.refresh();
+    const {search,error,directory}=this.data;
+    this.setData({search:'',searchDraft:'',showRecent:directory});
+    if(search||error)await this.refresh();
   },
   async clearFilters(){
     this.setData({search:'',searchDraft:'',showRecent:false,region:[],statusFilter:'all',geo:'all',countryCode:''});
@@ -218,7 +222,11 @@ const page=define({
   },
   toggleRegionFilters(){this.setData({showRegionFilters:!this.data.showRegionFilters});},
   async region(e){this.setData({region:e.detail.value,countryCode:''});this.updateCountries();await this.refresh();},
-  async clearRegion(){this.setData({region:[]});await this.refresh();},
+  async clearRegion(){
+    this.setData({region:[],countryCode:''});
+    this.updateCountries();
+    await this.refresh();
+  },
   async filterStatus(e){this.setData({statusFilter:e.currentTarget.dataset.status});await this.refresh();},
   async filterGeography(e){
     const geo=e.currentTarget.dataset.geo;

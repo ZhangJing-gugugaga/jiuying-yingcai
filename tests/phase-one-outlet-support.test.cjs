@@ -144,7 +144,8 @@ test('my outlets keeps address and secondary shortcuts in detail and opens only 
   assert.ok(reads.some(url => url.pathname === '/api/collections/outlets' && url.searchParams.get('includeSummary') === 'true'));
   const template = markup('outlets');
   assert.match(template, /wx:if="{{state && !directory && !isPublic && rows.length}}"[^>]*data-query="type=newOutlet"[^>]*>申请新增网点/);
-  assert.match(template, /data-id="{{item.id}}" bindtap="open"[^>]*aria-label="查看{{item.name}}详情"/);
+  assert.match(template, /data-id="{{item.id}}" bindtap="open"[^>]*aria-label="{{'查看'\+item\.name\+'详情'[^"]*item\.area[^"]*item\.statusText[^"]*}}"/);
+  assert.match(template, /class="outlet-card-business"[\s\S]*class="outlet-business-chips"[\s\S]*bindtap="outletAction"/);
   assert.match(template, /wx:if="{{item.nextAction}}"[\s\S]*?data-id="{{item.id}}" bindtap="outletAction"/);
   assert.doesNotMatch(template, /wx:for="{{(?:item.summaryRows|outletActions)}}"/);
 
@@ -247,7 +248,7 @@ test('public outlet details use only published phone, hours and map coordinates'
   await assert.rejects(api.detail('outlets', 'zz', { scope: 'public' }), { status: 404 });
 }));
 
-test('outlet applications retain their exact type and separate business suspension from fee suspension', () => run(async ({ app, show, destination }) => {
+test('outlet applications retain their exact type and separate business suspension from fee suspension', () => run(async ({ app, show, destination, routes }) => {
   const outlet = await show('outlet', { id: 'zz' });
   outlet.action(tap({ page: 'requests', type: 'statusChange', status: 'open' }));
   const resume = await destination();
@@ -257,7 +258,7 @@ test('outlet applications retain their exact type and separate business suspensi
 
   outlet.action(tap({ page: 'requests', type: 'statusChange', status: 'paused' }));
   const pause = await destination();
-  pause.setData({ 'form.reason': '隔离验收暂停营业' });
+  pause.setData({ 'form.effectiveDate': app.store.settings().today, 'form.reason': '隔离验收暂停营业' });
   await pause.submit();
   assert.equal(pause.data.error, '');
   assert.equal(app.store.load().requests.length, 1);
@@ -292,6 +293,19 @@ test('outlet applications retain their exact type and separate business suspensi
   const newRequest = app.store.load().requests.find(row => row.id === history.data.historyId);
   assert.equal(newRequest?.outlet, 'zz');
   assert.equal(newRequest.type, 'enrollment');
+
+  const feeId = fee.data.historyId;
+  assert.equal(fee.data.requestRows.find(row => row.id === feeId).canApplyPauseBusiness, true);
+  await api.login('ops');
+  await command('review.request', { id: pauseId, decision: 'approve' });
+  await api.login('partnerA');
+  await fee.backToRecords();
+  await fee.showHistory(tap({ id: feeId }));
+  assert.equal(fee.data.outlets.find(row => row.id === 'zz').status, 'paused');
+  assert.equal(fee.data.requestRows.find(row => row.id === feeId).canApplyPauseBusiness, false);
+  const routeCount = routes.length;
+  fee.applyPauseBusiness(tap({ id: feeId }));
+  assert.equal(routes.length, routeCount);
 }));
 
 test('new applications choose a type and reset unsubmitted fields when the user changes scope', () => run(async ({ app, show }) => {

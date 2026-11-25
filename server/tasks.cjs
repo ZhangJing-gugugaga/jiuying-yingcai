@@ -3,6 +3,7 @@
 const core=require('../shared/core.cjs');
 const operations=require('../shared/operations.cjs');
 const model=require('../shared/responsibilities.cjs');
+const {qualifiedOutletLabels}=require('./workbench-outlets.cjs');
 const value=key=>"json_extract(businessTasks.data,'$."+key+"')";
 const active="businessTasks.status IN ('open','in_progress')";
 const queueField=value('queue'),roleField=value('assigneeRole'),userField=value('assigneeUserId'),due="(CASE WHEN "+value('kind')+" IN ('report_missing','exemption_review') AND "+active+" THEN report_due_on(businessTasks.month,report_clock.due_day) ELSE COALESCE("+value('dueAt')+","+value('dueOn')+") END)";
@@ -77,7 +78,9 @@ function taskQueries(db,{contextState,access,detail,reportPolicy}){
    for(const source of db.prepare(`SELECT data FROM ${type} WHERE (${permission.where}) AND id IN (SELECT value FROM json_each(?))`).all(...permission.params,JSON.stringify(ids)).map(x=>JSON.parse(x.data)))
     lookup.set(type+':'+source.id,source);
   }
-  const outside=!!core.own(session.actor);
+  const owner=core.own(session.actor);
+  const outside=!!owner;
+  const outletLabels=owner?qualifiedOutletLabels(db,owner,records.map(({task})=>task.outlet)):null;
   const impacted=session.actor==='manager'?new Set(records.flatMap(({task})=>task.kind==='report_resettlement'?task.affectedOutletIds||[]:[])):new Set();
   const outletNames=new Map(impacted.size?db.prepare("SELECT id,json_extract(data,'$.name') name FROM outlets WHERE id IN (SELECT value FROM json_each(?))").all(JSON.stringify([...impacted])).map(row=>[row.id,row.name]):[]);
   return records.map(row=>{
@@ -87,6 +90,8 @@ function taskQueries(db,{contextState,access,detail,reportPolicy}){
    const canComplete=!!source&&model.active(t)&&model.manual(t)&&model.matchesAssignee(t,session.actor,session.subject);
    const fields={id:t.id,queue:t.queue,kind:t.kind,businessType:t.businessType,businessId:t.businessId,recordId:t.recordId,target:t.target,outlet:t.outlet,outletName:row.outletName||t.outlet,month:t.month,status:t.status,currentStage:t.currentStage,assigneeType:t.assigneeType,assigneeRole:assignee.role,assigneeFranchiseeId:t.assigneeFranchiseeId,title:t.title||null,applicant:t.businessType?.startsWith('support')?null:row.applicant||t.owner||null,dueAt:row.dueAt,overdue:!!row.overdue,createdAt:t.createdAt,updatedAt:t.updatedAt,completedAt:t.completedAt,closeReason:t.closeReason,canViewBusiness:!!source,canAssign:allowedAssigneeRoles.length>0,canComplete,allowedAssigneeRoles};
    if(t.businessType==='bills'&&Number.isFinite(source?.amount))fields.amount=source.amount;
+   const outletLabel=outletLabels?.get(t.outlet);
+   if(outletLabel)fields.outletLabel=outletLabel;
    if(outside&&t.kind==='report_returned'&&t.status==='open'&&source?.status==='returned')fields.returnReason=source.reviewNote||null;
    if(outside){fields.dueOn=row.dueAt?.length===10?row.dueAt:null;fields.role=assignee.role;fields.resolution=t.resolution??t.closeReason??null;fields.resolvedAt=t.resolvedAt??t.completedAt??null;}
    if(t.kind==='report_resettlement'&&session.actor==='manager'){

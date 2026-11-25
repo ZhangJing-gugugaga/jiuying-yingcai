@@ -68,7 +68,7 @@ function createServer({dbPath=process.env.DB_PATH||path.join(ROOT,'var/local.db'
   return {name:form.get('name')??file.name,type:form.get('type')??file.type,purpose:form.get('purpose')??undefined,
    applicationId:form.get('applicationId')??undefined,applicationVersion:version===null?undefined:Number(version),bytes:Buffer.from(await file.arrayBuffer())};
  }
- function fileAccess(f,session){return require('./file-access.cjs').fileAccess(store,f,session,repo);}
+ function fileAccess(f,session,options){return uploads.fileAccess(store,f,session,repo,options);}
  function evidence(p,session){for(const obj of [p.photo,p.data?.photo])if(obj){const f=store.db.prepare('SELECT id,subject,owner FROM files WHERE id=?').get(obj.id||'');core.check(!fileAccess(f,session),'FORBIDDEN','此类图片仅可在原业务使用',403);}}
  function visibleResult(state,session,raw){const v=core.view(state,session.actor,{subject:session.subject});for(const rows of [...Object.values(v).filter(Array.isArray),v.support.chats,v.support.tickets]){const found=rows.find(x=>x.id===raw.id);if(found)return found;}core.check(session.actor==='manager'&&['regional','support-settings'].includes(raw.id),'FORBIDDEN','当前权限不允许读取此操作结果',403);return raw;}
  const server=http.createServer(async(req,res)=>{const requestId=randomUUID(),started=Date.now();res.setHeader('X-Request-Id',requestId);res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','no-referrer');res.setHeader('Cache-Control','no-store');res.setHeader('X-Frame-Options','DENY');if(!development)res.setHeader('Strict-Transport-Security','max-age=31536000');res.on('finish',()=>{for(const [key,value] of [['requests.total',1],['requests.duration_ms',Date.now()-started],['requests.errors',res.statusCode>=400?1:0]])store.db.prepare('INSERT INTO runtime_metrics(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=value+excluded.value').run(key,value);});
@@ -278,11 +278,12 @@ function createServer({dbPath=process.env.DB_PATH||path.join(ROOT,'var/local.db'
     if(route.startsWith('/api/files/')&&req.method==='GET'){
      const id=route.slice(11);
      const readFile=store.db.prepare('SELECT * FROM files WHERE id=?');
-     let f=readFile.get(id),purpose=fileAccess(f,session);
+     const options={publishedOutletPhoto:url.searchParams.get('publishedOutletPhoto')};
+     let f=readFile.get(id),purpose=fileAccess(f,session,options);
      if(!store.db.prepare('SELECT 1 FROM file_metadata WHERE file_id=?').get(id)){
       const safe=await require('./uploads.cjs').sanitizeImage(Buffer.from(f.bytes),f.mime,f.name);
       store.transaction(()=>{
-       purpose=fileAccess(f,sessionFor(req));
+       purpose=fileAccess(f,sessionFor(req),options);
        store.db.prepare('UPDATE files SET bytes=?,size=?,digest=? WHERE id=?').run(safe.bytes,safe.bytes.length,hash(safe.bytes),id);
        store.db.prepare('INSERT OR IGNORE INTO file_metadata VALUES(?,?,?,?,?)').run(id,safe.originalDigest,safe.width,safe.height,safe.transformVersion);
       });

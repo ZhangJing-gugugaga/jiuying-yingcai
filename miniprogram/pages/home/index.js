@@ -163,13 +163,15 @@ const home=define({
   },
   setOutletScope(id){
     const outlet=this.data.scopeOutlets.find(outlet=>outlet.id===id)||null;
+    const sameName=outlet&&this.data.scopeOutlets.some(other=>other.id!==outlet.id&&other.name===outlet.name);
     this._selectedOutlet=outlet;
-    this.setData({scopeOutlet:outlet?.id||'',scopeName:outlet?.name||'全部授权网点',
+    this.setData({scopeOutlet:outlet?.id||'',scopeName:(sameName?fmt.outletOptionLabel(outlet):outlet?.name)||'全部授权网点',
       scopeStatus:outlet?.status?fmt.label(outlet.status,'outlet'):'',scopeTone:outlet?.status?fmt.statusTone(outlet.status,'outlet'):''});
   },
   toggleWorkbenchScope(e){
     if(!this.isWorkbenchSession()||this.data.loading||this.data.outletCount<=1)return;
-    if(e?.currentTarget?.dataset?.fromMore){
+    this._scopeFromMore=!!e?.currentTarget?.dataset?.fromMore;
+    if(this._scopeFromMore){
       this.setData({scopeExpanded:true},()=>wx.pageScrollTo?.({selector:'#workbench-scope',duration:180}));
       return;
     }
@@ -180,12 +182,19 @@ const home=define({
     const selected=all?'':id;
     if(!this.isWorkbenchSession()||this.data.loading||!this.data.scopeExpanded)return;
     if(selected!==''&&!this.data.scopeOutlets.some(outlet=>outlet.id===selected))return;
-    this.setData({scopeExpanded:false});
-    if(selected===this.data.scopeOutlet)return;
-    this.setOutletScope(selected);
-    return this.loadWorkbenchTasks();
+    const changed=selected!==this.data.scopeOutlet;
+    const returnToActions=this._scopeFromMore;
+    this._scopeFromMore=false;
+    if(changed)this.setOutletScope(selected);
+    this.setData({scopeExpanded:false},()=>{
+      if(returnToActions&&this.data.moreBusiness&&this.isWorkbenchSession()){
+        wx.pageScrollTo?.({selector:'#workbench-more',duration:180});
+      }
+    });
+    if(changed)return this.loadWorkbenchTasks();
   },
   onHide(){
+    this._scopeFromMore=false;
     if(this.data.scopeExpanded)this.setData({scopeExpanded:false});
   },
   isWorkbenchSession(){
@@ -212,7 +221,12 @@ const home=define({
           openTotal:result?.total??null,taskError:!result});
       }),
       loadBusinessRecords(outlet,3,0,this).catch(()=>null).then(result=>{
-        if(current())this.setData({recentLoading:false,recentRows:(result?.items||[]).map(businessRecord),recentError:!result});
+        if(!current())return;
+        const today=this.data.state?.today;
+        const recentRows=(result?.items||[]).map(record=>({
+          ...businessRecord(record),previewTime:fmt.compactTimeText(record.occurredAt,today)
+        }));
+        this.setData({recentLoading:false,recentRows,recentError:!result});
       }),
       api.request('/api/training/records?'+api.query({outlet,limit:1,status:'returned'}),'GET',undefined,{},true,this).catch(()=>null).then(result=>{
         if(current())this.setData({trainingLoading:false,trainingRecord:result?.items?.[0]||null});
@@ -357,6 +371,7 @@ home.refresh=async function(){
   }
   this._workbenchRows=[];
   this._workbenchOpen=null;
+  this._scopeFromMore=false;
   this.setData({publicView,session,scopeExpanded:false,headquartersQrLoading:false,...(changed?viewData:this.data.firstOutlet?{firstOutlet:firstOutletLoading}:{}),
     ...(!publicView?{taskLoading:true,recentLoading:true,trainingLoading:true,openingTask:false,taskOpenError:''}:{})});
   this.updatePublicShareMenu();

@@ -252,6 +252,15 @@ test('report field validation prevents writes and offers a confirmation summary 
   t.mock.method(api, 'command', async () => assert.fail('An unfinished or unconfirmed form performed a write.'));
   await instance.onShow();
   assert.deepEqual(instance.data.missingFields, ['营业收入', '有效完成订单', '到店客流']);
+  instance.submit();
+  assert.deepEqual(instance.data.fieldErrors, {
+    revenue: '请填写营业收入',
+    orders: '请填写有效完成订单',
+    traffic: '请填写到店客流',
+  });
+  assert.equal(scrolls.at(-1), '#report-field-revenue');
+  assert.equal(instance.data.inlineConfirmation, false);
+  assert.equal(instance.data.showActionError, false);
   const set = (field, value) => instance.input({ ...tap({ field }), detail: { value } });
   const confirm = (field, value) => instance.confirmField({ ...tap({ field }), detail: { value } });
   assert.deepEqual(instance.data.nextNumericField, { revenue: 'orders', orders: 'traffic' });

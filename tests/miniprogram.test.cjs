@@ -46,6 +46,11 @@ test('financial inputs reject blank values and preserve not applicable enrollmen
   assert.throws(()=>f.reportInput({revenue:'1',orders:'1.5',traffic:'2',enroll:'3'},true));
   assert.equal(f.reportInput({revenue:'0',orders:'0',traffic:'0',enroll:''},false).enroll,null);
   assert.equal(f.money(null),'—');
+  assert.equal(f.reportAmountText(128600),'128,600.00');
+  assert.equal(f.reportAmountText('000128600.9'),'128,600.90');
+  assert.equal(f.reportAmountText('0'),'0.00');
+  assert.equal(f.reportAmountText('90071992547409.90'),'90,071,992,547,409.90');
+  for(const invalid of ['',null,'1.001','1,000','90071992547409.92'])assert.equal(f.reportAmountText(invalid),'');
   assert.equal(f.change(null,100),'不可比');
   assert.equal(f.change(100,0),'不可比');
   assert.equal(f.change(100,90,true),'不可比');

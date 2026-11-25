@@ -118,6 +118,7 @@ beginRequest(){
   wx.pageScrollTo?.({scrollTop:0,duration:0});
 },
 backToRecords(){
+  const fromDetail=this.data.viewMode==='detail';
   const returnId=this.data.viewMode==='form'?this.data.supplementId:'';
   const goBack=()=>{
     this.query.id='';
@@ -126,7 +127,7 @@ backToRecords(){
     wx.pageScrollTo?.({scrollTop:0,duration:0});
     if(returnId)return this.showHistory({currentTarget:{dataset:{id:returnId}}});
     this.query.outlet=this._entryOutlet;
-    return this.reloadCollection('requests');
+    return fromDetail?this.refresh():this.reloadCollection('requests');
   };
   return this.afterDiscard('放弃本次填写？','返回',goBack);
 },

@@ -32,12 +32,16 @@ function bindSupportTicketFiles(store,ticketId,ids){
  const link=store.db.prepare('UPDATE support_ticket_files SET ticket_id=? WHERE file_id=? AND ticket_id IS NULL');
  for(const id of ids)core.check(link.run(ticketId,id).changes===1,'ATTACHMENT_IN_USE','图片已随工单提交，请重新选择',409);
 }
-function fileAccess(store,file,who,repo){
+function fileAccess(store,file,who,repo,{publishedOutletPhoto=null}={}){
  core.check(file,'NOT_FOUND','附件不存在',404);
- if(isOutletPhoto(store,file.id)){
+ const outletPhoto=isOutletPhoto(store,file.id);
+ const requirePublished=publishedOutletPhoto!==null;
+ if(requirePublished)core.check(outletPhoto,'NOT_FOUND','未找到公开店照',404);
+ if(outletPhoto){
   const published=store.db.prepare(`SELECT 1 FROM publicProfiles p JOIN outlets o ON o.id=p.outlet
-   WHERE p.status='published' AND o.status<>'closed' AND json_extract(p.data,'$.imageId')=? LIMIT 1`).get(file.id);
-  core.check(published||['manager','ops'].includes(who.actor),'FORBIDDEN','此店照当前不可公开查看',403);
+   WHERE p.status='published' AND o.status<>'closed' AND json_extract(p.data,'$.imageId')=?
+   AND (? IS NULL OR o.id=?) LIMIT 1`).get(file.id,publishedOutletPhoto,publishedOutletPhoto);
+  core.check(published||(!requirePublished&&['manager','ops'].includes(who.actor)),'FORBIDDEN','此店照当前不可公开查看',403);
   return 'public-outlet-photo';
  }
  const joining=onboardingUpload(store,file.id);

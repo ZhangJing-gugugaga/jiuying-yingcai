@@ -318,14 +318,15 @@ test('lost HTTP response preserves values and the same API idempotency key only 
   assert.equal(db.prepare('SELECT count(*) AS n FROM reports WHERE month=? AND outlet=?').get(restoreScope.month, restoreScope.outlet).n, 1);
 }));
 
-test('validation stays at the button for insufficient data, locks pending and prohibited periods, and preserves enrollment null', () => withReport(async ({ open, state }) => {
+test('validation highlights incomplete fields, locks pending and prohibited periods, and preserves enrollment null', () => withReport(async ({ open, state }) => {
   const editor = await open({ outlet: 'zz', month: '2026-10' });
   assert.equal(editor.data.enrollmentStatus, 'not_applicable');
   assert.equal(editor.data.applicable, false);
   fill(editor, { ...testFields, traffic: '' });
   await editor.submit(tap);
-  assert.equal(editor.data.showActionError, true);
-  assert.match(editor.data.error, /非负整数/);
+  assert.equal(editor.data.showActionError, false);
+  assert.equal(editor.data.fieldErrors.traffic, '请填写到店客流');
+  assert.equal(submissions(state).length, 0);
   assert.equal(state.modals.length, 0);
   fill(editor, { traffic: '80' });
   await editor.submit(tap);
