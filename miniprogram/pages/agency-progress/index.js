@@ -31,7 +31,7 @@ Page(define({
    const children=(data.children||[]).map(child=>({...child,
     outletRows:(child.outlets||[]).map(row=>({...row,tone:tones[row.status]||'gray',
      dueText:row.dueOn?'应于 '+fmt.dateText(row.dueOn)+' 前报送':'',
-     versionText:row.effectiveVersion?'当前有效 V'+row.effectiveVersion:row.latestVersion?'最新提交 V'+row.latestVersion:'尚未提交'})),
+     versionText:row.effectiveVersion&&row.latestVersion>row.effectiveVersion?'最新提交 V'+row.latestVersion+' · 当前有效 V'+row.effectiveVersion:row.effectiveVersion?'当前有效 V'+row.effectiveVersion:row.latestVersion?'最新提交 V'+row.latestVersion:'尚未提交'})),
     summaryText:child.summary.actionable?child.summary.actionable+' 个网点待报送':'本月无待催报网点',
     urgedText:child.lastUrgedAt?'最近催报 '+fmt.timeText(child.lastUrgedAt):''}));
    this.setData({children,summary:data.summary,ready:true});
@@ -51,7 +51,7 @@ Page(define({
   this.setData({urgeBusy:childOwner,urgeNotice:'',progressError:''});
   try{
    const result=await api.command('agency.urge',{childOwner,month:this.data.month});
-   const count=result?.agencyUrgeSummary?.outletCount||1;
+   const count=result.result.agencyUrgeSummary.outletCount;
    this.setData({urgeNotice:'已向直属二级代理发送 '+count+' 条站内催报。'});
    await this.loadProgress();
   }catch(error){this.setData({progressError:error.message});}

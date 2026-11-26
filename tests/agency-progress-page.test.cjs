@@ -59,6 +59,8 @@ async function setup(){
  await command('manager','agency.level',{owner:'p1',level:1,reason:'一级代理'});
  await command('manager','agency.level',{owner:'p2',level:2,reason:'二级代理'});
  await command('manager','agency.bind',{parentOwner:'p1',childOwner:'p2',reason:'直属绑定'});
+ const plan=await command('manager','plan.publish',{name:'一级代理服务',amount:'1980.00',serviceEntity:'九盈集团',collectionEntity:'九盈集团',invoiceEntity:'九盈集团',terms:'含经营月报与下级报送',services:['monthly_report','agency_reporting'],reason:'验收协议'});
+ await command('manager','agreement.create',{outlet:'cs',planId:plan.id,startMonth:'2026-01',endMonth:'2026-12',billDay:1,dueDay:5,reference:'AGT-PAGE-001',reason:'验收协议'});
  return {app,command,navigation,toasts,restore(){config.apiBase=previous;delete global.wx;delete global.Page;delete global.getCurrentPages;}};
 }
 
@@ -88,10 +90,12 @@ test('AGT-04 agency progress page clears stale state on identity switch and keep
   assert.equal(page.data.summary.actionable,0);
 
   await page.month({detail:{value:'2026-10'}});
+  const batch=await command('manager','import.preview',{kind:'outlets',rows:[{owner:'p2',name:'复验二号',province:'湖南',city:'株洲',district:'示范区',address:'模拟路2号',phone:'000-00000002',opening:'2026-01-01',status:'open',enrollmentApplicable:true}],reason:'双网点催报'});
+  await command('manager','import.commit',{id:batch.id});
   const first=page.urge(tap({owner:'p2'})),second=page.urge(tap({owner:'p2'}));
   await Promise.all([first,second]);
-  assert.match(page.data.urgeNotice,/1 条站内催报/);
-  assert.equal(app.store.load().messages.filter(row=>row.agencyUrge).length,1);
+  assert.match(page.data.urgeNotice,/2 条站内催报/);
+  assert.equal(app.store.load().messages.filter(row=>row.agencyUrge).length,2);
   assert.ok(page.data.children[0].lastUrgedAt);
 
   // 切换身份：旧进度立即清空，旧响应不再回填，错误可理解且可重试
@@ -128,6 +132,11 @@ test('AGT-04 agency progress page clears stale state on identity switch and keep
   assert.equal(page.data.children.length,0);
   assert.equal(page.data.summary.children,0);
   assert.equal(page.data.summary.outlets,0);
+  // 无有效协议时页面给出明确原因，而不是笼统 403
+  app.store.db.prepare("DELETE FROM agreements WHERE owner='p1'").run();
+  await page.onShow();
+  assert.equal(page.data.ready,false);
+  assert.equal(page.data.progressError,'当前主体尚未签订服务协议，不能使用下级报送，请联系总部确认。');
   assert.deepEqual(navigation,[]);
   assert.deepEqual(toasts,[]);
  }finally{

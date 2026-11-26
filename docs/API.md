@@ -59,7 +59,21 @@ cooperation.submit输入company/name/contact（各1—200字）、message（1—
 |agency.unbind|manager|id 或 childOwner,reason|agencyRelations；active→revoked，保留 revokedAt/revokedBy/reason 和历史 trail。解绑后原一级的下级查询与催报立即失效|
 |agency.urge|一级代理|childOwner,month,Idempotency-Key|messages；仅直属 active 二级，月份须早于当前月。对未报、逾期、草稿、退回的网点各生成一条 target=reports、带 outlet 与 month 的站内通知；同主体同月同日重复催报返回 409，无需催报返回 409。当前协议声明服务但缺少 agency_reporting 时返回 403|
 
-进度读取与催报都只使用当前生效关系。一级读取直属二级的营收、原单、附件、导出或代填，仍按原主体范围拒绝；总部审核队列不变，二级从「我的事项」通知进入原网点与账期月报。
+进度读取与催报都只使用当前生效关系。进度不披露退回意见。新版退回时同时返回最新版本与仍然有效的旧版本。催报及同键回执均检查当前直属关系、协议服务和二级账号状态；二级账号停用期间暂停催报，恢复后可继续办理。一级读取直属二级的营收、原单、附件、导出或代填，仍按原主体范围拒绝；总部审核队列不变，二级从「我的事项」通知进入原网点与账期月报。
+
+「下级报送」的服务协议判定按以下顺序执行，不把「没有有效协议」和「历史协议未声明服务项」混为一谈：
+
+| 协议状态 | 结果 |
+|---|---|
+| 主体没有任何协议记录 | 403 `AGREEMENT_MISSING`，提示尚未签订服务协议 |
+| 有协议但全部已过结束月 | 403 `AGREEMENT_EXPIRED`，提示续签前不能使用 |
+| 有协议但全部尚未开始 | 403 `AGREEMENT_NOT_STARTED` |
+| 协议记录存在但当前无生效月份（起止混合） | 403 `AGREEMENT_INACTIVE` |
+| 当前生效协议快照没有 `services` 字段（历史协议） | 允许，保持原权限；服务范围未知不推断 |
+| 当前生效协议均声明服务，至少一份包含 `agency_reporting` | 允许 |
+| 当前生效协议均声明服务，但都不包含 `agency_reporting` | 403 `SERVICE_NOT_INCLUDED` |
+
+同一主体有多份当前生效协议时，只要存在一份历史协议（无 `services` 快照）即按历史兼容允许；否则需至少一份声明 `agency_reporting`。到期、未开始和从未签约均拒绝，且错误码分开，便于客户端区分续签、等待生效和首次签约。
 
 ## 收款、退款、发票（凭证登记，不执行外部资金操作）
 

@@ -22,6 +22,17 @@ async function withServer(run){
  finally{app.server.closeAllConnections();await new Promise(resolve=>app.server.close(resolve));app.store.close();}
 }
 
+async function addOutlet(cmd,manager,owner,name,phone){
+ const batch=await cmd(manager,'import.preview',{kind:'outlets',rows:[{owner,name,province:'湖南',city:'长沙',district:'示范区',address:'长沙市'+name+'路1号',phone,opening:'2026-01-01',status:'open',enrollmentApplicable:true}],reason:'分级服务测试建档'});
+ assert.equal(batch.errorCount,0);
+ const committed=await cmd(manager,'import.commit',{id:batch.id});
+ return committed.createdIds[0];
+}
+function seedLegacyAgreement(app,owner){
+ const state=app.store.load();
+ state.agreements.push({id:'agreement-legacy-'+owner,owner,outlet:null,status:'active',startMonth:'2026-01',endMonth:'2026-12',amount:1,createdAt:'2026-11-18T00:00:00.000Z',priceSnapshot:{id:'plan-legacy-'+owner,name:'历史协议',amount:1,terms:'历史协议',serviceEntity:'九盈集团',collectionEntity:'九盈集团',invoiceEntity:'九盈集团'}});
+ app.store.transaction(()=>app.store.save(state));
+}
 test('AGT-03 two isolated agreements drive different services, permissions and integer-cent bills',async()=>{
  await withServer(async({app,request,data,command,login})=>{
   const manager=await login('manager'),finance=await login('finance');
@@ -126,12 +137,15 @@ test('AGT-03 two isolated agreements drive different services, permissions and i
   assert.equal(batch.errorCount,0);
   const committed=await command(manager,'import.commit',{id:batch.id});
   const outletE=committed.createdIds[0];
-  await command(manager,'agreement.create',{outlet:outletE,planId:planB.id,startMonth:'2026-01',endMonth:'2026-12',billDay:1,dueDay:5,reference:'AGT-E-001',reason:'二级服务协议，不含下级管理'});
   const loginE=await login('partner:'+orgE);
+  const missing=await request('/agency/progress?month=2026-10',loginE,undefined,403);
+  assert.equal(missing.error.code,'AGREEMENT_MISSING');
+  await command(manager,'agreement.create',{outlet:outletE,planId:planB.id,startMonth:'2026-01',endMonth:'2026-12',billDay:1,dueDay:5,reference:'AGT-E-001',reason:'二级服务协议，不含下级管理'});
   const contextE=await data('/context',loginE);
   assert.equal(contextE.agency.isPrimary,true);
   assert.ok(!contextE.entitlements.services.includes('agency_reporting'));
   const denied=await request('/agency/progress?month=2026-10',loginE,undefined,403);
+  assert.equal(denied.error.code,'SERVICE_NOT_INCLUDED');
   assert.match(denied.error.message,/服务协议/);
   // 增加含下级管理的协议后，同一入口的服务端校验通过
   const batch2=await command(manager,'import.preview',{kind:'outlets',rows:[{owner:orgE,name:'戊网点二',province:'湖南',city:'长沙',district:'示范区',address:'长沙市戊路2号',phone:'000-00000006',opening:'2026-01-01',status:'open',enrollmentApplicable:true}],reason:'分级服务测试建档'});
@@ -139,5 +153,33 @@ test('AGT-03 two isolated agreements drive different services, permissions and i
   await command(manager,'agreement.create',{outlet:committed2.createdIds[0],planId:planA.id,startMonth:'2026-01',endMonth:'2026-12',billDay:1,dueDay:5,reference:'AGT-E-002',reason:'补充一级服务协议'});
   const allowed=await data('/agency/progress?month=2026-10',loginE);
   assert.equal(allowed.summary.children,0);
- });
-});
+
+  // 协议到期：有效记录存在但已过结束月，拒绝并给出明确原因
+  const expiredOrg=(await command(manager,'account.create',{name:'己一级',managerName:'负责人己',mobile:'13800000006'})).owner;
+  await command(manager,'agency.level',{owner:expiredOrg,level:1,reason:'一级代理'});
+  const expiredOutlet=await addOutlet(command,manager,expiredOrg,'己网点一','000-00000006');
+  await command(manager,'agreement.create',{outlet:expiredOutlet,planId:planA.id,startMonth:'2026-01',endMonth:'2026-09',billDay:1,dueDay:5,reference:'AGT-F-001',reason:'已到期协议'});
+  const loginF=await login('partner:'+expiredOrg);
+  const expired=await request('/agency/progress?month=2026-10',loginF,undefined,403);
+  assert.equal(expired.error.code,'AGREEMENT_EXPIRED');
+
+  // 协议尚未开始：与到期区分
+  const futureOrg=(await command(manager,'account.create',{name:'庚一级',managerName:'负责人庚',mobile:'13800000007'})).owner;
+  await command(manager,'agency.level',{owner:futureOrg,level:1,reason:'一级代理'});
+  const futureOutlet=await addOutlet(command,manager,futureOrg,'庚网点一','000-00000007');
+  await command(manager,'agreement.create',{outlet:futureOutlet,planId:planA.id,startMonth:'2027-01',endMonth:'2027-12',billDay:1,dueDay:5,reference:'AGT-G-001',reason:'尚未生效协议'});
+  const loginG=await login('partner:'+futureOrg);
+  const notStarted=await request('/agency/progress?month=2026-10',loginG,undefined,403);
+  assert.equal(notStarted.error.code,'AGREEMENT_NOT_STARTED');
+
+  await command(manager,'agreement.create',{outlet:futureOutlet,planId:planA.id,startMonth:'2025-01',endMonth:'2025-12',billDay:1,dueDay:5,reference:'AGT-G-GAP',reason:'两段协议之间的空档'});
+  assert.equal((await request('/agency/progress?month=2026-10',loginG,undefined,403)).error.code,'AGREEMENT_INACTIVE');
+
+  // 历史协议兼容：生效协议快照没有 services 字段时保持原权限
+  const legacyOrg=(await command(manager,'account.create',{name:'辛一级',managerName:'负责人辛',mobile:'13800000008'})).owner;
+  await command(manager,'agency.level',{owner:legacyOrg,level:1,reason:'一级代理'});
+  seedLegacyAgreement(app,legacyOrg);
+  const loginH=await login('partner:'+legacyOrg);
+  const legacy=await data('/agency/progress?month=2026-10',loginH);
+  assert.equal(legacy.summary.children,0);
+ });});

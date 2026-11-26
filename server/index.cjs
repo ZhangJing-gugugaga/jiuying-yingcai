@@ -302,6 +302,7 @@ function createServer({dbPath=process.env.DB_PATH||path.join(ROOT,'var/local.db'
       const cached=store.db.prepare('SELECT * FROM idempotency WHERE subject=? AND key=?').get(session.subject,key);
       const isTask=p.command.startsWith('task.');
       if(cached){
+       if(p.command==='agency.urge')require('../shared/agency.cjs').authorizeUrge(state,session.actor,p.payload);
        core.check(cached.request_hash===fingerprint,'IDEMPOTENCY_CONFLICT','同一幂等键不能用于不同请求',409);
        if(session.actor==='regional'&&p.command==='review.report'){
         const report=state.reports.find(row=>row.id===p.payload.id);

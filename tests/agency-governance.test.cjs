@@ -20,6 +20,12 @@ function apply(store,actor,command,payload,{today='2026-11-18',now=NOW}={}){
  return output.result;
 }
 function session(actor){return {actor,subject:actor,now:NOW,today:'2026-11-18'};}
+function seedLegacyAgreement(store,owner,{outlet=null,startMonth='2026-01',endMonth='2026-12'}={}){
+ const state=store.load();
+ state.agreements.push({id:'agreement-legacy-'+owner,owner,outlet,status:'active',startMonth,endMonth,amount:1,createdAt:NOW,
+  priceSnapshot:{id:'plan-legacy-'+owner,name:'历史协议',amount:1,terms:'历史协议',serviceEntity:'九盈集团',collectionEntity:'九盈集团',invoiceEntity:'九盈集团'}});
+ store.transaction(()=>store.save(state));
+}
 
 test('AGT-01 forward migration keeps legacy subjects without inferring a level and reopens twice',()=>{
  const dir=mkdtempSync(join(tmpdir(),'jiuying-agency-migration-')),file=join(dir,'legacy.db');
@@ -75,6 +81,9 @@ const first=apply(store,'manager','agency.bind',{parentOwner:'p1',childOwner:'p2
  const batch=apply(store,'manager','import.preview',{kind:'outlets',rows:[{owner:secondaryD,name:'丁示范网点',province:'湖南',city:'长沙',district:'示范区',address:'长沙市丁路1号',phone:'000-00000001',opening:'2026-01-01',status:'open',enrollmentApplicable:true}],reason:'隔离测试建档'});
  assert.equal(batch.errorCount,0);
  apply(store,'manager','import.commit',{id:batch.id});
+  // 旧协议快照没有 services 字段：保持原下级报送权限。
+  seedLegacyAgreement(store,'p1',{outlet:'cs'});
+  seedLegacyAgreement(store,primaryC);
   const repo=repository(store,{today:()=>'2026-11-18'});
 
   let a=repo.agencyProgress(session('partnerA'),{month:'2026-10'});
@@ -126,11 +135,12 @@ test('AGT-01 progress reports only reporting state for direct children across al
  s.organizations.find(org=>org.id==='p1').level=1;
  s.organizations.find(org=>org.id==='p2').level=2;
  s.agencyRelations=[{id:'agency-fixture',owner:'p2',outlet:null,status:'active',parentOwner:'p1',childOwner:'p2',level:2,effectiveAt:'2026-01-01',createdAt:'2026-01-01T00:00:00.000Z',trail:[]}];
+ s.agreements=[{id:'agreement-legacy-p1',owner:'p1',outlet:'cs',status:'active',startMonth:'2026-01',endMonth:'2026-12',amount:1,priceSnapshot:{id:'plan-legacy-p1',name:'历史协议',amount:1,terms:'历史协议',serviceEntity:'九盈集团',collectionEntity:'九盈集团',invoiceEntity:'九盈集团'}}];
  const base=s.outlets.find(outlet=>outlet.id==='gz');
  const make=(id,name)=>({...JSON.parse(JSON.stringify(base)),id,outlet:id,name});
  s.outlets=['gz','gz2','gz3','gz4','gz5','gz6','gz7'].map((id,index)=>index===0?base:make(id,'二级网点'+(index+1)));
  const report=(outlet,status,overrides={})=>({id:'rpt-'+outlet,owner:'p2',outlet,status,month:'2026-10',version:1,current:status==='approved',revenue:100,orders:1,traffic:1,enroll:1,trail:[],createdAt:'2026-11-01T00:00:00.000Z',...overrides});
- s.reports=[report('gz','pending'),report('gz2','returned',{current:false,reviewNote:'请补充订单说明'}),report('gz3','approved')];
+ s.reports=[report('gz','pending'),report('gz2','approved'),report('gz2','returned',{version:2,current:false,reviewNote:'请补充订单说明'}),report('gz3','approved')];
  s.drafts=[{id:'draft-gz7',owner:'p2',outlet:'gz7',month:'2026-10',status:'draft',revenue:10,orders:1,traffic:1,enroll:1,createdAt:'2026-11-01T00:00:00.000Z'}];
  s.exemptions=[{id:'exempt-gz5',owner:'p2',outlet:'gz5',month:'2026-10',status:'approved'}];
  s.outlets.find(outlet=>outlet.id==='gz6').events=[{date:'2025-01-01',status:'preparing',actor:'manager',reason:'尚未营业'}];
@@ -149,7 +159,9 @@ test('AGT-01 progress reports only reporting state for direct children across al
  assert.equal(result.summary.actionable,3);
  assert.equal(result.summary.approved,1);
  assert.equal(result.summary.notApplicable,2);
- assert.equal(result.children[0].outlets.find(row=>row.outlet==='gz2').returnNote,'请补充订单说明');
+ const correction=result.children[0].outlets.find(row=>row.outlet==='gz2');
+ assert.deepEqual([correction.latestVersion,correction.effectiveVersion],[2,1]);
+ for(const row of result.children[0].outlets)assert.deepEqual(Object.keys(row).sort(),['outlet','outletName','status','statusLabel','dueOn','late','latestVersion','effectiveVersion'].sort());
 });
 
 async function withServer(run){
@@ -174,7 +186,9 @@ test('AGT-01/02 progress and urge are server-authorized while detail, attachment
   await data('/commands',manager,{command:'agency.level',payload:{owner:'p2',level:2,reason:'二级代理'}});
   const bound=await data('/commands',manager,{command:'agency.bind',payload:{parentOwner:'p1',childOwner:'p2',reason:'直属绑定'}});
   assert.equal(bound.result.childOwner,'p2');
-  const primary=await login('partnerA'),secondary=await login('partnerB');
+  const plan=await data('/commands',manager,{command:'plan.publish',payload:{name:'一级代理服务',amount:'1980.00',serviceEntity:'九盈集团',collectionEntity:'九盈集团',invoiceEntity:'九盈集团',terms:'含经营月报与下级报送',services:['monthly_report','agency_reporting'],reason:'验收协议'}});
+  await data('/commands',manager,{command:'agreement.create',payload:{outlet:'cs',planId:plan.result.id,startMonth:'2026-01',endMonth:'2026-12',billDay:1,dueDay:5,reference:'AGT-GOV-001',reason:'验收协议'}});
+  const primary=await login('partnerA');let secondary=await login('partnerB');
   const context=await data('/context',primary);
   assert.deepEqual(context.agency,{level:1,isPrimary:true,parentOwner:null,childCount:1});
 
@@ -188,11 +202,21 @@ test('AGT-01/02 progress and urge are server-authorized while detail, attachment
 
   // 二级已有其他月份待审原单和总部待办时，催报仍须成功且不能重复生成责任待办
   await data('/commands',secondary,{command:'report.submit',payload:{outlet:'gz',month:'2026-07',revenue:800,orders:8,traffic:30,enroll:1,note:'历史待审原单'}});
-  const urged=await data('/commands',primary,{command:'agency.urge',payload:{childOwner:'p2',month:'2026-10'}});
+  const payload={command:'agency.urge',payload:{childOwner:'p2',month:'2026-10'}};
+  const headers={'Idempotency-Key':randomUUID()};
+  const send=(body=payload,key=headers)=>request('/commands',primary,body,key);
+  const urged=(await send()).data;
+  assert.equal((await send()).data.replayed,true);
+  assert.equal((await send({...payload,payload:{...payload.payload,month:'2026-08'}})).error.code,'IDEMPOTENCY_CONFLICT');
+  await data('/commands',manager,{command:'account.update',payload:{owner:'p2',status:'frozen',reason:'冻结演练'}});
+  for(const key of [headers,{}])assert.equal((await send(payload,key)).error.code,'CONFLICT');
+  await data('/commands',manager,{command:'account.update',payload:{owner:'p2',status:'active',reason:'恢复办理'}});
+  assert.equal((await send()).data.replayed,true);
   assert.equal(urged.result.agencyUrgeSummary.outletCount,1);
   const openTasks=await data('/tasks?queue=ops&status=open',manager);
   assert.equal(openTasks.items.filter(row=>row.kind==='report_review'&&row.month==='2026-07').length,1);
   assert.equal((await request('/commands',primary,{command:'agency.urge',payload:{childOwner:'p2',month:'2026-10'}})).status,409);
+  secondary=await login('partnerB');
   const notices=await data('/collections/messages',secondary);
   const notice=notices.items.find(row=>row.agencyUrge);
   assert.ok(notice);
@@ -224,9 +248,14 @@ test('AGT-01/02 progress and urge are server-authorized while detail, attachment
   const other=await data('/commands',manager,{command:'account.create',payload:{name:'丙一级',managerName:'负责人丙',mobile:'13800000003'}});
   await data('/commands',manager,{command:'agency.level',payload:{owner:other.result.owner,level:1,reason:'一级代理'}});
   await data('/commands',manager,{command:'agency.bind',payload:{parentOwner:other.result.owner,childOwner:'p2',replaceActive:true,reason:'换绑'}});
+  assert.equal((await send()).status,403);
   const afterRebind=await data('/agency/progress?month=2026-10',primary);
   assert.equal(afterRebind.summary.children,0);
   assert.equal((await request('/commands',primary,{command:'agency.urge',payload:{childOwner:'p2',month:'2026-09'}})).status,403);
+  // 新一级使用历史协议（未声明 services）继续查询；协议到期/从未签约由 AGT-03 用例覆盖。
+  const state=app.store.load();
+  state.agreements.push({id:'agreement-legacy-'+other.result.owner,owner:other.result.owner,outlet:null,status:'active',startMonth:'2026-01',endMonth:'2026-12',amount:1,createdAt:NOW,priceSnapshot:{id:'plan-legacy-'+other.result.owner,name:'历史协议',amount:1,terms:'历史协议',serviceEntity:'九盈集团',collectionEntity:'九盈集团',invoiceEntity:'九盈集团'}});
+  app.store.transaction(()=>app.store.save(state));
   const newPrimary=await login('partner:'+other.result.owner);
   const newProgress=await data('/agency/progress?month=2026-10',newPrimary);
   assert.deepEqual(newProgress.children.map(child=>child.childOwner),['p2']);

@@ -37,6 +37,8 @@ test('AGT-02 bind→progress→urge→draft→submit→HQ return→resubmit→ap
   await command(manager,'agency.level',{owner:'p1',level:1,reason:'总部确认一级代理'});
   await command(manager,'agency.level',{owner:'p2',level:2,reason:'总部确认二级代理'});
   await command(manager,'agency.bind',{parentOwner:'p1',childOwner:'p2',reason:'直属绑定'});
+  const plan=await command(manager,'plan.publish',{name:'一级代理服务',amount:'1980.00',serviceEntity:'九盈集团',collectionEntity:'九盈集团',invoiceEntity:'九盈集团',terms:'含经营月报与下级报送',services:['monthly_report','agency_reporting'],reason:'验收协议'});
+  await command(manager,'agreement.create',{outlet:'cs',planId:plan.id,startMonth:'2026-01',endMonth:'2026-12',billDay:1,dueDay:5,reference:'AGT-LOOP-001',reason:'验收协议'});
   const batch=await command(manager,'import.preview',{kind:'outlets',rows:[{owner:'p2',name:'株洲二级网点B',province:'湖南',city:'株洲',district:'示范区',address:'株洲市模拟路2号',phone:'000-00000002',opening:'2026-01-01',status:'open',enrollmentApplicable:false}],reason:'分级代理隔离建档'});
   assert.equal(batch.errorCount,0);
   await command(manager,'import.commit',{id:batch.id});
@@ -168,6 +170,8 @@ test('AGT-02 urge notice opens the exact outlet and month through the native rep
   await send(manager,'agency.level',{owner:'p1',level:1,reason:'一级代理'});
   await send(manager,'agency.level',{owner:'p2',level:2,reason:'二级代理'});
   await send(manager,'agency.bind',{parentOwner:'p1',childOwner:'p2',reason:'直属绑定'});
+  const plan=await send(manager,'plan.publish',{name:'一级代理服务',amount:'1980.00',serviceEntity:'九盈集团',collectionEntity:'九盈集团',invoiceEntity:'九盈集团',terms:'含经营月报与下级报送',services:['monthly_report','agency_reporting'],reason:'验收协议'});
+  await send(manager,'agreement.create',{outlet:'cs',planId:plan.id,startMonth:'2026-01',endMonth:'2026-12',billDay:1,dueDay:5,reference:'AGT-LOOP-002',reason:'验收协议'});
   await api.login('partnerA');
   await api.command('agency.urge',{childOwner:'p2',month:'2026-10'});
   await api.login('partnerB');

@@ -29,18 +29,33 @@ function ancestors(s,ownerId){
  return chain;
 }
 function levelLabel(level){return level===1?'一级代理':level===2?'二级代理':'未设置';}
-function activeEntitlements(s,owner){
+function entitlementFor(s,owner,code){
  const month=String(s.today||'').slice(0,7);
- return (s.agreements||[]).filter(row=>row.owner===owner&&row.status==='active'&&row.startMonth<=month&&row.endMonth>=month);
-}
-// 协议未声明 services 时视为历史协议，保持原有权限；声明后以当前生效协议为准。
-function serviceIncluded(s,owner,code){
- const declared=activeEntitlements(s,owner).filter(row=>Array.isArray(row.priceSnapshot?.services));
- if(!declared.length)return true;
- return declared.some(row=>row.priceSnapshot.services.includes(code));
+ const all=(s.agreements||[]).filter(row=>row.owner===owner&&row.status==='active');
+ if(!all.length)return {allowed:false,reason:'missing'};
+ const current=all.filter(row=>row.startMonth<=month&&row.endMonth>=month);
+ if(!current.length){
+  if(all.every(row=>row.endMonth<month))return {allowed:false,reason:'expired'};
+  if(all.every(row=>row.startMonth>month))return {allowed:false,reason:'not_started'};
+  return {allowed:false,reason:'inactive'};
+ }
+ // 历史协议快照没有 services 字段时，服务范围未知，保持原权限；新协议明确声明后按声明执行。
+ if(current.some(row=>!(row.priceSnapshot&&Object.hasOwn(row.priceSnapshot,'services'))))return {allowed:true,reason:'legacy'};
+ if(current.some(row=>Array.isArray(row.priceSnapshot.services)&&row.priceSnapshot.services.includes(code)))return {allowed:true,reason:'included'};
+ return {allowed:false,reason:'not_included'};
 }
 function requireService(s,owner,code){
- check(serviceIncluded(s,owner,code),'FORBIDDEN','当前服务协议不包含「'+serviceCatalog.SERVICES[code]+'」，请联系总部确认',403);
+ const state=entitlementFor(s,owner,code);
+ if(state.allowed)return state;
+ const name=serviceCatalog.SERVICES[code];
+ const messages={
+  missing:'当前主体尚未签订服务协议，不能使用「'+name+'」，请联系总部确认',
+  expired:'当前服务协议已到期，续签前不能使用「'+name+'」，请联系总部确认',
+  not_started:'当前服务协议尚未生效，暂不能使用「'+name+'」，请联系总部确认',
+  inactive:'当前主体没有生效中的服务协议，不能使用「'+name+'」，请联系总部确认',
+  not_included:'当前服务协议不包含「'+name+'」，请联系总部确认'
+ };
+ fail({missing:'AGREEMENT_MISSING',expired:'AGREEMENT_EXPIRED',not_started:'AGREEMENT_NOT_STARTED',inactive:'AGREEMENT_INACTIVE',not_included:'SERVICE_NOT_INCLUDED'}[state.reason],messages[state.reason],403);
 }
 
 function setLevel(s,a,p,ctx={}){
@@ -111,19 +126,18 @@ function reportStatus(s,outletRecord,m){
  const versions=(s.reports||[]).filter(row=>row.outlet===outletRecord.id&&row.month===m);
  const {newest,approved,latest}=operations.reportVersions(versions);
  const timing=operations.reportTiming(s,m);
- let status,reason=null;
+ let status;
  if(block==='current_month'||block==='future_month')status='not_open';
  else if(block==='exempt')status='exempt';
  else if(block==='no_operation')status='not_required';
  else if(block==='full_pause')status='exemption_pending';
  else if(latest&&['pending','finance'].includes(latest.status))status=latest.status;
- else if(approved)status='approved';
  else if(latest?.status==='returned')status='returned';
+ else if(approved)status='approved';
  else if((s.drafts||[]).some(row=>row.outlet===outletRecord.id&&row.month===m))status='draft';
  else if(enrollment==='pending')status='awaiting_enrollment';
  else status=timing.late?'overdue':'missing';
- if(status==='returned'&&latest?.reviewNote)reason=latest.reviewNote;
- return {status,reason,dueOn:timing.dueOn,late:timing.late===true,
+ return {status,dueOn:timing.dueOn,late:timing.late===true,
   latestVersion:newest?.version??null,effectiveVersion:approved?.version??null};
 }
 
@@ -148,8 +162,7 @@ function summarize(rows){
 function outletRow(s,outletRecord,m){
  const state=reportStatus(s,outletRecord,m);
  return {outlet:outletRecord.id,outletName:outletRecord.name,status:state.status,statusLabel:labels[state.status],
-  dueOn:state.dueOn,late:state.late,latestVersion:state.latestVersion,effectiveVersion:state.effectiveVersion,
-  ...(state.reason?{returnNote:state.reason}:{})};
+  dueOn:state.dueOn,late:state.late,latestVersion:state.latestVersion,effectiveVersion:state.effectiveVersion};
 }
 
 function childProgress(s,childOwner,m){
@@ -181,7 +194,7 @@ function progress(s,actor,params={},today=s.today){
  return {month:m,level:org.level,summary,children,generatedAt:new Date().toISOString(),methodVersion:'agency-progress-v1'};
 }
 
-function urge(s,a,p,ctx={}){
+function authorizeUrge(s,a,p){
  const owner=own(a);
  check(owner,'FORBIDDEN','仅一级代理可催报',403);
  const org=organization(s,owner);
@@ -191,7 +204,12 @@ function urge(s,a,p,ctx={}){
  const relation=activeRelationFor(s,childOwner);
  check(relation&&relation.parentOwner===owner,'FORBIDDEN','该主体不是当前直属二级代理',403);
  const child=organization(s,childOwner);
- check(child?.status==='active','CONFLICT','直属主体账号不可用',409);
+ check(child?.status==='active'&&s.accounts.some(account=>account.owner===childOwner&&account.status==='active'),'CONFLICT','直属主体账号不可用',409);
+ return {owner,childOwner,relation};
+}
+
+function urge(s,a,p,ctx={}){
+ const {owner,childOwner,relation}=authorizeUrge(s,a,p);
  const m=month(p.month),current=String(s.today||'').slice(0,7);
  check(m<current,'INPUT','只能催报已结束的自然月');
  const data=childProgress(s,childOwner,m);
@@ -214,4 +232,4 @@ function urge(s,a,p,ctx={}){
  return {...created[0],agencyUrgeSummary:{childOwner,month:m,outletCount:created.length,parentOwner:owner}};
 }
 
-module.exports={own,month,monthPattern,previousMonth,levelLabel,labels,actionableStatuses,organization,activeRelationFor,activeChildren,ancestors,setLevel,bind,unbind,reportStatus,childProgress,progress,urge,summarize};
+module.exports={own,month,monthPattern,previousMonth,levelLabel,labels,actionableStatuses,organization,activeRelationFor,activeChildren,ancestors,setLevel,bind,unbind,reportStatus,childProgress,progress,authorizeUrge,urge,summarize,entitlementFor,requireService};

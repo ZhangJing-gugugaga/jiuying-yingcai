@@ -25,7 +25,7 @@ schema_migrations逐版本记录。编号按序事务执行，失败ROLLBACK；�
 | requests/verifications | 分类申请、位置核验、补件/异常；照片引用私有files |
 | bills/payments/receipts/adjustments | unpaid/paid/reversed/settled_zero；Mock尝试、manual实收、待核算→approved→applied调整 |
 | settlements/summaryAdjustments | 正式结算的reportIds，invalidated；源版本引用与字段调整/复核 |
-| policies/pricePlans/agreements | 生效制度版本、整月价格和三个主体、不可变priceSnapshot（含可选 services 服务项）、起止月/账单日/截止日 |
+| policies/pricePlans/agreements | 生效制度版本、整月价格和三个主体、不可变priceSnapshot（含可选 services 服务项）、起止月/账单日/截止日。下级报送按当前生效协议判定：从未签约、到期、未生效分别拒绝；历史快照缺 services 保持原权限；声明后按服务项校验 |
 | billCorrections/feeProposals | 原值/新值、独立发起人与复核人、关联冲正新单/明确抵扣月和可空顺延 |
 | offlinePayments | 外部reference、paidOn、金额，pending→approved/returned；批准产生manual receipt |
 | refundRequests | pending→approved/returned→recorded；预留净额、外部退款reference/refundedOn，不冒充银行执行 |

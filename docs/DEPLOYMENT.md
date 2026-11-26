@@ -16,7 +16,7 @@ Node >=24.19.0 <25，首次npm ci；pdfkit/sharp锁定，字体与许可证随�
 
 ## 原生构建
 
-开发：`node scripts/wechat-build.cjs --environment development --target simulator --out dist/wechat-development`。真机先受控设置WECHAT_API_BASE为实际HTTPS origin及WECHAT_APP_ID，再用 `--environment test --target device --out dist/wechat-test`；生产用production。脚本拒绝loopback/HTTP/占位AppID，非开发包移除角色选择，urlCheck=true。输出目录不能覆盖源码或非空目录。原生secret只放服务器。
+日常模拟器调试按[项目 README](../README.md#本地启动)打开 `miniprogram/`。需要真机时，设置 `WECHAT_API_BASE` 为 HTTPS 地址，`WECHAT_APP_ID` 为授权 AppID，再执行 `node scripts/wechat-build.cjs --environment test --target device --out dist/wechat-test`。生产选择 `production`。非开发构建移除开发入口并启用域名校验，密钥留在服务端。
 
 官方 wcc/wcsc、IDE 导入、模拟器交互与真机分别留证，见 [V4.1 综合验收报告](handoff/验收证据/V4.1原始综合验收报告.md)。生产需要合法 request/download 域名。当前照片用 wx.request JSON 上传，将来改用 wx.uploadFile 时再配置 uploadFile 合法域名。设备无法访问电脑 127.0.0.1。
 
@@ -32,4 +32,4 @@ Node >=24.19.0 <25，首次npm ci；pdfkit/sharp锁定，字体与许可证随�
 
 GET /health只说明进程/数据库，不是发布就绪；manager GET /api/operations/health含计数/耗时、数据库quick_check、审计链、支付及消息积压queues。告警接收人、阈值、磁盘与备份监控须部署设置。当前本机内存SQLite负载冒烟不是生产SLO。
 
-发布前完成依赖安装、语法与全量测试、对应版本的总部 Chrome 回归、官方编译、微信模拟器和真机、真实身份与短信、支付及公众号联调、容量安全与恢复演练。最终 ZIP 须按新 SHA256 在独立目录验包。本轮真实支付和退款保持禁用。详见 [交接复验记录](handoff/验收证据/本轮复验记录.md) 和 [验收与开发协作](handoff/05-验收与开发协作.md)。
+发布前复核本次变更和目标环境启用的能力。真实登录、短信、支付和公众号按启用范围联调。需要离线归档时，在验收完成后核对归档摘要及解包启动。部署、提审和上线须经用户明确授权。详见[验收与开发协作](handoff/05-验收与开发协作.md)。

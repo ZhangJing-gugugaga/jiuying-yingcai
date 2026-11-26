@@ -87,6 +87,7 @@ function scopedCommandState(store,session,command,p,today){const db=store.db,own
  if(command==='cooperation.submit')selection.cooperationRequests={where:'owner=?',params:[owner||session.subject]};if(command==='cooperation.update')selection.cooperationRequests={where:'id=?',params:[p.id]};
  if(command==='agency.urge'){
   const childOwner=typeof p.childOwner==='string'&&p.childOwner.length<=120?p.childOwner:'';
+  selection.accounts={where:'owner IN (?,?)',params:[owner,childOwner]};
   selection.organizations={where:'id IN (?,?)',params:[owner,childOwner]};
   selection.agencyRelations={where:"status='active' AND (owner=? OR json_extract(data,'$.parentOwner')=?)",params:[childOwner,owner]};
   selection.agreements={where:'owner=?',params:[owner]};
