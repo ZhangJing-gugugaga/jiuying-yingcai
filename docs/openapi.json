@@ -2,9 +2,9 @@
   "openapi": "3.1.0",
   "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
   "info": {
-    "title": "九盈英才 V3.3 本地业务 API",
-    "version": "0.3.3",
-    "description": "V3.3 增加双支付渠道、账务汇总、规则化账单追补、历史月报重结算及五项业务公开发布。金额使用整数分。真实平台联调另外验收。"
+    "title": "九盈英才 V3.4.4 业务 API",
+    "version": "3.4.4",
+    "description": "现行 API 路由索引。已登记 Schema 的契约供调用方校验，部分新增操作目前仅列出入口及响应类型。金额使用整数分，真实平台单独验收。"
   },
   "servers": [
     {
@@ -6164,6 +6164,512 @@
           }
         }
       }
+    },
+    "/api/auth/staff/sms/send": {
+      "post": {
+        "summary": "发送员工登录短信",
+        "description": "字段、业务约束和资源范围见 API 说明及服务端实现。",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonObject"
+          },
+          "default": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        },
+        "security": [],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/JsonObject"
+        }
+      }
+    },
+    "/api/auth/staff/sms/verify": {
+      "post": {
+        "summary": "验证员工短信并登录",
+        "description": "字段、业务约束和资源范围见 API 说明及服务端实现。",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonObject"
+          },
+          "default": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        },
+        "security": [],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/JsonObject"
+        }
+      }
+    },
+    "/api/auth/staff/wechat/start": {
+      "post": {
+        "summary": "开启员工微信登录",
+        "description": "字段、业务约束和资源范围见 API 说明及服务端实现。",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonObject"
+          },
+          "default": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        },
+        "security": [],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/JsonObject"
+        }
+      }
+    },
+    "/api/auth/staff/wechat/finish": {
+      "post": {
+        "summary": "完成员工微信登录",
+        "description": "字段、业务约束和资源范围见 API 说明及服务端实现。",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonObject"
+          },
+          "default": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        },
+        "security": [],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/JsonObject"
+        }
+      }
+    },
+    "/api/auth/staff/profile": {
+      "get": {
+        "summary": "读取员工认证资料",
+        "description": "字段、业务约束和资源范围见 API 说明及服务端实现。",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonObject"
+          },
+          "default": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/auth/staff/mobile": {
+      "post": {
+        "summary": "配置员工手机认证",
+        "description": "字段、业务约束和资源范围见 API 说明及服务端实现。",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonObject"
+          },
+          "default": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        },
+        "requestBody": {
+          "$ref": "#/components/requestBodies/JsonObject"
+        }
+      }
+    },
+    "/api/auth/staff/wechat/bind": {
+      "post": {
+        "summary": "开启员工微信绑定",
+        "description": "字段、业务约束和资源范围见 API 说明及服务端实现。",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonObject"
+          },
+          "default": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        },
+        "requestBody": {
+          "$ref": "#/components/requestBodies/JsonObject"
+        }
+      }
+    },
+    "/api/onboarding/config": {
+      "get": {
+        "summary": "读取加盟申请配置",
+        "description": "字段、业务约束和资源范围见 API 说明及服务端实现。",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonObject"
+          },
+          "default": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      },
+      "post": {
+        "summary": "更新加盟申请配置",
+        "description": "字段、业务约束和资源范围见 API 说明及服务端实现。",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonObject"
+          },
+          "default": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        },
+        "requestBody": {
+          "$ref": "#/components/requestBodies/JsonObject"
+        }
+      }
+    },
+    "/api/onboarding/applications": {
+      "get": {
+        "summary": "查询授权范围内的加盟申请",
+        "description": "字段、业务约束和资源范围见 API 说明及服务端实现。",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonObject"
+          },
+          "default": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      },
+      "post": {
+        "summary": "发起加盟申请或补件",
+        "description": "字段、业务约束和资源范围见 API 说明及服务端实现。",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonObject"
+          },
+          "default": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        },
+        "requestBody": {
+          "$ref": "#/components/requestBodies/JsonObject"
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          }
+        ]
+      }
+    },
+    "/api/onboarding/applications/{id}/review": {
+      "post": {
+        "summary": "审核加盟申请",
+        "description": "字段、业务约束和资源范围见 API 说明及服务端实现。",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonObject"
+          },
+          "default": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "加盟申请 ID"
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/JsonObject"
+        }
+      }
+    },
+    "/api/onboarding/recover": {
+      "post": {
+        "summary": "恢复申请访问",
+        "description": "字段、业务约束和资源范围见 API 说明及服务端实现。",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonObject"
+          },
+          "default": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        },
+        "requestBody": {
+          "$ref": "#/components/requestBodies/JsonObject"
+        }
+      }
+    },
+    "/api/approval-exports": {
+      "get": {
+        "summary": "读取授权范围内的审批导出数据",
+        "description": "字段、业务约束和资源范围见 API 说明及服务端实现。",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonObject"
+          },
+          "default": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/approval-exports/grants": {
+      "post": {
+        "summary": "维护审批导出授权",
+        "description": "字段、业务约束和资源范围见 API 说明及服务端实现。",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonObject"
+          },
+          "default": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        },
+        "requestBody": {
+          "$ref": "#/components/requestBodies/JsonObject"
+        }
+      }
+    },
+    "/api/approval-exports/csv": {
+      "get": {
+        "summary": "下载授权范围内的审批 CSV",
+        "description": "字段、业务约束和资源范围见 API 说明及服务端实现。",
+        "responses": {
+          "200": {
+            "description": "文件内容",
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/work-contacts": {
+      "get": {
+        "summary": "读取工作联系号码",
+        "description": "字段、业务约束和资源范围见 API 说明及服务端实现。",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonObject"
+          },
+          "default": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/work-contacts/manage": {
+      "get": {
+        "summary": "管理侧读取工作联系号码",
+        "description": "字段、业务约束和资源范围见 API 说明及服务端实现。",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonObject"
+          },
+          "default": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      },
+      "post": {
+        "summary": "保存工作联系号码",
+        "description": "字段、业务约束和资源范围见 API 说明及服务端实现。",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonObject"
+          },
+          "default": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        },
+        "requestBody": {
+          "$ref": "#/components/requestBodies/JsonObject"
+        }
+      }
+    },
+    "/api/reports/worklist": {
+      "get": {
+        "summary": "读取授权范围内的月报工作清单",
+        "description": "字段、业务约束和资源范围见 API 说明及服务端实现。",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonObject"
+          },
+          "default": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/workbench/records": {
+      "get": {
+        "summary": "查询授权范围内的工作台业务记录",
+        "description": "字段、业务约束和资源范围见 API 说明及服务端实现。",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonObject"
+          },
+          "default": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/role-trial/open": {
+      "post": {
+        "summary": "打开本机试用小程序",
+        "description": "仅在本机测试、Mock 且试用控制显式启用时可用。",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonObject"
+          },
+          "default": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        },
+        "security": [],
+        "tags": [
+          "本地试用"
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/JsonObject"
+        }
+      }
+    },
+    "/api/role-trial/applicant": {
+      "post": {
+        "summary": "建立本机试用申请人会话",
+        "description": "仅在本机测试、Mock 且试用控制显式启用时可用。",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/JsonObject"
+          },
+          "default": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        },
+        "security": [],
+        "tags": [
+          "本地试用"
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/JsonObject"
+        }
+      }
+    },
+    "/api/role-trial/proof": {
+      "get": {
+        "summary": "读取本机试用付款凭证",
+        "description": "仅在本机测试、Mock 且试用控制显式启用时可用。",
+        "responses": {
+          "200": {
+            "description": "文件内容",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        },
+        "tags": [
+          "本地试用"
+        ]
+      }
+    },
+    "/api/agency/progress": {
+      "get": {
+        "summary": "读取直属二级代理的月报进度",
+        "description": "仅向有下级报送服务权益的一级代理开放。只返回当前直属网点的状态和版本，不包含经营明细或原单 ID。",
+        "parameters": [
+          {
+            "name": "month",
+            "in": "query",
+            "description": "默认上一自然月，不得晚于业务当前月。",
+            "schema": {
+              "$ref": "#/components/schemas/Month"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AgencyProgress"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "requestId"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "账期无效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "当前主体无下级报送权限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "服务端错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -6173,6 +6679,53 @@
         "scheme": "bearer",
         "bearerFormat": "Opaque random session token",
         "description": "服务端随机token，不是JWT；角色从服务端会话获取，客户端不能在命令中改角色。"
+      }
+    },
+    "responses": {
+      "JsonObject": {
+        "description": "成功。业务字段由对应入口定义。",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "data": {
+                  "type": "object"
+                },
+                "requestId": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "required": [
+                "data",
+                "requestId"
+              ]
+            }
+          }
+        }
+      },
+      "ApiError": {
+        "description": "校验、授权或业务状态错误",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    },
+    "requestBodies": {
+      "JsonObject": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object"
+            }
+          }
+        }
       }
     },
     "schemas": {
@@ -9105,6 +9658,18 @@
           },
           {
             "$ref": "#/components/schemas/Command_task_complete"
+          },
+          {
+            "$ref": "#/components/schemas/Command_agency_level"
+          },
+          {
+            "$ref": "#/components/schemas/Command_agency_bind"
+          },
+          {
+            "$ref": "#/components/schemas/Command_agency_unbind"
+          },
+          {
+            "$ref": "#/components/schemas/Command_agency_urge"
           }
         ],
         "discriminator": {
@@ -11915,6 +12480,359 @@
           "hasMore"
         ]
       },
+      "AgencyProgressSummary": {
+        "type": "object",
+        "properties": {
+          "outlets": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "expected": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "submitted": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "approved": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "pending": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "finance": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "returned": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "draft": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "missing": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "overdue": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "notApplicable": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "actionable": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "outlets",
+          "expected",
+          "submitted",
+          "approved",
+          "pending",
+          "finance",
+          "returned",
+          "draft",
+          "missing",
+          "overdue",
+          "notApplicable",
+          "actionable"
+        ]
+      },
+      "AgencyProgressOutlet": {
+        "type": "object",
+        "properties": {
+          "outlet": {
+            "type": "string"
+          },
+          "outletName": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "statusLabel": {
+            "type": "string"
+          },
+          "dueOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "late": {
+            "type": "boolean"
+          },
+          "latestVersion": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "effectiveVersion": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          }
+        },
+        "required": [
+          "outlet",
+          "outletName",
+          "status",
+          "statusLabel",
+          "dueOn",
+          "late",
+          "latestVersion",
+          "effectiveVersion"
+        ]
+      },
+      "AgencyProgress": {
+        "type": "object",
+        "properties": {
+          "month": {
+            "$ref": "#/components/schemas/Month"
+          },
+          "level": {
+            "const": 1
+          },
+          "summary": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AgencyProgressSummary"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "children": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "children"
+                ]
+              }
+            ]
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "childOwner": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "level": {
+                  "enum": [
+                    2,
+                    null
+                  ]
+                },
+                "outlets": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AgencyProgressOutlet"
+                  }
+                },
+                "summary": {
+                  "$ref": "#/components/schemas/AgencyProgressSummary"
+                },
+                "lastUrgedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "actionableOutlets": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AgencyProgressOutlet"
+                  }
+                }
+              },
+              "required": [
+                "childOwner",
+                "name",
+                "level",
+                "outlets",
+                "summary",
+                "lastUrgedAt",
+                "actionableOutlets"
+              ]
+            }
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "methodVersion": {
+            "const": "agency-progress-v1"
+          }
+        },
+        "required": [
+          "month",
+          "level",
+          "summary",
+          "children",
+          "generatedAt",
+          "methodVersion"
+        ]
+      },
+      "Command_agency_level": {
+        "type": "object",
+        "properties": {
+          "command": {
+            "const": "agency.level"
+          },
+          "payload": {
+            "type": "object",
+            "properties": {
+              "owner": {
+                "type": "string"
+              },
+              "level": {
+                "enum": [
+                  1,
+                  2,
+                  "1",
+                  "2",
+                  null,
+                  ""
+                ]
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "owner",
+              "reason"
+            ]
+          }
+        },
+        "required": [
+          "command",
+          "payload"
+        ]
+      },
+      "Command_agency_bind": {
+        "type": "object",
+        "properties": {
+          "command": {
+            "const": "agency.bind"
+          },
+          "payload": {
+            "type": "object",
+            "properties": {
+              "parentOwner": {
+                "type": "string"
+              },
+              "childOwner": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              },
+              "replaceActive": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "parentOwner",
+              "childOwner",
+              "reason"
+            ]
+          }
+        },
+        "required": [
+          "command",
+          "payload"
+        ]
+      },
+      "Command_agency_unbind": {
+        "type": "object",
+        "properties": {
+          "command": {
+            "const": "agency.unbind"
+          },
+          "payload": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "childOwner": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "reason"
+            ],
+            "anyOf": [
+              {
+                "required": [
+                  "id"
+                ]
+              },
+              {
+                "required": [
+                  "childOwner"
+                ]
+              }
+            ]
+          }
+        },
+        "required": [
+          "command",
+          "payload"
+        ]
+      },
+      "Command_agency_urge": {
+        "type": "object",
+        "properties": {
+          "command": {
+            "const": "agency.urge"
+          },
+          "payload": {
+            "type": "object",
+            "properties": {
+              "childOwner": {
+                "type": "string"
+              },
+              "month": {
+                "$ref": "#/components/schemas/Month"
+              }
+            },
+            "required": [
+              "childOwner",
+              "month"
+            ]
+          }
+        },
+        "required": [
+          "command",
+          "payload"
+        ]
+      },
       "Command_task_create": {
         "type": "object",
         "properties": {
@@ -12040,7 +12958,7 @@
       }
     }
   },
-  "x-command-count": 35,
+  "x-command-count": 73,
   "x-cors": {
     "allowedHostnames": [
       "localhost",

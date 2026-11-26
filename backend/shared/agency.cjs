@@ -11,7 +11,7 @@ const monthPattern=/^20\d{2}-(0[1-9]|1[0-2])$/;
 function text(x,label,required=true){check(typeof x==='string'&&x.length<=2000&&(!required||x.trim()),'INPUT',label+'不能为空或超长');return x.trim();}
 function month(x){check(typeof x==='string'&&monthPattern.test(x),'INPUT','月份格式无效');return x;}
 function at(ctx={}){return ctx.now?new Date(ctx.now).toISOString():new Date().toISOString();}
-function previousMonth(today){return new Date(Date.UTC(+today.slice(0,4),+today.slice(5)-2,1)).toISOString().slice(0,7);}
+function previousMonth(today){return new Date(Date.UTC(+today.slice(0,4),+today.slice(5,7)-2,1)).toISOString().slice(0,7);}
 function relations(s){return s.agencyRelations||(s.agencyRelations=[]);}
 function organization(s,id){return (s.organizations||[]).find(row=>row.id===id)||null;}
 function activeRelationFor(s,childOwner){return relations(s).find(row=>row.childOwner===childOwner&&row.status==='active')||null;}

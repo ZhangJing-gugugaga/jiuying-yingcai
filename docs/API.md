@@ -1,8 +1,8 @@
 # 九盈英才 API 契约
 
-本页按迭代记录接口约定，[OpenAPI 文件](openapi.json)标记为 V3.3。查询当前 V3.4.4 的入口、权限和新增模块时，同时参见[架构](ARCHITECTURE.md)与[服务端路由](../backend/server/index.cjs)。
+[OpenAPI 3.1](openapi.json)列出 V3.4.4 接口。部分新增入口只登记方法和响应类型，字段及授权边界参见本文和[服务端路由](../backend/server/index.cjs)。
 
-OpenAPI3.1见openapi.json；所有JSON成功{data,requestId}、失败{error:{code,message},requestId}，Bearer资源权限由服务端判定。命令POST /api/commands，{command,payload}，Idempotency-Key为8—128字符；同subject同键同请求重放，载荷变化409，当前授权重查。金额CNY元输入、最多两位小数，整数分运算；null不是0。
+所有JSON成功{data,requestId}、失败{error:{code,message},requestId}，Bearer资源权限由服务端判定。命令POST /api/commands，{command,payload}，Idempotency-Key为8—128字符；同subject同键同请求重放，载荷变化409，当前授权重查。金额CNY元输入、最多两位小数，整数分运算；null不是0。
 
 | 路径 | 用途与字段 |
 |---|---|
@@ -29,7 +29,7 @@ OpenAPI3.1见openapi.json；所有JSON成功{data,requestId}、失败{error:{cod
 
 常见错误：400参数、401会话、403权限、404不可见记录、409状态/幂等/制度冲突、413大小或导出范围、415类型、429频控、503未配置/供应商不可用。外部参数错误/权限错误不自动重试。登录返回token/actor/role/subject/expiresAt/mode；岗位actor不是个人subject。
 
-原有35条月报/申请/定位/支付Mock/账号/汇总/客服命令在OpenAPI逐条保留，加35条新增命令共70条。需要真实状态条件的约束仍由服务器校验，不能仅依赖Schema。兼容字段intro用于content.update，key扩展brand/services/news/cases/cooperation。
+已登记命令见 OpenAPI 的 CommandRequest。需要真实状态条件的约束仍由服务器校验，不能仅依赖Schema。兼容字段intro用于content.update，key扩展brand/services/news/cases/cooperation。
 
 cooperation.submit输入company/name/contact（各1—200字）、message（1—2000字）、privacyConsented必须true；公众/加盟商按subject隔离、同一处理中留言防重。cooperation.update由ops/manager输入id/status/note，submitted→received→contacted→closed依次进行，提交者不见内部processingNote。public.profile可选publicCoords=null或有效{lat,lng,coordinateSystem:'GCJ-02'}，只能显式授权发布，不复制内部GPS。
 
@@ -128,9 +128,9 @@ businessTasks.kind 为 report_missing/exemption_review/location_missing/bill_ove
 
 图片上传的 bytes 与 file_metadata 原子提交，异步清洗后再次校验会话；授权读取旧图片时补做清洗与元数据，失败不返回原始危险内容。返回 data 含 id/name/type/size/url/sanitized/width/height。
 
-## V3.1 新增与变更契约（优先于上述历史兼容说明）
+## V3.1 引入的兼容约定
 
-OpenAPI现有33路径、34操作、66个commands，逐一与源码命令集合比对。真实支付走专用路由，旧payment.start/payment.resolve只供Mock并拒绝真实订单。
+真实支付走专用路由，旧payment.start/payment.resolve只供Mock并拒绝真实订单。
 
 | 方法/路径 | 输入及结果 |
 |---|---|

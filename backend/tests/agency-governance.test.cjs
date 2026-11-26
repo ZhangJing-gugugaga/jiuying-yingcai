@@ -194,6 +194,9 @@ test('AGT-01/02 progress and urge are server-authorized while detail, attachment
 
   const progress=await data('/agency/progress?month=2026-10',primary);
   assert.equal(progress.month,'2026-10');
+  assert.equal((await data('/agency/progress',primary)).month,'2026-10');
+  assert.equal((await data('/agency/progress?month=',primary)).month,'2026-10');
+  assert.equal(agency.previousMonth('2027-01-01'),'2026-12');
   assert.equal(progress.summary.children,1);
   assert.equal(progress.summary.overdue,1);
   assert.ok(progress.children[0].outlets.every(row=>!Object.hasOwn(row,'revenue')&&!Object.hasOwn(row,'reportId')));
@@ -208,6 +211,11 @@ test('AGT-01/02 progress and urge are server-authorized while detail, attachment
   const urged=(await send()).data;
   assert.equal((await send()).data.replayed,true);
   assert.equal((await send({...payload,payload:{...payload.payload,month:'2026-08'}})).error.code,'IDEMPOTENCY_CONFLICT');
+  const changedTarget={...payload,payload:{...payload.payload,childOwner:'p1'}};
+  const rejectedChange=await send(changedTarget);
+  assert.equal(rejectedChange.status,409);
+  assert.equal(rejectedChange.error.code,'IDEMPOTENCY_CONFLICT');
+  assert.equal((await send(changedTarget,{})).status,403);
   await data('/commands',manager,{command:'account.update',payload:{owner:'p2',status:'frozen',reason:'冻结演练'}});
   for(const key of [headers,{}])assert.equal((await send(payload,key)).error.code,'CONFLICT');
   await data('/commands',manager,{command:'account.update',payload:{owner:'p2',status:'active',reason:'恢复办理'}});

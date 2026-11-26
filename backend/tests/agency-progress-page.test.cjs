@@ -93,10 +93,18 @@ test('AGT-04 agency progress page clears stale state on identity switch and keep
   const batch=await command('manager','import.preview',{kind:'outlets',rows:[{owner:'p2',name:'复验二号',province:'湖南',city:'株洲',district:'示范区',address:'模拟路2号',phone:'000-00000002',opening:'2026-01-01',status:'open',enrollmentApplicable:true}],reason:'双网点催报'});
   await command('manager','import.commit',{id:batch.id});
   const first=page.urge(tap({owner:'p2'})),second=page.urge(tap({owner:'p2'}));
+  await page.month({detail:{value:'2026-09'}});
   await Promise.all([first,second]);
-  assert.match(page.data.urgeNotice,/2 条站内催报/);
+  assert.equal(page.data.urgeNotice,'');
+  assert.equal(page.data.summary.approved,1);
   assert.equal(app.store.load().messages.filter(row=>row.agencyUrge).length,2);
+  await page.month({detail:{value:'2026-10'}});
   assert.ok(page.data.children[0].lastUrgedAt);
+  const older=page.month({detail:{value:'2026-09'}});
+  await Promise.all([older,page.month({detail:{value:'2026-10'}})]);
+  assert.equal(page.data.month,'2026-10');
+  assert.ok(page.data.children[0].lastUrgedAt);
+  assert.equal(page.data.progressLoading,false);
 
   // 切换身份：旧进度立即清空，旧响应不再回填，错误可理解且可重试
   await api.login('partnerB');
