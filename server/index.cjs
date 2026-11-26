@@ -70,7 +70,7 @@ function createServer({dbPath=process.env.DB_PATH||path.join(ROOT,'var/local.db'
  }
  function fileAccess(f,session,options){return uploads.fileAccess(store,f,session,repo,options);}
  function evidence(p,session){for(const obj of [p.photo,p.data?.photo])if(obj){const f=store.db.prepare('SELECT id,subject,owner FROM files WHERE id=?').get(obj.id||'');core.check(!fileAccess(f,session),'FORBIDDEN','此类图片仅可在原业务使用',403);}}
- function visibleResult(state,session,raw){const v=core.view(state,session.actor,{subject:session.subject});for(const rows of [...Object.values(v).filter(Array.isArray),v.support.chats,v.support.tickets]){const found=rows.find(x=>x.id===raw.id);if(found)return found;}core.check(session.actor==='manager'&&['regional','support-settings'].includes(raw.id),'FORBIDDEN','当前权限不允许读取此操作结果',403);return raw;}
+ function visibleResult(state,session,raw){const v=core.view(state,session.actor,{subject:session.subject});for(const rows of [...Object.values(v).filter(Array.isArray),v.support.chats,v.support.tickets]){const found=rows.find(x=>x.id===raw.id);if(found)return found;}if(raw.agencyUrgeSummary&&raw.agencyUrgeSummary.parentOwner===core.own(session.actor))return raw;core.check(session.actor==='manager'&&['regional','support-settings'].includes(raw.id),'FORBIDDEN','当前权限不允许读取此操作结果',403);return raw;}
  const server=http.createServer(async(req,res)=>{const requestId=randomUUID(),started=Date.now();res.setHeader('X-Request-Id',requestId);res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','no-referrer');res.setHeader('Cache-Control','no-store');res.setHeader('X-Frame-Options','DENY');if(!development)res.setHeader('Strict-Transport-Security','max-age=31536000');res.on('finish',()=>{for(const [key,value] of [['requests.total',1],['requests.duration_ms',Date.now()-started],['requests.errors',res.statusCode>=400?1:0]])store.db.prepare('INSERT INTO runtime_metrics(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=value+excluded.value').run(key,value);});
   const respond=(status,body)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8'});res.end(JSON.stringify(body));};
   try{
@@ -165,6 +165,7 @@ function createServer({dbPath=process.env.DB_PATH||path.join(ROOT,'var/local.db'
      readJson:limit=>protectedJson(req,limit),reauthorize:()=>sessionFor(req)
     });
     if(route==='/api/reports/context'&&req.method==='GET')return respond(200,{data:repo.reportContext(session,Object.fromEntries(url.searchParams)),requestId});
+    if(route==='/api/agency/progress'&&req.method==='GET')return respond(200,{data:readAnalyticsSnapshot(()=>repo.agencyProgress(session,Object.fromEntries(url.searchParams))),requestId});
     if(route==='/api/reports/worklist'&&req.method==='GET')return respond(200,{data:readAnalyticsSnapshot(()=>repo.reportWorklist(session,Object.fromEntries(url.searchParams))),requestId});
     if(route==='/api/workbench/records'&&req.method==='GET')return respond(200,{data:readAnalyticsSnapshot(()=>repo.workbenchRecords(session,Object.fromEntries(url.searchParams))),requestId});
     if(route==='/api/payments/prepay'&&req.method==='POST')return respond(200,{data:await payments.prepay(session,await protectedJson(req,8192),req.headers['idempotency-key'],requestId,()=>sessionFor(req)),requestId});

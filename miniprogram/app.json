@@ -16,7 +16,8 @@
     "pages/finance/index",
     "pages/tasks/index",
     "pages/discover/index",
-    "pages/service-detail/index"
+    "pages/service-detail/index",
+    "pages/agency-progress/index"
   ],
   "subpackages": [
     { "root": "pages/dashboard", "pages": ["index"] },

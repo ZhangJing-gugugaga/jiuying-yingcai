@@ -1,0 +1,48 @@
+<view class="page">
+  <view class="section-head">
+    <view class="title">下级报送</view>
+    <button class="link" bindtap="retry" disabled="{{progressLoading || loading}}">刷新</button>
+  </view>
+  <view class="hint">按自然月查看直属二级代理的网点报送进度。这里只显示状态和版本，不含经营明细；换绑或解绑后，原一级的查询和催报权限立即失效。</view>
+  <view class="card agency-filters">
+    <view class="field">
+      <label>报送账期</label>
+      <picker mode="date" fields="month" value="{{month}}" bindchange="month" disabled="{{progressLoading}}">
+        <view class="picker picker-control" hover-class="tap-feedback">{{monthDisplay}}</view>
+      </picker>
+    </view>
+  </view>
+  <view wx:if="{{error || progressError}}" class="error">
+    {{error || progressError}}
+    <button class="link" bindtap="retry" disabled="{{progressLoading}}">重试</button>
+  </view>
+  <view wx:if="{{urgeNotice}}" class="notice">{{urgeNotice}}</view>
+  <view wx:if="{{progressLoading && !ready}}" class="loading">正在加载下级报送进度…</view>
+  <block wx:if="{{hasLoaded && ready}}">
+    <view wx:if="{{summary}}" class="card agency-summary">
+      <view class="detail-row"><text>直属二级代理</text><text>{{summary.children}} 家</text></view>
+      <view class="detail-row"><text>纳入进度网点</text><text>{{summary.outlets}} 个</text></view>
+      <view class="detail-row"><text>已通过</text><text>{{summary.approved}} 个</text></view>
+      <view class="detail-row"><text>待报送 / 待重提</text><text>{{summary.actionable}} 个</text></view>
+    </view>
+    <t-empty wx:if="{{!children.length}}" class="native-empty" icon="task" description="总部尚未为当前主体绑定直属二级代理。"/>
+    <view wx:for="{{children}}" wx:key="childOwner" class="card agency-child">
+      <view class="row between agency-child-head">
+        <text class="grow agency-child-name">{{item.name}}</text>
+        <text class="muted agency-count">{{item.summary.approved}}/{{item.summary.expected}} 已通过</text>
+      </view>
+      <view class="hint">{{item.summaryText}}{{item.urgedText ? ' · ' + item.urgedText : ''}}</view>
+      <view wx:for="{{item.outletRows}}" wx:for-item="row" wx:key="outlet" class="detail-row agency-outlet">
+        <view class="grow agency-outlet-main">
+          <text class="agency-outlet-name">{{row.outletName}}</text>
+          <text class="muted agency-outlet-meta">{{row.versionText}}{{row.dueText ? ' · ' + row.dueText : ''}}</text>
+        </view>
+        <text class="agency-status tone-{{row.tone}}">{{row.statusLabel}}</text>
+      </view>
+      <view wx:if="{{item.summary.actionable}}" class="actions">
+        <button class="button primary" data-owner="{{item.childOwner}}" bindtap="urge"
+          loading="{{urgeBusy === item.childOwner}}" disabled="{{!!urgeBusy || busy}}">发送站内催报</button>
+      </view>
+    </view>
+  </block>
+</view>

@@ -15,7 +15,8 @@ OpenAPI3.1见openapi.json；所有JSON成功{data,requestId}、失败{error:{cod
 | POST /api/auth/dev | 仅非production+mock；显式开发actor |
 | POST /api/auth/wechat | code2session换身份并校验总部预建负责人有效绑定；无配置返回503 |
 | POST /api/auth/logout | 撤销当前令牌 |
-| GET /api/context | 身份/岗位能力/个人授权/上海业务日期，不含全集 |
+| GET /api/context | 身份/岗位能力/个人授权/上海业务日期，不含全集。加盟主体另含 `agency{level,isPrimary,parentOwner,childCount}` 与 `entitlements{month,items,services}`；后者来自当前生效协议快照，历史协议未声明 `services` 时为空数组 |
+| GET /api/agency/progress | 一级代理专用。`month` 缺省为上一自然月，不得晚于当前月。只返回直属二级的网点报送状态、版本号、截止日和催报时间；不含营收、明细、附件或原单 ID。未设一级、非直属或当前协议声明服务但缺少 `agency_reporting` 时返回 403 |
 | GET /api/collections/{collection}[/{id}] | 授权 SQL 分页或详情。limit 1–200，默认 50，offset 不小于 0。列表支持 status、month、outlet、owner、province、city、district、type、q。返回 items、total、offset、limit、hasMore。 |
 | GET /api/state | 兼容旧快照，每集合最多200；新列表用collections继续翻页 |
 | GET /api/dashboard | period YYYY-MM，kind month/quarter/year，mode settled/process，owner/outlet，limit/offset；全范围totals/partial与分页rows |
@@ -28,7 +29,7 @@ OpenAPI3.1见openapi.json；所有JSON成功{data,requestId}、失败{error:{cod
 
 常见错误：400参数、401会话、403权限、404不可见记录、409状态/幂等/制度冲突、413大小或导出范围、415类型、429频控、503未配置/供应商不可用。外部参数错误/权限错误不自动重试。登录返回token/actor/role/subject/expiresAt/mode；岗位actor不是个人subject。
 
-原有35条月报/申请/定位/支付Mock/账号/汇总/客服命令在OpenAPI逐条保留，加31条新增命令共66条。需要真实状态条件的约束仍由服务器校验，不能仅依赖Schema。兼容字段intro用于content.update，key扩展brand/services/news/cases/cooperation。
+原有35条月报/申请/定位/支付Mock/账号/汇总/客服命令在OpenAPI逐条保留，加35条新增命令共70条。需要真实状态条件的约束仍由服务器校验，不能仅依赖Schema。兼容字段intro用于content.update，key扩展brand/services/news/cases/cooperation。
 
 cooperation.submit输入company/name/contact（各1—200字）、message（1—2000字）、privacyConsented必须true；公众/加盟商按subject隔离、同一处理中留言防重。cooperation.update由ops/manager输入id/status/note，submitted→received→contacted→closed依次进行，提交者不见内部processingNote。public.profile可选publicCoords=null或有效{lat,lng,coordinateSystem:'GCJ-02'}，只能显式授权发布，不复制内部GPS。
 
@@ -41,13 +42,24 @@ cooperation.submit输入company/name/contact（各1—200字）、message（1—
 |命令|角色|输入|结果集合/规则|
 |---|---|---|---|
 |policy.configure|manager|name,effectiveFrom,reason；可选 reportDueDay/locationDueDay(1—28或null)、anomalyPercent(正数或null)、noDataMonths(正整数或null)、slaMinutes{complaint,aftersale,exception}(正整数或null)|policies；不可变版本，新版本替代生效，不擅设未配置阈值|
-|plan.publish|manager|name,amount,serviceEntity,collectionEntity,invoiceEntity,terms,reason|pricePlans；固定整月月费，发布后不可改，新发布即新版本。主体用集团确认的完整名称|
+|plan.publish|manager|name,amount,serviceEntity,collectionEntity,invoiceEntity,terms,reason；可选 services（monthly_report、agency_reporting、location_verification、service_fee、training、priority_support）|pricePlans；固定整月月费，发布后不可改，新发布即新版本。主体用集团确认的完整名称。services写入价格版本快照，历史协议按原快照执行|
 |agreement.create|manager|outlet,planId,startMonth,endMonth,billDay,dueDay,reference,reason|agreements；billDay/dueDay 1—28且dueDay>=billDay，同网点有效月份不能重叠；每一整月，未知首月折算不自动处理|
 |billing.generate|finance/manager|agreementId,month|bills；须在协议范围和账单日之后，按协议快照整月金额；同网点同月已有有效账单阻断；重复同协议月份返回同账单|
 |billing.correct.propose|manager/ops|billId,amount,reason|billCorrections pending；金额0表示作废，无收款时重开新单，旧单保留；有实收须先完成退款与冲红|
 |billing.correct.review|finance|id,decision(approve/return),note|billCorrections approved/returned；必须另一自然人审核；批准保留原账单reversed并关联replacementBillId，拒绝不变账|
 |fee.adjust.propose|manager/ops|adjustmentId,amount,offsetMonth,serviceUntil(日期或null),reason|feeProposals pending；明确人工核算金额与抵扣月；amount为抵扣金额，不推算停费天数；serviceUntil必须显式null或确认日期|
 |fee.adjust.review|finance|id,decision(approve/return),note|feeProposals approved/returned；独立复核后原adjustments变approved，未来生成对应月份账单才扣减；已生成账单必须走纠错，不悄悄改账|
+
+## 分级代理与下级报送
+
+|命令|角色|输入|结果集合/规则|
+|---|---|---|---|
+|agency.level|manager|owner,level(1/2/null),reason|organizations；写入 level 与 levelHistory。历史主体不改数据，level 缺失按未设置处理，不推断级别。降级或清空级别前须先解除相关直属关系；同级重复设置返回 409|
+|agency.bind|manager|parentOwner,childOwner,replaceActive?,reason|agencyRelations；上级须一级、下级须二级且均为正常账号。同一二级只允许一条 active 关系；已有其他上级时须显式 replaceActive=true 才原子撤销旧关系并新建；自身绑定或循环返回 400/409。写入 trail 与审计|
+|agency.unbind|manager|id 或 childOwner,reason|agencyRelations；active→revoked，保留 revokedAt/revokedBy/reason 和历史 trail。解绑后原一级的下级查询与催报立即失效|
+|agency.urge|一级代理|childOwner,month,Idempotency-Key|messages；仅直属 active 二级，月份须早于当前月。对未报、逾期、草稿、退回的网点各生成一条 target=reports、带 outlet 与 month 的站内通知；同主体同月同日重复催报返回 409，无需催报返回 409。当前协议声明服务但缺少 agency_reporting 时返回 403|
+
+进度读取与催报都只使用当前生效关系。一级读取直属二级的营收、原单、附件、导出或代填，仍按原主体范围拒绝；总部审核队列不变，二级从「我的事项」通知进入原网点与账期月报。
 
 ## 收款、退款、发票（凭证登记，不执行外部资金操作）
 

@@ -2,6 +2,10 @@
   margin: var(--space-lg) 0;
 }
 
+.agency-entry {
+  margin: var(--space-md) 0;
+}
+
 .dashboard-filters .field {
   margin: var(--space-md) 0;
 }

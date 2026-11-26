@@ -7,9 +7,9 @@ const tabEntries = [
 ];
 const pages = new Set([
   ...tabs, 'login', 'join', 'outlet', 'support', 'report', 'fees', 'requests', 'location', 'dashboard',
-  'messages', 'finance', 'agreements', 'tasks', 'discover', 'service-detail', 'security', 'training'
+  'messages', 'finance', 'agreements', 'tasks', 'discover', 'service-detail', 'security', 'training', 'agency-progress'
 ].map(page => 'pages/' + page + '/index'));
-const memberPages = new Set(['reports', 'report', 'fees', 'requests', 'location', 'dashboard', 'finance', 'agreements', 'tasks', 'security', 'training']);
+const memberPages = new Set(['reports', 'report', 'fees', 'requests', 'location', 'dashboard', 'finance', 'agreements', 'tasks', 'security', 'training', 'agency-progress']);
 const staffRoles = new Set(['manager', 'ops', 'finance', 'location', 'support', 'regional']);
 const resumeFields = new Set(['outlet', 'month', 'id', 'reportId', 'billId', 'receiptId', 'ledgerBillId', 'ledgerRecordId', 'feeProposalId', 'section', 'status', 'period', 'type', 'change', 'scope', 'filterOutlet']);
 const pendingByRuntime = new WeakMap();

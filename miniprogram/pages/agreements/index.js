@@ -1,4 +1,5 @@
 const {define,api,fmt}=require('../../utils/page');
+const SERVICE_LABELS={monthly_report:'经营月报',agency_reporting:'下级报送与催报',location_verification:'位置核验',service_fee:'服务费与账单',training:'培训资料',priority_support:'优先客服'};
 
 function outletPicker(rows,selected){
  const outletOptions=[{id:'',label:'全部网点'},...rows.map(outlet=>({...outlet,label:fmt.outletOptionLabel(outlet)}))];
@@ -65,6 +66,7 @@ const page=define({
    }
    return {...agreement,plan,isCurrent:status==='active',outletLabel:outlet?fmt.outletOptionLabel(outlet):agreement.outletName,
     amountText:amount==null?'':fmt.money(amount),
+    serviceNames:(plan.services||[]).map(code=>SERVICE_LABELS[code]).filter(Boolean).join('、'),
     servicePeriod:start&&end?start+' 至 '+end:'',
     agreementStart:fmt.dateText(agreement.startOn),
     agreementEnd:fmt.dateText(agreement.endOn),

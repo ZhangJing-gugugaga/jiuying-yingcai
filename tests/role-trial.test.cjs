@@ -93,7 +93,7 @@ test('prototype preview builds an isolated package with published content and sc
   });
   const manifest = JSON.parse(fs.readFileSync(path.join(trial.project, 'build-manifest.json'), 'utf8'));
   assert.equal(manifest.apiBase, trial.url);
-  assert.equal(manifest.checks.pages, 21);
+  assert.equal(manifest.checks.pages, 22);
   assert.equal(trial.app.server.address().address, '127.0.0.1');
   const get = (route, token) => response(trial.url, route, { token });
   const visitor = await response(trial.url, '/auth/visitor', { body: {} });

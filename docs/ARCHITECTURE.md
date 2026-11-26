@@ -10,7 +10,7 @@
 | `admin-web/app.js` 及审批、客服、财务、员工、导出等模块 | 总部 Web 和按身份开放的兼容界面 |
 | `server/index.cjs`、`auth.cjs`、`repository.cjs`、`command-scope.cjs` | HTTP 契约、请求号、认证、SQL 数据可见性及写入范围 |
 | `shared/core.cjs`、`operations.cjs`、`task-routing.cjs`、`responsibilities.cjs` | 业务状态转换、业务命令、角色校验、任务责任分派 |
-| `server/storage.cjs`、`database/` | SQLite、迁移 001–032、事务、对象投影、授权和审计 |
+| `server/storage.cjs`、`database/` | SQLite、迁移 001–033、事务、对象投影、授权和审计 |
 | `server/{staff-login,work-contacts,approval-export,approval-history,training}.cjs` | 员工身份、公开工作号码、分项审批导出与审计、培训业务 |
 | `server/{analytics,finance,payments,exports}.cjs` 与渠道模块 | 统计、财务台账、支付退款、导出、微信和支付宝的服务端适配 |
 | `scripts/`、`tests/`、`docs/` | 本地、生产构建与备份、回归测试和既有业务记录 |

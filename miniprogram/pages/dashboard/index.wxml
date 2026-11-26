@@ -40,6 +40,15 @@
     </view>
   </view>
   <view wx:if="{{exportError}}" class="error">{{exportError}}</view>
+  <view wx:if="{{state.agency && state.agency.isPrimary}}" class="card agency-entry">
+    <view class="row between">
+      <view class="grow">
+        <view class="card-title">下级报送</view>
+        <view class="hint">查看直属二级代理本账期的网点报送进度，并发送站内催报。</view>
+      </view>
+      <button class="outline small" data-page="agency-progress" bindtap="nav">打开</button>
+    </view>
+  </view>
 
   <block wx:if="{{ready && !dashboardLoading && !error}}">
     <view class="row between">

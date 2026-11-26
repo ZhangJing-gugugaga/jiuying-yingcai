@@ -51,7 +51,7 @@ test('the four native tabs include the registered member report list', t => {
     ['pages/reports/index', '月报'], ['pages/profile/index', '我的'],
   ]);
   const { routes, mainPages } = getNativeRoutes(app);
-  assert.equal(routes.length, 21);
+  assert.equal(routes.length, 22);
   assert.ok(mainPages.includes('pages/reports/index'));
   assert.ok(routes.includes('pages/training/index'));
   assert.ok(routes.includes('pages/join/index'));

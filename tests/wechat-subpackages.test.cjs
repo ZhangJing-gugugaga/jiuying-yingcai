@@ -11,10 +11,10 @@ const nativeRoot = path.resolve(__dirname, '../miniprogram');
 const deployedPages = [
   'home', 'login', 'join', 'outlets', 'outlet', 'reports', 'report', 'fees', 'requests',
   'location', 'support', 'dashboard', 'messages', 'profile', 'finance',
-  'agreements', 'tasks', 'discover', 'service-detail', 'security', 'training',
+  'agreements', 'tasks', 'discover', 'service-detail', 'security', 'training', 'agency-progress',
 ].map(page => `pages/${page}/index`);
 
-test('native packaging preserves the launch page, main tabs and all 21 deployed paths', () => {
+test('native packaging preserves the launch page, main tabs and all 22 deployed paths', () => {
   const checks = validate(nativeRoot);
   assert.equal(checks.valid, true, checks.errors.join('\n'));
   assert.equal(checks.pages, deployedPages.length);
@@ -26,7 +26,7 @@ test('native packaging preserves the launch page, main tabs and all 21 deployed 
   for (const item of app.tabBar.list) assert.ok(mainPages.includes(item.pagePath));
   assert.deepEqual(subpackages.map(item => item.root).sort(),
     ['agreements', 'dashboard', 'security', 'training'].map(page => `pages/${page}`));
-  assert.equal(mainPages.length, 17);
+  assert.equal(mainPages.length, 18);
 });
 
 function fixture(t) {

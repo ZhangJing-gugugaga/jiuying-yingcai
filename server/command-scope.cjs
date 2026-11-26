@@ -20,7 +20,9 @@ const groups={
  'jobs':['policies','jobRuns','reports','exemptions','verifications','bills','supportTickets','supportChats','requests','adjustments','feeProposals','summaryAdjustments','businessTasks'],
  'task':['businessTasks','reports','exemptions','verifications','bills','supportTickets'],
  'cooperation':['cooperationRequests'],'faq':['faqEntries'],'public':['publicProfiles'],'import':['importBatches','accounts','organizations'],
- 'staff':['staffAccounts','businessTasks','supportChats','supportTickets','handovers']
+ 'staff':['staffAccounts','businessTasks','supportChats','supportTickets','handovers'],
+ 'agency.level':['organizations','agencyRelations'],'agency.bind':['organizations','agencyRelations'],
+ 'agency.unbind':['organizations','agencyRelations'],'agency.urge':['organizations','agencyRelations','agreements','outlets','reports','drafts','exemptions','messages','policies']
 };
 function includeStaffActivation(db,state){
  state.activatedStaffIds=activatedStaffIds(db,state.staffAccounts.map(staff=>staff.id));
@@ -83,6 +85,19 @@ function scopedCommandState(store,session,command,p,today){const db=store.db,own
  }
  if(command==='import.preview'||command==='import.commit'){const previous=p.id?db.prepare('SELECT data FROM importBatches WHERE id=?').get(p.id):null,batch=previous?JSON.parse(previous.data):null,kind=p.kind||batch?.kind,rows=p.rows||batch?.rows?.map(x=>x.data)||[];selection.importBatches=p.id?{where:'id=?',params:[p.id]}:{where:'0'};selection.accounts=kind==='accounts'?{where:"json_extract(data,'$.mobile') IN (SELECT value FROM json_each(?))",params:[JSON.stringify(rows.map(x=>x.mobile))]}:{where:'owner IN (SELECT value FROM json_each(?))',params:[JSON.stringify(rows.map(x=>x.owner))]};selection.outlets=kind==='outlets'?{where:'owner IN (SELECT value FROM json_each(?))',params:[JSON.stringify(rows.map(x=>x.owner))]}:{where:'0'};selection.organizations={where:'0'};}
  if(command==='cooperation.submit')selection.cooperationRequests={where:'owner=?',params:[owner||session.subject]};if(command==='cooperation.update')selection.cooperationRequests={where:'id=?',params:[p.id]};
+ if(command==='agency.urge'){
+  const childOwner=typeof p.childOwner==='string'&&p.childOwner.length<=120?p.childOwner:'';
+  selection.organizations={where:'id IN (?,?)',params:[owner,childOwner]};
+  selection.agencyRelations={where:"status='active' AND (owner=? OR json_extract(data,'$.parentOwner')=?)",params:[childOwner,owner]};
+  selection.agreements={where:'owner=?',params:[owner]};
+  selection.outlets={where:'owner=?',params:[childOwner]};
+  selection.reports={where:'outlet IN (SELECT id FROM outlets WHERE owner=?)',params:[childOwner]};
+  selection.drafts={where:'outlet IN (SELECT id FROM outlets WHERE owner=?)',params:[childOwner]};
+  selection.exemptions={where:'outlet IN (SELECT id FROM outlets WHERE owner=?)',params:[childOwner]};
+  selection.messages={where:"owner=? AND json_extract(data,'$.agencyUrge.month')=?",params:[childOwner,typeof p.month==='string'?p.month:null]};
+  selection.policies={};
+  selection.businessTasks={where:"status IN ('open','in_progress') AND outlet IN (SELECT id FROM outlets WHERE owner=?)",params:[childOwner]};
+ }
  if(command.startsWith('content.')){
   const key=command==='content.service.save'?'service-'+p.slot:typeof p.key==='string'?p.key:'brand';
   selection.contents={where:"json_extract(data,'$.key')=?",params:[key]};

@@ -104,6 +104,14 @@
       </block>
     </view>
 
+    <view wx:if="{{state.agency && state.agency.isPrimary}}" class="home-public-section workbench-agency">
+      <view class="home-section-head">
+        <view class="home-section-title">下级报送</view>
+        <button class="home-text-action" data-page="agency-progress" bindtap="nav">查看进度 <text aria-hidden="true">›</text></button>
+      </view>
+      <view class="workbench-meta">按账期查看直属二级代理的网点报送进度，并发送站内催报。</view>
+    </view>
+
     <view wx:if="{{(loading && hasLoaded) || (taskLoading && activeRows.length) || (recentLoading && recentRows.length)}}"
       class="tab-refresh-status" role="status">正在更新工作台…</view>
     <view wx:if="{{error}}" class="error">{{error}}<button class="link" bindtap="refresh">重试</button></view>

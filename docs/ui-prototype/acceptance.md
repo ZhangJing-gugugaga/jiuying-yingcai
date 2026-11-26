@@ -837,3 +837,18 @@ A07、A08（UX-10，需求 10、11、C04、C05）。按图 3 调整首次激活�
 微信开发者工具加载 `dist/ui-prototype-preview-joA7nx`。191 个文件逐项核对一致，清单 SHA-256 为 `C7EA5418BE09774390468B9331D63B99177DA8C1B15ED2CCD797DDB18730478B`。375、390 逻辑像素下相邻输入框顶部间距为 103 逻辑像素，主按钮高 52 逻辑像素。320 × 568 模拟视口将表单文字放大至 150%，页面无横向溢出，三个 44 × 44 显隐按钮和提交按钮滚动后均可命中。样张为 `dist/prototype-activation-spacing-390.png` 和 `dist/prototype-activation-spacing-large-320.png`。
 
 用调试导航进入首次激活页，点验空提交定位激活码和设置密码单独显隐。使用隔离激活码，通过输入和键盘确认处理函数辅助填入资料，核对焦点依次指向设置密码和确认密码。点击提交提示两次密码不一致，修正后再次点击，进入隔离加盟账号的单店工作台。21 条路由通过官方 WXML/WXSS 编译，激活与原生视觉相关专项 46 项通过。真机系统键盘、字号与读屏待验。
+
+## 分级代理报送实施记录
+
+2026-11-26，源码为 `HEAD 9eca183` 加未提交工作树，源码树哈希 `b4b24a7c842ca773fe1667b0877841c80b2b2924`（server/shared/database/admin-web/miniprogram/tests/scripts）。候选包 `dist/agency-review-20261126-010241`（193 文件，22 路由），构建清单 SHA-256 `f367355478a5955939750faefa26ad44be9afe1046c2510cff7cea12c2aa3412`，逐文件树摘要 `3554d7bb257e33c07d5a4078ea5824849e0e32460727ca03438962059856f9f2`。原始截图、样本与重放命令见 `var/agency-acceptance/round-01/README.md`。
+
+| 编号、角色与入口 | 预期与实测 | 证据与层级 |
+| --- | --- | --- |
+| AGT-01 总部「网点与账号」维护级别和直属关系（需求 02、11、36、C04–C06、H07） | 预期：历史主体显示未设置；可设一级/二级并绑定；重复/越级/自身绑定拒绝。实测：浏览器真实表单完成设置与绑定，数据库 `agencyRelations` 只有一条 active；加盟商看不到维护面板。旧库两次迁移后旧主体仍读原月报，进度查询返回 403。 | `chrome/01-accounts-before.png`、`chrome/02-accounts-bound.png`、`chrome/03-accounts-390.png`；`tests/agency-governance.test.cjs`。L0/L1/L2 |
+| AGT-02 一级工作台「下级报送」→催报→二级原单（需求 14、16–19、34、E01、E07、E08、H02、H03） | 预期：默认上一账期，只显示直属二级状态；催报只发未报/逾期/草稿/退回网点；二级从通知打开原网点与账期；完整走通提交→退回→重提→通过。实测：同库 8 项用例通过；模拟器 2026-10 显示逾期与免报，催报 1 条；二级通知打开 `pages/report/index?outlet=gz&month=2026-10`；V1 退回、V2 通过。 | `desktop/05-agency-progress-2026-10.png`、`desktop/08-agency-urge-success.png`、`desktop/09-secondary-notices.png`、`desktop/10-urge-opens-original-2026-10.png`；`request-ids.json`。 报送进度 2026-07「待总部审核」与 2026-06「已退回待重提」已在最终候选包桌面截图 `desktop/30`、`desktop/31` 核对。总部 Chrome 在同一 `acceptance.db` 读到直属关系和 2026-07 `gz` 待审报告（请求号 `fed4bd84-c76b-4641-b787-8ca03cebf6d8`）。L1/L2/L4 |
+| AGT-02 反向权限（列表、详情、附件、导出、写命令） | 预期：一级只能看状态，不能读明细、附件、导出或代填。实测：`/agency/progress` 只含状态/版本；一级查询直属二级月报列表 `total=0`、详情 404、附件 403、导出 403、`report.draft` 403；本人月报列表仍可读；换绑后旧一级进度为空且催报 403。 | `tests/agency-governance.test.cjs`、`tests/agency-reporting-loop.test.cjs`。L1 |
+| AGT-03 两份隔离协议（需求 26–28、31、G01、G04、G13） | 预期：服务项、说明、金额随协议变化，金额按整数分；重复写请求复用幂等键，改负载换键；历史价格保留，未知金额 null。实测：1980.00/980.50 两协议分别生成 198000/98050 分账单；无 `agency_reporting` 的一级进度 403，补充含该服务的协议后恢复；同键重放返回原结果，改负载 409；价格版本更新不改旧账单；暂停收费调整金额保持 null。 | `tests/agency-service-fees.test.cjs`；模拟器最终候选包显示一级 1,980.00/二级 980.50 协议及不同服务项（`desktop/26`、`desktop/27`），服务费账单分别 1,980.00/980.50 元（`desktop/28`、`desktop/29`），总部发布价格方案表单含服务项勾选（`chrome-same-db/03`）。L1/L2/L4（桌面截图） |
+| AGT-04 交互与整链路（需求 04、07、13、19、34、40） | 预期：窄屏长名称不遮挡、空态/失败/重试/重复点击可用；切换身份清空旧数据；通知准确打开原单。实测：390 设备宽度长名称两行；320/375 内容视口无横向溢出；解绑空态、403 反馈、账期 2026-09 通过状态、重复催报只生成 1 条均有记录；页面用例验证身份切换清空与迟到响应不回填。 从催报通知打开原单后返回，页面栈与筛选仍为「我的事项 → 通知 / 全部」，通知保留并转为已读（`desktop/18`–`desktop/20`）。加盟补件/激活、工作台选店与原单、月报更正、服务费专项 53 项回归通过。 | `desktop/11`–`desktop/17`、`viewport-report.json`、`tests/agency-progress-page.test.cjs`。L1/L4 |
+| 路由与编译 | 22 条路由（主包 18 + 分包 4），`wechat-validate.cjs` 196 文件 0 错误；官方 wcc/wcsc 退出码 0；全量 Node 用例 586/586、总部主流程 Chrome 12/12 通过。 | L0/L1/L2/L3 |
+
+辅助方式与未取得项：身份选择与账期切换通过小程序页面方法触发（`toggleDeveloperTools/select`、`month`），催报、通知、查看月报为真实点击。320/375 使用 CDP `Emulation.setDeviceMetricsOverride` 模拟内容视口，不是开发者工具自定义设备；桌面窗口枚举未返回可用窗口，未能点选设备下拉。原生日期弹层点选、L5 真机、系统字号/读屏、正式渠道与独立签收仍未取得。

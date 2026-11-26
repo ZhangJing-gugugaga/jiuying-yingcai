@@ -1,8 +1,8 @@
 # 数据字典与前向迁移
 
-V3.4.4 当前工作区含 001–032 号迁移，V4.1 历史基线截至 028。下文表数和退款能力描述对应各自演进阶段。完整结构以[编号 SQL](../database/)为准。
+V3.4.4 当前工作区含 001–033 号迁移，V4.1 历史基线截至 028。下文表数和退款能力描述对应各自演进阶段。完整结构以[编号 SQL](../database/)为准。
 
-现有20业务表、003新增15表、007合作留言，009增加contentVersions，业务实体共37；每表id/owner/outlet/status/month/version/current/amount_cents/data/created_at，JSON保留领域细节，投影便于查询和约束。不是全字段关系规范化模型，多数关联由事务和业务校验保证。
+现有20业务表、003新增15表、007合作留言，009增加contentVersions，033增加agencyRelations，业务实体共38；每表id/owner/outlet/status/month/version/current/amount_cents/data/created_at，JSON保留领域细节，投影便于查询和约束。不是全字段关系规范化模型，多数关联由事务和业务校验保证。
 
 | 迁移 | 改动与兼容影响 |
 |---|---|
@@ -19,12 +19,13 @@ schema_migrations逐版本记录。编号按序事务执行，失败ROLLBACK；�
 
 | 集合 | 核心载荷/状态 |
 |---|---|
-| organizations/accounts/outlets | 主体、负责人、网点营业历史与私有核验；账户绑定版本；关闭不删除历史 |
+| organizations/accounts/outlets | 主体、负责人、网点营业历史与私有核验；账户绑定版本；organization.level 与 levelHistory 记录一级/二级/未设置及依据；关闭不删除历史 |
+| agencyRelations | 直属关系 parentOwner/childOwner、active/revoked、effectiveAt/revokedAt/revokedBy、绑定与解绑 trail；同一二级最多一条 active，历史保留 |
 | drafts/reports/exemptions | 四指标、说明、版本/current、dueOn/policyId/late；pending/finance/returned/approved；免报独立 |
 | requests/verifications | 分类申请、位置核验、补件/异常；照片引用私有files |
 | bills/payments/receipts/adjustments | unpaid/paid/reversed/settled_zero；Mock尝试、manual实收、待核算→approved→applied调整 |
 | settlements/summaryAdjustments | 正式结算的reportIds，invalidated；源版本引用与字段调整/复核 |
-| policies/pricePlans/agreements | 生效制度版本、整月价格和三个主体、不可变priceSnapshot、起止月/账单日/截止日 |
+| policies/pricePlans/agreements | 生效制度版本、整月价格和三个主体、不可变priceSnapshot（含可选 services 服务项）、起止月/账单日/截止日 |
 | billCorrections/feeProposals | 原值/新值、独立发起人与复核人、关联冲正新单/明确抵扣月和可空顺延 |
 | offlinePayments | 外部reference、paidOn、金额，pending→approved/returned；批准产生manual receipt |
 | refundRequests | pending→approved/returned→recorded；预留净额、外部退款reference/refundedOn，不冒充银行执行 |
@@ -106,3 +107,4 @@ schema_migrations逐版本记录。编号按序事务执行，失败ROLLBACK；�
 | [030](../database/030_onboarding_supplement_scope.sql) | 记录补件所属申请及版本。 |
 | [031](../database/031_public_outlet_photos.sql) | 登记公开网点照片用途。 |
 | [032](../database/032_report_submitter_name.sql) | 为月报提交事件留存姓名快照。历史事件继续可读，缺失姓名保留为空。 |
+| [033](../database/033_agency_relations.sql) | 新增 agencyRelations 直属关系表；按 child owner 的部分唯一索引保证同一二级只有一条 active 关系，解绑保留历史。主体级别存于 organizations.data，旧记录无 level 时按未设置处理。 |

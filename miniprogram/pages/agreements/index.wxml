@@ -25,6 +25,7 @@
     <view wx:if="{{item.serviceUntil}}" class="detail-row"><text>网点已付服务可使用至</text><text>{{item.serviceUntil}}</text></view>
     <view wx:if="{{item.plan.name}}" class="detail-row"><text>服务方案</text><text>{{item.plan.name}}</text></view>
     <view wx:if="{{item.plan.version}}" class="detail-row"><text>服务方案版本</text><text>第 {{item.plan.version}} 版</text></view>
+    <view wx:if="{{item.serviceNames}}" class="detail-row"><text>包含服务</text><text>{{item.serviceNames}}</text></view>
     <view wx:if="{{item.billDay}}" class="detail-row"><text>账单生成日期</text><text>每月 {{item.billDay}} 日</text></view>
     <view wx:if="{{item.dueDay}}" class="detail-row"><text>缴费截止日期</text><text>每月 {{item.dueDay}} 日</text></view>
     <view wx:if="{{item.plan.serviceEntity}}" class="detail-row"><text>服务主体</text><text>{{item.plan.serviceEntity}}</text></view>

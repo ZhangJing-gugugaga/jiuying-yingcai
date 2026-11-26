@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "下级报送",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "t-empty": "/vendor/tdesign/empty/empty"
+  }
+}

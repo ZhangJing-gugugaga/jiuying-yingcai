@@ -11,10 +11,10 @@ const { validate } = require('../scripts/wechat-validate.cjs');
 const root = path.join(__dirname, '../miniprogram');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 
-test('the 21 registered pages resolve packaged TDesign components and their dependencies', () => {
+test('the 22 registered pages resolve packaged TDesign components and their dependencies', () => {
   const result = validate(root);
   assert.deepEqual(result.errors, []);
-  assert.equal(result.pages, 21);
+  assert.equal(result.pages, 22);
   const entries = collectComponentEntries(root, result.routeManifest.routes);
   for (const name of ['button', 'badge', 'icon', 'cell', 'cell-group', 'input', 'empty', 'loading', 'image']) {
     assert.ok(entries.includes('vendor/tdesign/' + name + '/' + name), name);

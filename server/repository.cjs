@@ -1,5 +1,5 @@
 'use strict';
-const core=require('../shared/core.cjs'),operations=require('../shared/operations.cjs');
+const core=require('../shared/core.cjs'),operations=require('../shared/operations.cjs'),agency=require('../shared/agency.cjs');
 const {taskQueries,partnerTaskAccess}=require('./tasks.cjs');
 const {partnerKey}=require('../shared/responsibilities.cjs');
 const {routingOptions,hasAssignedAction}=require('../shared/task-routing.cjs');
@@ -48,7 +48,8 @@ const collectionStatuses={
  jobRuns:['running','partially_completed','completed','failed'],
  faqEntries:['draft','published'],
  publicProfiles:['draft','published'],
- importBatches:['preview','committed']
+ importBatches:['preview','committed'],
+ agencyRelations:['active','revoked']
 };
 function checkCollectionStatus(name,status){
  const options=collectionStatuses[name];
@@ -459,7 +460,29 @@ function repository(store,{today}={}){const db=store.db;
  }
  function detail(name,id,session,{scope,includeSummary,includeRevenueComparison,includeSubmitter,includeOutletPhoto}={}){if(name==='businessTasks'&&core.own(session.actor))return tasks.taskDetail(session,id);const result=list(name,session,{id,limit:1,scope,includeSummary,includeRevenueComparison,includeSubmitter,includeOutletPhoto});core.check(result.items.length,'NOT_FOUND','记录不存在或无权访问',404);return result.items[0];}
  function approvalRecord(name,id,session){const page=query(name,session,{id,limit:1});core.check(page.records.length,'NOT_FOUND','记录不存在或无权访问',404);return page.records[0];}
- function context(session){const s=contextState(session),v=core.view(s,session.actor,session);return {actor:session.actor,subject:session.subject,today:s.today,mode:s.mode,capabilities:v.capabilities,grants:v.grants,support:{settings:v.support.settings},...(session.actor==='manager'?{routingOptions}:{})};}
+ function agencyInfo(session){
+  const owner=core.own(session.actor);if(!owner)return null;
+  const row=db.prepare('SELECT data FROM organizations WHERE id=?').get(owner);if(!row)return null;
+  const org=JSON.parse(row.data),parent=db.prepare("SELECT json_extract(data,'$.parentOwner') parentOwner FROM agencyRelations WHERE owner=? AND status='active'").get(owner);
+  const childCount=db.prepare("SELECT count(*) n FROM agencyRelations WHERE status='active' AND json_extract(data,'$.parentOwner')=?").get(owner).n;
+  return {level:org.level??null,isPrimary:org.level===1,parentOwner:parent?.parentOwner||null,childCount};
+ }
+ function entitlements(session){
+  const owner=core.own(session.actor);if(!owner)return null;
+  const current=typeof today==='function'?today():store.settings().today,month=current.slice(0,7);
+  const rows=db.prepare("SELECT data FROM agreements WHERE owner=? AND status='active'").all(owner).map(row=>JSON.parse(row.data));
+  const items=rows.filter(row=>row.startMonth<=month&&row.endMonth>=month).map(row=>{
+   const price=row.priceSnapshot||{};
+   return {agreementId:row.id,outlet:row.outlet,reference:row.reference??null,
+    services:Array.isArray(price.services)?price.services:[],terms:price.terms??null,
+    amountCents:row.amount==null?null:Math.round(Number(row.amount)*100),currency:price.currency||'CNY',
+    priceVersion:price.id??row.priceVersion??null,planName:price.name??null,
+    serviceEntity:price.serviceEntity??null,collectionEntity:price.collectionEntity??null,invoiceEntity:price.invoiceEntity??null,
+    startMonth:row.startMonth??null,endMonth:row.endMonth??null};
+  });
+  return {month,items,services:[...new Set(items.flatMap(item=>item.services))]};
+ }
+ function context(session){const s=contextState(session),v=core.view(s,session.actor,session);return {actor:session.actor,subject:session.subject,today:s.today,mode:s.mode,capabilities:v.capabilities,grants:v.grants,support:{settings:v.support.settings},agency:agencyInfo(session),entitlements:entitlements(session),...(session.actor==='manager'?{routingOptions}:{})};}
  // The legacy snapshot applies the same status to every collection. Individual lists validate their own enum.
  function snapshot(session,params={}){const v=context(session);v.support={...v.support,chats:[],tickets:[]};v.pagination={};for(const name of core.COLLECTIONS){if(!access(name,session,contextState(session))){if(!name.startsWith('support'))v[name]=[];continue;}const page=list(name,session,params,false);if(name==='supportChats')v.support.chats=page.items;else if(name==='supportTickets')v.support.tickets=page.items;else v[name]=page.items;v.pagination[name]={...page,items:undefined};}v.locationTasks=core.own(session.actor)||['manager','location'].includes(session.actor)?list('locationTasks',session,{limit:params.limit,offset:params.offset}).items:[];return v;}
  function commandState(session,command,payload){const {scopedCommandState}=require('./command-scope.cjs');const loaded=scopedCommandState(store,session,command,payload,typeof today==='function'?today():store.settings().today);Object.defineProperty(loaded.state,'__jobScope',{value:loaded.jobScope,enumerable:false});return loaded.state;}
@@ -557,6 +580,29 @@ function repository(store,{today}={}){const db=store.db;
   const {enrollmentStatus,eligibility}=reportEligibility(s,outletRecord,month,currentApprovedVersion,session.actor);
   return {outlet,month,draft:v.drafts[0]||null,currentApprovedVersion,latestSubmittedVersion:historyVersions.at(-1)||null,historyVersions,enrollmentStatus,timing:operations.reportTiming(s,month,reportPolicy(s.today)),eligibility};
  }
+ function agencyProgress(session,params={}){
+  const owner=core.own(session.actor);
+  core.check(owner,'FORBIDDEN','仅加盟主体可查看下级报送',403);
+  const s=contextState(session),today=s.today;
+  const orgRow=db.prepare('SELECT data FROM organizations WHERE id=?').get(owner);
+  core.check(orgRow,'FORBIDDEN','当前主体没有加盟档案',403);
+  core.check(JSON.parse(orgRow.data).level===1,'FORBIDDEN','当前主体未设为主代理，不能查看下级报送',403);
+  const raw=params.month===undefined||params.month===null||params.month===''?agency.previousMonth(today):String(params.month);
+  core.check(agency.monthPattern.test(raw),'INPUT','月份格式无效');
+  core.check(raw<=today.slice(0,7),'INPUT','不能查看未来月份的报送进度');
+  s.organizations=db.prepare('SELECT data FROM organizations').all().map(row=>JSON.parse(row.data));
+  s.agencyRelations=db.prepare("SELECT data FROM agencyRelations WHERE status='active'").all().map(row=>JSON.parse(row.data));
+  s.agreements=db.prepare('SELECT data FROM agreements WHERE owner=?').all(owner).map(row=>JSON.parse(row.data));
+  const childOwners=s.agencyRelations.filter(row=>row.parentOwner===owner).map(row=>row.childOwner);
+  s.outlets=db.prepare('SELECT data FROM outlets WHERE owner IN (SELECT value FROM json_each(?))').all(JSON.stringify([owner,...childOwners])).map(row=>JSON.parse(row.data));
+  const outletIds=JSON.stringify(s.outlets.map(row=>row.id));
+  s.reports=db.prepare('SELECT data FROM reports WHERE month=? AND outlet IN (SELECT value FROM json_each(?))').all(raw,outletIds).map(row=>JSON.parse(row.data));
+  s.drafts=db.prepare('SELECT data FROM drafts WHERE month=? AND outlet IN (SELECT value FROM json_each(?))').all(raw,outletIds).map(row=>JSON.parse(row.data));
+  s.exemptions=db.prepare('SELECT data FROM exemptions WHERE month=? AND outlet IN (SELECT value FROM json_each(?))').all(raw,outletIds).map(row=>JSON.parse(row.data));
+  s.messages=db.prepare("SELECT data FROM messages WHERE json_extract(data,'$.agencyUrge.parentOwner')=? AND json_extract(data,'$.agencyUrge.month')=?").all(owner,raw).map(row=>JSON.parse(row.data));
+  const policy=reportPolicy(today);s.policies=policy?[policy]:[];
+  return agency.progress(s,session.actor,{month:raw},today);
+ }
  const tasks=taskQueries(db,{contextState,access,detail,reportPolicy});
  function workbenchRecords(session,params){
   const owner=core.own(session.actor);
@@ -598,6 +644,6 @@ function repository(store,{today}={}){const db=store.db;
   }
   return {items,total,offset,limit,hasMore:offset+items.length<total};
  }
- return {reportContext,reportWorklist,workbenchRecords,list,detail,approvalRecord,context,snapshot,commandState,contextState,access,...tasks};
+ return {reportContext,reportWorklist,workbenchRecords,agencyProgress,list,detail,approvalRecord,context,snapshot,commandState,contextState,access,...tasks};
 }
 module.exports={repository};
