@@ -4,6 +4,7 @@ node_modules/
 !.env.example
 !.env.production.example
 dist/
+execution/
 var/
 *.db
 *.db-shm
@@ -11,7 +12,9 @@ var/
 *.sqlite
 *.log
 coverage/
-miniprogram/project.private.config.json
+/project.config.json
+/project.private.config.json
+/miniprogram/project.private.config.json
 *.pem
 *.key
 *.p12

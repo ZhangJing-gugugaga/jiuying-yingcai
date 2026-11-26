@@ -1,5 +1,0 @@
-.consent-box{display:flex;align-items:flex-start;gap:12rpx;background:var(--brand-soft,#eaf4ff);border-radius:16rpx;padding:18rpx}
-.consent-box .hint{margin:0}
-.consent-box switch{transform:scale(.8);transform-origin:left top;flex-shrink:0}
-.article-cover,.service-cover{display:block;width:100%;border-radius:16rpx;background:var(--brand-soft,#eaf4ff);margin-bottom:16rpx}
-.service-cover{height:224rpx}

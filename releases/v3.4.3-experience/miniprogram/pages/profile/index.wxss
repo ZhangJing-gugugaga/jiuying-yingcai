@@ -1,2 +1,0 @@
-/* Shared visual system is defined in app.wxss. */
-.profile-login{flex-shrink:0;margin:0}

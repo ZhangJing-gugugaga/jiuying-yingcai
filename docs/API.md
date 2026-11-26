@@ -1,6 +1,6 @@
 # 九盈英才 API 契约
 
-本页按迭代记录接口约定，[OpenAPI 文件](openapi.json)标记为 V3.3。查询当前 V3.4.4 的入口、权限和新增模块时，同时参见[架构](ARCHITECTURE.md)与[服务端路由](../server/index.cjs)。
+本页按迭代记录接口约定，[OpenAPI 文件](openapi.json)标记为 V3.3。查询当前 V3.4.4 的入口、权限和新增模块时，同时参见[架构](ARCHITECTURE.md)与[服务端路由](../web/server/index.cjs)。
 
 OpenAPI3.1见openapi.json；所有JSON成功{data,requestId}、失败{error:{code,message},requestId}，Bearer资源权限由服务端判定。命令POST /api/commands，{command,payload}，Idempotency-Key为8—128字符；同subject同键同请求重放，载荷变化409，当前授权重查。金额CNY元输入、最多两位小数，整数分运算；null不是0。
 

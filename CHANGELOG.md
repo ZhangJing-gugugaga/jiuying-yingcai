@@ -12,7 +12,7 @@
 
 ## 2026-11-23 · V3.4.3 体验修订版与当前工程同步
 
-[PR #1](https://github.com/ZhangJing-gugugaga/jiuying-yingcai/pull/1) 的 358 个源文件和文档位于 [V3.4.3 体验修订版](releases/v3.4.3-experience/README.md)。其历史验收覆盖 20 个小程序页面，模拟器交互待验。
+[PR #1](https://github.com/ZhangJing-gugugaga/jiuying-yingcai/pull/1) 的 358 个源文件和文档位于 [V3.4.3 体验修订版](https://github.com/ZhangJing-gugugaga/jiuying-yingcai/blob/acf0a373118c3e3be2e10e15abef379f938e1503/releases/v3.4.3-experience/README.md)。其历史验收覆盖 20 个小程序页面，模拟器交互待验。
 
 V3.4.4 在加盟商网点地图的错误区提供返回网点列表入口，保留搜索和已授权结果。月报更正错误在提交按钮旁显示，编辑更正原因时清除提示。状态标签沿用当前按业务上下文区分的颜色和文字。
 

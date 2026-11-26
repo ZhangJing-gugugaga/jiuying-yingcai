@@ -2,7 +2,7 @@
 
 四入口版部署前备份 SQLite 数据库，使用项目迁移命令依次应用缺失的 029（加盟申请）、030（补件关联申请及版本）、031（公开网点照片用途登记）、032（月报提交人姓名快照）和 033（分级代理直属关系）。迁移 032 保留既有事件，历史姓名缺失时显示未留存；迁移 033 不改旧主体 data，缺少 level 时按未设置处理。小程序随源码提供 TDesign 组件，安装锁定依赖后可用 `npm run wechat:vendor -- --check` 校验。
 
-Node >=24.19.0 <25，首次npm ci；pdfkit/sharp锁定，字体与许可证随包保留。默认开发样本只用于本机，不能复用为正式库。npm start不读取.env，使用start.ps1或node --env-file=.env server/index.cjs。
+以下部署命令在 `web/` 执行。Node >=24.19.0 <25，首次执行 `npm ci`。pdfkit/sharp锁定，字体与许可证随包保留。默认开发样本只用于本机，不能复用为正式库。npm start不读取.env，使用start.ps1或node --env-file=.env server/index.cjs。
 
 当前部署基线采用持久化 SQLite、Node.js 常驻服务与 HTTPS 反向代理。仓库交付的运行方式依赖常驻进程和持久磁盘。V4.1 验收范围与未完成项见[当前待办](../TODO.md)和[交接验收](handoff/05-验收与开发协作.md)。
 

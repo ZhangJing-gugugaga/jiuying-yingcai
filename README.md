@@ -6,16 +6,17 @@
 
 ## 本地启动
 
-首次使用 Node.js `>=24.19.0 <25`，在仓库根目录执行 `npm ci`。平时用 PowerShell 启动后端。
+首次进入 `web/`，使用 Node.js `>=24.19.0 <25` 执行 `npm ci`。平时从仓库根目录运行：
 
 ```powershell
-if (!(Test-Path .env)) { Copy-Item .env.example .env }
-powershell -NoProfile -File .\start.ps1
+powershell -NoProfile -File .\web\start.ps1
 ```
 
-打开 [总部 Web](http://127.0.0.1:8787/)。默认开发库是 `var/local.db`，服务状态可看 [/health](http://127.0.0.1:8787/health)。
+打开 [总部 Web](http://127.0.0.1:8787/)。默认开发库是 `web/var/local.db`，服务状态可看 [/health](http://127.0.0.1:8787/health)。
 
 微信开发者工具选择「导入项目」，目录选 **[miniprogram/](miniprogram/)**，即仓库下含 `app.json` 和 `project.config.json` 的子目录。已经打开该目录时，直接点「编译」。小程序默认连接同一个本地服务 `http://127.0.0.1:8787`。
+
+仓库根目录放项目说明。`miniprogram/` 是微信开发者工具的项目目录，`web/` 包含总部页面、共用 API、业务规则和迁移。已有开发库可以在 `web/.env` 设置 `DB_PATH` 指向原文件。
 
 ## 开发入口
 

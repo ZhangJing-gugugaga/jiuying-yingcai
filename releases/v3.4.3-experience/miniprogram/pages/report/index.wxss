@@ -1,5 +1,0 @@
-/* Shared visual system is defined in app.wxss. */
-
-.version-grid{display:grid;grid-template-columns:1fr 1fr;gap:16rpx;margin-top:24rpx}.version-card{padding:20rpx;border-radius:16rpx;background:#f0f5fb;background:var(--surface-muted)}.version-card .card-title{font-size:25rpx;margin-top:10rpx}
-
-.linked-version{border:2rpx solid #0e65b7;border-color:var(--brand);background:#eaf4ff;background:var(--brand-soft)}.version-card.linked-version{margin-top:16rpx}

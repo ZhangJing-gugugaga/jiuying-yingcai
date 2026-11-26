@@ -9,9 +9,9 @@
 | 文案、样式和页面交互 | 打开受影响页面。文案检查显示和换行，交互检查入口、结果和返回。 |
 | 业务逻辑与接口 | 跑相关 Node 用例。涉及两个端时，用同一隔离库从正常入口联调。 |
 | 权限、账务与迁移 | 按[项目约定](../AGENTS.md)核对对象范围、金额和旧数据。涉及分派时复验同岗经办人。 |
-| 公共模块、跨端契约或整体验收 | 跑 `npm test`，按影响面补微信、总部 Web 和 [T01–T13](handoff/05-验收与开发协作.md) 场景。 |
+| 公共模块、跨端契约或整体验收 | 在 `web/` 跑 `npm test`，按影响面补微信、总部 Web 和 [T01–T13](handoff/05-验收与开发协作.md) 场景。 |
 
-相关检查按需运行。`node scripts/check-syntax.cjs` 检查 JS 和 JSON，`node scripts/wechat-validate.cjs` 检查小程序路由和文件，`node tests/browser.cjs` 跑总部主流程。记录实际做过的检查和待验证项。
+下列检查在 `web/` 按需运行。`node scripts/check-syntax.cjs` 检查 JS 和 JSON，`node scripts/wechat-validate.cjs` 检查小程序路由和文件，`node tests/browser.cjs` 跑总部主流程。记录实际做过的检查和待验证项。
 
 ## Codex 小程序工具链
 

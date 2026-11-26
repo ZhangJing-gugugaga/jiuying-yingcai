@@ -2,7 +2,7 @@
 
 使用 JS、WXML 和 WXSS。主包与分包路由见 [app.json](app.json)，页面与业务入口见[页面结构](../docs/PAGE-STRUCTURE.md)。
 
-TDesign 组件和字体已随源码放在 `vendor/tdesign`，日常调试直接使用。改动组件依赖时，用 `npm run wechat:vendor -- --check` 核对生成件。
+TDesign 组件和字体已随源码放在 `vendor/tdesign`，日常调试直接使用。改动组件依赖时，在 `web/` 用 `npm run wechat:vendor -- --check` 核对生成件。
 
 ## 运行与人工验证
 
