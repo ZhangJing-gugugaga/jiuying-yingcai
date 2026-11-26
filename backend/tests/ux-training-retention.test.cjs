@@ -57,7 +57,7 @@ test('an unsubmitted training image stays with the learner until the user confir
 
 test('headquarters keeps the saved review outcome beside the original record under an active filter', async t => {
   const { setImmediate: flush } = require('node:timers/promises');
-  const { trainingDesk } = await import('../admin-web/training.js');
+  const { trainingDesk } = await import('../../web/training.js');
   const originalFormData = global.FormData;
   global.FormData = class {
     constructor(form) { return Object.entries(form.fields); }

@@ -20,6 +20,6 @@ function reportRows(data,state,actor,history=[]){
  if(actor==='manager')for(const k of keys)rows.push([],['独立排名',labels[k]],...data.rows.filter(r=>r[k]!=null).sort((a,b)=>b[k]-a[k]).map((r,i,ordered)=>[ordered.findIndex(x=>x[k]===r[k])+1,r.name,r[k]]));
  rows.push([],['口径说明','缺失或不适用不按零处理；范围以当前用户权限为准。'],['方法版本',data.methodVersion]);return rows;
 }
-async function exportXlsx(rows){const {xlsx}=await import('../admin-web/export.js');return Buffer.from(xlsx(rows));}
+async function exportXlsx(rows){const {xlsx}=await import('../../web/export.js');return Buffer.from(xlsx(rows));}
 const exportPdf=require('./pdf-report.cjs');
 module.exports={reportRows,exportXlsx,exportPdf};

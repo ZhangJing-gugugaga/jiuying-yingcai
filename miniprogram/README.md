@@ -15,7 +15,7 @@
 | [utils/](utils/) | 请求、会话和导航 |
 | [vendor/tdesign/](vendor/tdesign/) | 随源码维护的组件和字体 |
 
-更新 TDesign 组件依赖时，在仓库的 `web/` 用 `npm run wechat:vendor -- --check` 核对当前生成件。
+更新 TDesign 组件依赖时，在仓库的 `backend/` 用 `npm run wechat:vendor -- --check` 核对当前生成件。
 
 ## 运行与人工验证
 

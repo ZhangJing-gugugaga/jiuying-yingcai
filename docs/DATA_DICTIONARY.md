@@ -1,6 +1,6 @@
 # 数据字典与前向迁移
 
-V3.4.4 当前工作区含 001–033 号迁移，V4.1 历史基线截至 028。下文表数和退款能力描述对应各自演进阶段。完整结构以[编号 SQL](../web/database/)为准。
+V3.4.4 当前工作区含 001–033 号迁移，V4.1 历史基线截至 028。下文表数和退款能力描述对应各自演进阶段。完整结构以[编号 SQL](../backend/database/)为准。
 
 现有20业务表、003新增15表、007合作留言，009增加contentVersions，033增加agencyRelations，业务实体共38；每表id/owner/outlet/status/month/version/current/amount_cents/data/created_at，JSON保留领域细节，投影便于查询和约束。不是全字段关系规范化模型，多数关联由事务和业务校验保证。
 
@@ -70,41 +70,41 @@ schema_migrations逐版本记录。编号按序事务执行，失败ROLLBACK；�
 
 ## V4.1 迁移索引
 
-- [001_initial](../web/database/001_initial.sql)
-- [002_nullable_amount_index](../web/database/002_nullable_amount_index.sql)
-- [003_operations](../web/database/003_operations.sql)
-- [004_platform](../web/database/004_platform.sql)
-- [005_bill_corrections](../web/database/005_bill_corrections.sql)
-- [006_domain_integrity](../web/database/006_domain_integrity.sql)
-- [007_cooperation_requests](../web/database/007_cooperation_requests.sql)
-- [008_platform_limits](../web/database/008_platform_limits.sql)
-- [009_domain_remediation](../web/database/009_domain_remediation.sql)
-- [010_external_identity](../web/database/010_external_identity.sql)
-- [011_wechat_pay](../web/database/011_wechat_pay.sql)
-- [012_official_account](../web/database/012_official_account.sql)
-- [013_payment_reconciliation](../web/database/013_payment_reconciliation.sql)
-- [014_task_responsibilities](../web/database/014_task_responsibilities.sql)
-- [015_approval_events](../web/database/015_approval_events.sql)
-- [016_payment_channels](../web/database/016_payment_channels.sql)
-- [017_finance_ledger_catchup](../web/database/017_finance_ledger_catchup.sql)
-- [018_report_resettlement](../web/database/018_report_resettlement.sql)
-- [019_official_delivery_metadata](../web/database/019_official_delivery_metadata.sql)
-- [020_payment_recovery](../web/database/020_payment_recovery.sql)
-- [021_partner_responsibilities](../web/database/021_partner_responsibilities.sql)
-- [022_activation_lifecycle](../web/database/022_activation_lifecycle.sql)
-- [023_staff_web_login](../web/database/023_staff_web_login.sql)
-- [024_task_routing_rules](../web/database/024_task_routing_rules.sql)
-- [025_work_contacts](../web/database/025_work_contacts.sql)
-- [026_approval_export_grants](../web/database/026_approval_export_grants.sql)
-- [027_training](../web/database/027_training.sql)
-- [028_support_ticket_files](../web/database/028_support_ticket_files.sql)
+- [001_initial](../backend/database/001_initial.sql)
+- [002_nullable_amount_index](../backend/database/002_nullable_amount_index.sql)
+- [003_operations](../backend/database/003_operations.sql)
+- [004_platform](../backend/database/004_platform.sql)
+- [005_bill_corrections](../backend/database/005_bill_corrections.sql)
+- [006_domain_integrity](../backend/database/006_domain_integrity.sql)
+- [007_cooperation_requests](../backend/database/007_cooperation_requests.sql)
+- [008_platform_limits](../backend/database/008_platform_limits.sql)
+- [009_domain_remediation](../backend/database/009_domain_remediation.sql)
+- [010_external_identity](../backend/database/010_external_identity.sql)
+- [011_wechat_pay](../backend/database/011_wechat_pay.sql)
+- [012_official_account](../backend/database/012_official_account.sql)
+- [013_payment_reconciliation](../backend/database/013_payment_reconciliation.sql)
+- [014_task_responsibilities](../backend/database/014_task_responsibilities.sql)
+- [015_approval_events](../backend/database/015_approval_events.sql)
+- [016_payment_channels](../backend/database/016_payment_channels.sql)
+- [017_finance_ledger_catchup](../backend/database/017_finance_ledger_catchup.sql)
+- [018_report_resettlement](../backend/database/018_report_resettlement.sql)
+- [019_official_delivery_metadata](../backend/database/019_official_delivery_metadata.sql)
+- [020_payment_recovery](../backend/database/020_payment_recovery.sql)
+- [021_partner_responsibilities](../backend/database/021_partner_responsibilities.sql)
+- [022_activation_lifecycle](../backend/database/022_activation_lifecycle.sql)
+- [023_staff_web_login](../backend/database/023_staff_web_login.sql)
+- [024_task_routing_rules](../backend/database/024_task_routing_rules.sql)
+- [025_work_contacts](../backend/database/025_work_contacts.sql)
+- [026_approval_export_grants](../backend/database/026_approval_export_grants.sql)
+- [027_training](../backend/database/027_training.sql)
+- [028_support_ticket_files](../backend/database/028_support_ticket_files.sql)
 
 ## V3.4.4 扩展迁移
 
 | 迁移 | 数据与兼容 |
 | --- | --- |
-| [029](../web/database/029_onboarding.sql) | 新增加盟申请记录。 |
-| [030](../web/database/030_onboarding_supplement_scope.sql) | 记录补件所属申请及版本。 |
-| [031](../web/database/031_public_outlet_photos.sql) | 登记公开网点照片用途。 |
-| [032](../web/database/032_report_submitter_name.sql) | 为月报提交事件留存姓名快照。历史事件继续可读，缺失姓名保留为空。 |
-| [033](../web/database/033_agency_relations.sql) | 新增 agencyRelations 直属关系表；按 child owner 的部分唯一索引保证同一二级只有一条 active 关系，解绑保留历史。主体级别存于 organizations.data，旧记录无 level 时按未设置处理。 |
+| [029](../backend/database/029_onboarding.sql) | 新增加盟申请记录。 |
+| [030](../backend/database/030_onboarding_supplement_scope.sql) | 记录补件所属申请及版本。 |
+| [031](../backend/database/031_public_outlet_photos.sql) | 登记公开网点照片用途。 |
+| [032](../backend/database/032_report_submitter_name.sql) | 为月报提交事件留存姓名快照。历史事件继续可读，缺失姓名保留为空。 |
+| [033](../backend/database/033_agency_relations.sql) | 新增 agencyRelations 直属关系表；按 child owner 的部分唯一索引保证同一二级只有一条 active 关系，解绑保留历史。主体级别存于 organizations.data，旧记录无 level 时按未设置处理。 |

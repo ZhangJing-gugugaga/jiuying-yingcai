@@ -8,7 +8,7 @@
 
 | 要回答的问题 | 依据 |
 | --- | --- |
-| 项目如何启动和协作？ | [项目启动](../README.md#本地启动) · [微信小程序](../miniprogram/README.md) · [总部 Web 与 API](../web/README.md) · [协作约定](../AGENTS.md) |
+| 项目如何启动和协作？ | [项目启动](../README.md#本地启动) · [微信小程序](../miniprogram/README.md) · [总部 Web](../web/README.md) · [后端与 API](../backend/README.md) · [协作约定](../AGENTS.md) |
 | 本期做什么，谁能办理？ | [产品规格](PROJECT-SPEC.md)、[角色权限](handoff/02-三方关系与权限明细.md)、[需求追溯](handoff/06-需求编号追溯.md) |
 | 页面与数据如何组织？ | [架构](ARCHITECTURE.md)、[页面](PAGE-STRUCTURE.md)、[设计](../DESIGN.md)、[组件](COMPONENT-GUIDELINES.md)、[接口](API.md)、[数据字典](DATA_DICTIONARY.md) |
 | 如何构建和部署？ | [构建与分发](REGISTRY.md)、[部署](DEPLOYMENT.md)、[安全](SECURITY.md)、[上线资料](上线资料清单.md)、[第三方声明](THIRD_PARTY_NOTICES.md) |
