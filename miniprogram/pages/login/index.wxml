@@ -1,6 +1,6 @@
 <view class="page login {{mode==='activate' ? 'login-activation' : ''}}">
   <view wx:if="{{mode!=='activate'}}" class="login-heading">
-    <view class="brand-mark" aria-hidden="true">九</view>
+    <image class="brand-mark" src="/assets/brand-logo.png" mode="aspectFit" aria-hidden="true"/>
     <view class="grow">
       <view class="login-brand-name">九盈英才</view>
       <view class="title">{{mode==='staff' ? '总部管理端' : mode==='sms' ? '手机验证码登录' : '账号登录'}}</view>

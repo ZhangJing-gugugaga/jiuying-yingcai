@@ -1,7 +1,7 @@
 /* Shared visual system is defined in app.wxss. */
 .page.login{padding-top:var(--space-xl);max-width:580px}
 .login-heading{display:flex;align-items:center;gap:var(--space-lg);min-height:144rpx;padding:0 var(--space-lg);border-radius:var(--radius-card);background:repeating-linear-gradient(135deg,transparent 0 24rpx,var(--surface) 25rpx 26rpx,transparent 27rpx 52rpx),linear-gradient(120deg,var(--brand-soft),var(--surface))}
-.login .brand-mark{width:88rpx;height:88rpx;flex-shrink:0;font-size:38rpx;margin:0;background:var(--brand-deep);color:var(--surface);border:0}
+.login .brand-mark{width:88rpx;height:88rpx;flex-shrink:0;margin:0;background:transparent;border:0}
 .login-brand-name{color:var(--muted);font-size:var(--font-caption)}
 .login .title{font-size:var(--font-title);margin:var(--space-2xs) 0 0;letter-spacing:0}
 .login .card > .primary{width:100%;margin-top:var(--space-md)}

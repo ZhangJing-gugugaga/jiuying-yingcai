@@ -12,7 +12,7 @@
       <view class="workbench-hero-copy">
         <view class="home-public-brand">
           <image wx:if="{{brandMark.coverPath}}" class="home-brand-logo" src="{{brandMark.coverPath}}" mode="aspectFit" data-cover-path="{{brandMark.coverPath}}" binderror="brandMarkFailed" aria-hidden="true"/>
-          <text wx:else class="home-mark" aria-hidden="true">九</text><text>九盈英才</text>
+          <image wx:else class="home-brand-logo" src="/assets/brand-logo.png" mode="aspectFit" aria-hidden="true"/><text>九盈英才</text>
         </view>
         <view class="workbench-tagline">集团专业服务 · 赋能加盟网点 · 共创发展</view>
         <view class="workbench-greeting">{{managerName ? '您好，'+managerName : '加盟商工作台'}}</view>
@@ -174,7 +174,7 @@
       <view class="home-public-hero-copy">
         <view class="home-public-brand">
           <image wx:if="{{brandMark.coverPath}}" class="home-brand-logo" src="{{brandMark.coverPath}}" mode="aspectFit" data-cover-path="{{brandMark.coverPath}}" binderror="brandMarkFailed" aria-hidden="true"/>
-          <text wx:else class="home-mark" aria-hidden="true">九</text><text>九盈英才</text>
+          <image wx:else class="home-brand-logo" src="/assets/brand-logo.png" mode="aspectFit" aria-hidden="true"/><text>九盈英才</text>
         </view>
         <view class="home-public-title"><text>专业服务</text><text>共创发展</text></view>
         <view class="home-public-caption">教育赋能 · 运营支持 · 品牌共建</view>

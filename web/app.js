@@ -414,7 +414,7 @@ function renderLogin(){
     '" class="'+(mode===key?'active':'')+'" aria-pressed="'+(mode===key)+'">'+label+'</button>').join('');
   $('app').innerHTML=`<main class="login">
     <section class="login-art" aria-hidden="true">
-      <div class="brand"><div class="brand-mark">九</div><strong>九盈英才</strong></div>
+      <div class="brand"><img class="brand-mark" src="/brand-logo.png" alt=""><strong>九盈英才</strong></div>
       <div class="login-art-body">
         <p>网点 · 月报 · 服务费</p>
         <div class="login-art-title">经营协作平台</div>
@@ -422,7 +422,7 @@ function renderLogin(){
     </section>
     <section class="login-form">
       <div class="login-box">
-        <div class="login-mobile-mark" aria-hidden="true">九</div>
+        <img class="login-mobile-mark" src="/brand-logo.png" alt="">
         ${roleTrialPanel()}
         <h1>${mode==='activate'?'首次激活':'登录九盈英才'}</h1>
         <p class="subtitle">${mode==='activate'?'使用总部发放的激活码设置密码。':'使用总部登记的个人账号登录。'}</p>
@@ -444,7 +444,7 @@ function shell(body){
   const workspace=own()?'加盟商工作台':session.role==='public'?'集团与网点服务':'总部工作台';
   $('app').innerHTML=`<div class="layout">
     <aside class="side" id="workspace-navigation">
-      <div class="brand"><div class="brand-mark">九</div><div><strong>九盈英才</strong><small>经营协作平台</small></div></div>
+      <div class="brand"><img class="brand-mark" src="/brand-logo.png" alt=""><div><strong>九盈英才</strong><small>经营协作平台</small></div></div>
       <nav class="nav" aria-label="工作空间">${workspaceNav(allowed,notifications)}</nav>
     </aside>
     <button type="button" class="nav-dismiss" data-action="menu-close" aria-label="关闭功能菜单" hidden></button>

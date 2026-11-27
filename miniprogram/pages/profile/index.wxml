@@ -3,7 +3,7 @@
   <view wx:if="{{loading}}" class="loading">正在加载，请稍候…</view>
   <view wx:if="{{error}}" class="error">{{error}}<button class="link top-gap" bindtap="refresh">重试</button></view>
   <view wx:if="{{isPublic || hasAccount}}" class="card profile-account row">
-    <view class="avatar" aria-hidden="true">九</view>
+    <view class="avatar" aria-hidden="true"><t-icon name="user" size="44rpx"/></view>
     <view class="grow">
       <view class="card-title">{{isPublic ? '访客' : managerName || '加盟商账号'}}</view>
       <view wx:if="{{isPublic}}" class="muted">登录后可管理网点和经营数据。</view>

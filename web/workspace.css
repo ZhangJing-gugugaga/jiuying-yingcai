@@ -49,8 +49,9 @@
   color: var(--nav-text);
 }
 .side .brand .brand-mark {
-  background: var(--nav-active);
-  color: var(--surface);
+  padding: 3px;
+  border-radius: 8px;
+  background: white;
 }
 .side .brand small { color: var(--nav-muted); letter-spacing: .04em; }
 .side .nav {
@@ -548,15 +549,10 @@ dialog header + .approval-history > h3 {
   .report-record form[data-command="review.report"] button[type="submit"] { width: 100%; }
   .login .login-form { min-height: 100svh; padding: 20px; }
   .login-mobile-mark {
-    display: grid;
-    place-items: center;
+    display: block;
     width: 42px;
     height: 42px;
-    border-radius: 10px;
+    object-fit: contain;
     margin-bottom: 18px;
-    background: var(--brand);
-    color: var(--surface);
-    font-size: 20px;
-    font-weight: 650;
   }
 }
