@@ -117,9 +117,12 @@ test('public business and details stay usable when the FAQ service fails', async
 test('an unavailable member map exposes the same authorised address list and can retry', async t => {
   const { routes } = await runtime(t);
   await api.login('partnerA');
-  const outlets = page('outlets', { scope: 'private', mode: 'map' });
+  const outlets = page('outlets', { scope: 'private' });
   await outlets.onShow();
   assert.equal(outlets.data.directory, false);
+  assert.match(wxml('outlets'), /!directory && mode==='list'[\s\S]*?data-mode="map" bindtap="mode"/);
+  await outlets.mode(tap({mode:'map'}));
+  assert.equal(outlets.data.mode, 'map');
   assert.ok(outlets.data.markers.length);
   const rows = outlets.data.rows;
   const expectedIds = rows.map(row => row.id);

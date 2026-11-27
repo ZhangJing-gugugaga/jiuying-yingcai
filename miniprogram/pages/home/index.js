@@ -89,6 +89,7 @@ const home=define({
       const isVisitor=state.actor==='public'&&session?.role==='public';
       const contents=state.publicContents||[];
       const groupIntro=retainPublicCover(contents.find(record=>record.key==='brand')||null,this.data.groupIntro);
+      const groupSummary=(groupIntro?.summary || groupIntro?.body || groupIntro?.text || groupIntro?.intro || '').trim().split(/\r?\n\s*\r?\n/,1)[0];
       const publishedServices=contents.filter(record=>/^service-[1-5]$/.test(record.key))
         .sort((first,second)=>first.key.localeCompare(second.key))
         .map(record=>{
@@ -99,7 +100,7 @@ const home=define({
       const phone=String(state.support?.settings?.phone||'').replace(/[\s()-]/g,'');
       const headquartersAddress=contents.find(record=>record.key==='headquarters-address'&&record.text)||null;
       const officialWechat=contents.find(record=>record.key==='official-wechat'&&record.imageId)||null;
-      this.setData({publicView:true,groupIntro,publishedServices,headquartersPhone:/^\+?\d{5,20}$/.test(phone)?phone:'',
+      this.setData({publicView:true,groupIntro,groupSummary,publishedServices,headquartersPhone:/^\+?\d{5,20}$/.test(phone)?phone:'',
         headquartersAddress,officialWechat,
         openTotal:null,taskError:false,...(!isVisitor?{unreadNoticeCount:0}:{})});
       this.updatePublicShareMenu();

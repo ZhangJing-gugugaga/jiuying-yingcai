@@ -272,6 +272,8 @@ test('the outlet tab picks one action by priority and offers detail for waiting 
   await page.onShow();
   assert.equal(page.data.mode, 'list');
   await page.mode(tap({ mode: 'map' }));
+  assert.equal(page.data.mode, 'map');
+  await page.mode(tap({ mode: 'list' }));
   assert.equal(page.data.mode, 'list');
   assert.deepEqual(page.data.rows.map(row => row.nextAction?.page ?? null), scenarios.map(row => row[4]));
   assert.equal(page.data.rows[0].area, '长沙市 · 岳麓区');
@@ -288,6 +290,28 @@ test('the outlet tab picks one action by priority and offers detail for waiting 
   page.setData({ directory: true });
   page.outletAction(tap({ id: 'cs' }));
   assert.equal(routes.length, 4);
+});
+
+test('private map opened from the first page includes later matching outlets', async t => {
+  const rows = Array.from({length: 57}, (_, i) => ({
+    id: 'shop-' + i, name: i === 56 ? '杭州' : '长沙', owner: 'p1',
+    coords: i === 55 ? null : {lat: 28 + (i === 54 ? 0 : i) / 1000, lng: 113}
+  }));
+  const {page, routes} = mount(t, 'outlets', {scope: 'private'}, {
+    rows: (_name, filters) => rows.filter(row => row.name.includes(filters.q || ''))
+  });
+  await page.onShow();
+  await page.search({detail: {value: '长沙'}});
+  assert.equal(page.data.rows.length, 50);
+  await page.mode(tap({mode: 'map'}));
+  assert.equal(page.data.pagers.outlets.hasMore, false);
+  assert.deepEqual(new Set(page.data.markers.flatMap(pin => pin.outletIds || [pin.outletId])), new Set(rows.slice(0,55).map(row => row.id)));
+  page.marker({detail: {markerId: page.data.markers[0].id}});
+  assert.deepEqual(page.data.clusterRows.map(row => row.id), ['shop-0','shop-54']);
+  page.open(tap({id: 'shop-54'}));
+  assert.deepEqual(routes, ['/pages/outlet/index?id=shop-54']);
+  await page.mode(tap({mode: 'list'}));
+  assert.equal(page.data.search, '长沙');
 });
 
 test('returning from an outlet restores the private list search and visible range', async t => {
@@ -349,8 +373,8 @@ test('login retains credentials after a wrong password and clears them when swit
 
 test('account help links to published group information and frequently asked questions', () => {
   const profile = markup('profile');
-  assert.match(profile, /data-page="discover" data-query="section=brand"/);
-  assert.match(profile, /data-page="discover" data-query="section=faq"/);
+  assert.ok(profile.includes('url="/pages/discover/index?section=brand"'));
+  assert.ok(profile.includes('url="/pages/discover/index?section=faq"'));
 });
 
 test('published business details offer contact and sharing after the content', () => {

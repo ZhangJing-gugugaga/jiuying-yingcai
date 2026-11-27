@@ -18,10 +18,10 @@
   </view>
   <view class="section-title">账号与帮助</view>
   <t-cell-group class="card profile-menu">
-    <t-cell wx:if="{{!isPublic && hasAccount}}" title="账号安全" left-icon="secured" arrow hover data-page="security" bind:click="nav"/>
-    <t-cell title="集团介绍与服务" left-icon="home" arrow hover data-page="discover" data-query="section=brand" bind:click="nav"/>
-    <t-cell title="常见问题" left-icon="help-circle" arrow hover data-page="discover" data-query="section=faq" bind:click="nav"/>
-    <t-cell title="联系总部" left-icon="service" arrow hover data-page="support" bind:click="nav"/>
+    <navigator wx:if="{{!isPublic && hasAccount}}" url="/pages/security/index" hover-class="tap-feedback"><t-cell title="账号安全" left-icon="secured" arrow hover/></navigator>
+    <navigator url="/pages/discover/index?section=brand" hover-class="tap-feedback"><t-cell title="集团介绍与服务" left-icon="home" arrow hover/></navigator>
+    <navigator url="/pages/discover/index?section=faq" hover-class="tap-feedback"><t-cell title="常见问题" left-icon="help-circle" arrow hover/></navigator>
+    <navigator url="/pages/support/index?section=home" hover-class="tap-feedback"><t-cell title="联系总部" left-icon="service" arrow hover/></navigator>
   </t-cell-group>
   <view class="card">
     <button class="profile-favorites-button" bindtap="toggleFavorites" aria-expanded="{{showFavorites}}">{{showFavorites ? '收起收藏的网点' : '收藏的服务网点'}}</button>

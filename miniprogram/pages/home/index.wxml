@@ -224,7 +224,7 @@
         <view class="home-section-title">集团介绍</view>
         <block wx:if="{{groupIntro}}">
           <view wx:if="{{groupIntro.title!=='九盈英才'}}" class="home-group-title">{{groupIntro.title}}</view>
-          <view wx:if="{{groupIntro.summary || groupIntro.body || groupIntro.text || groupIntro.intro}}" class="home-group-summary">{{groupIntro.summary || groupIntro.body || groupIntro.text || groupIntro.intro}}</view>
+          <view wx:if="{{groupSummary}}" class="home-group-summary">{{groupSummary}}</view>
         </block>
         <view wx:elif="{{hasLoaded && !error}}" class="home-content-status">集团介绍暂未发布。</view>
         <view class="home-group-link">了解九盈英才 <text aria-hidden="true">›</text></view>

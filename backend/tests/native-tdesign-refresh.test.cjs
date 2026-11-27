@@ -33,7 +33,7 @@ test('visitor and workbench surfaces use native TDesign while preserving the exi
   assert.match(home, /data-page="fees" bindtap="openScopedTool"/);
   assert.match(home, /data-page="outlets" bindtap="openOutlets"/);
   assert.match(home, /data-page="tasks" data-query="section=notices" bindtap="nav"/);
-  assert.match(read('pages/profile/index.wxml'), /<t-cell[^>]+data-page="security" bind:click="nav"/);
+  assert.match(read('pages/profile/index.wxml'), /<navigator[^>]+url="\/pages\/security\/index"/);
   const login = read('pages/login/index.wxml');
   assert.match(login, /<t-input[^>]+data-field="password" bind:change="input"[^>]+type="password"/);
   assert.match(login, /<t-button[^>]+bind:tap="passwordLogin"[^>]+disabled="{{busy}}"/);

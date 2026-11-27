@@ -15,7 +15,7 @@ const publicErrorVariants={
   '收款信息已更新，请重新核对后提交','该手机号已有加盟申请或账号，请联系总部核实','这张凭证已用于另一笔申请，请核对',
   '加盟申请暂未开放','原申请状态已更新，请重新查看']),
  INVALID_CREDENTIALS:new Set(['当前密码不正确','当前个人账号密码不正确','登录名或密码不正确','凭证已变化，请重新登录']),
- DUPLICATE:new Set(['已有待审核版本']),
+ DUPLICATE:new Set(['已有待审核版本','本月已向该直属主体催报，请勿重复发送']),
 };
 function errorText(error={}){
  const {code,status}=error;

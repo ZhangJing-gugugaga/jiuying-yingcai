@@ -30,6 +30,7 @@
     </button>
   </view>
   <view wx:if="{{state && !isPublic}}" class="outlet-toolbar">
+    <button wx:if="{{!directory && mode==='list'}}" class="link outlet-toolbar-link outlet-map-toggle" data-mode="map" bindtap="mode">查看地图</button>
     <button wx:if="{{state && !isPublic}}" class="link outlet-toolbar-link" data-scope="{{directory ? 'private' : 'public'}}" bindtap="changeScope">{{directory ? '返回我的网点' : '浏览服务网点'}}</button>
     <button wx:if="{{state && !directory && !isPublic && rows.length}}" class="link outlet-toolbar-link" data-page="requests" data-query="type=newOutlet" bindtap="nav">申请新增网点</button>
   </view>
@@ -79,6 +80,7 @@
           <text class="muted">{{pointCount}} 家网点已公开位置</text>
           <button class="link" bindtap="resetViewport">查看全部位置</button>
         </view>
+        <view wx:if="{{!directory}}" class="muted">{{pointCount}} 家授权网点有位置</view>
         <map id="outlet-map" class="map outlet-map" latitude="{{center.lat}}" longitude="{{center.lng}}" scale="{{zoom}}" min-scale="{{minScale}}" max-scale="{{maxScale}}" markers="{{markers}}" bindmarkertap="marker" bindlabeltap="marker" bindregionchange="regionChanged" binderror="mapFailed" enable-zoom="{{true}}" enable-scroll="{{true}}" show-location="{{false}}"/>
         <view wx:if="{{selectedPoint}}" class="row between map-result">
           <text class="grow">{{selectedPoint.name}}</text>
@@ -111,6 +113,7 @@
               <text wx:if="{{item.statusText}}" class="badge outlet-public-status {{item.statusTone}}">{{item.statusText}}</text>
             </view>
             <view wx:elif="{{item.area}}" class="muted outlet-area">{{item.area}}</view>
+            <view wx:if="{{!directory && mode==='map' && item.address}}" class="muted">{{item.address}}</view>
             <view wx:if="{{(directory || isPublic) && item.services.length}}" class="outlet-service-tags">
               <text wx:for="{{item.services}}" wx:for-item="service" wx:key="*this" class="outlet-service-tag">{{service}}</text>
             </view>

@@ -119,17 +119,18 @@ const page=define({
     const directory=this.data.isPublic||this.query.scope==='public';
     const scope=resultScope(this,this.data.session);
     const pending=this._returning;
-    if(pending?.serial===this._serial){
-      this._returning=null;
-      if(!directory&&pending.range.scope===scope){
-        const {serial,range}=pending;
-        while(serial===this._serial&&scope===resultScope(this)&&this.data.pagers.outlets?.hasMore&&
-          this.data.pagers.outlets.loaded<range.loaded){
-          await this.fetchCollection('outlets',false,serial,false);
-        }
+    this._returning=null;
+    const serial=this._serial;
+    const restoreCount=pending&&pending.serial===serial&&pending.range.scope===scope?pending.range.loaded:0;
+    if(!directory){
+      while(this.data.pagers.outlets?.hasMore&&
+        (this.data.mode==='map'||this.data.pagers.outlets.loaded<restoreCount)){
+        const offset=this.data.pagers.outlets.nextOffset;
+        await this.fetchCollection('outlets',false,serial,false);
         if(serial!==this._serial||scope!==resultScope(this))return;
-        s=this.data.state;
+        if(this.data.pagers.outlets.hasMore&&this.data.pagers.outlets.nextOffset<=offset)throw new Error(mapError);
       }
+      s=this.data.state;
     }
     const previous=this._rowScope===scope?new Map(this.data.rows.map(row=>[row.id,row])):new Map();
     const makeRow=directory?publicRow:privateRow;
@@ -145,7 +146,8 @@ const page=define({
     }
     const points=rows.map(row=>mapView.coordinate(row,directory)).filter(Boolean);
     const viewport=mapView.viewport(points);
-    this.setData({markers:mapView.markers(rows,directory,viewport?.scale||mapView.minScale),
+    this._cluster=[];
+    this.setData({clusterRows:[],clusterTotal:0,pointCount:points.length,markers:mapView.markers(rows,directory,viewport?.scale||mapView.minScale),
       center:viewport,zoom:viewport?.scale||mapView.minScale});
   },
   async loadOutletCovers(){
@@ -252,10 +254,11 @@ const page=define({
   },
   async mode(e){
     const {mode}=e.currentTarget.dataset;
-    if(!this.data.directory||!['list','map'].includes(mode)||mode===this.data.mode)return;
+    if(!['list','map'].includes(mode)||mode===this.data.mode)return;
     if(mode==='list')return this.modeUnavailable();
     this.setData({mode,mapError:'',selectedPoint:null,clusterRows:[],clusterTotal:0});
     if(this.data.directory)await this.loadPublicMap();
+    else if(this.data.pagers.outlets?.hasMore)await this.refresh();
   },
   async loadPublicMap(){
     if(!this.data.directory||this.data.mode!=='map')return;
@@ -335,13 +338,15 @@ const page=define({
   marker(e){
     const point=this.data.markers.find(x=>x.id===Number(e.detail.markerId));
     if(!point)return;
-    if(!this.data.directory||this.data.mode!=='map')return this.openOutlet(point.outletId);
+    if(this.data.mode!=='map')return;
     if(point.outletIds?.length>1){
       const ids=new Set(point.outletIds);
-      this._cluster=this._pointRows.filter(row=>ids.has(row.id));
+      const rows=this.data.directory?this._pointRows:this.data.rows;
+      this._cluster=rows.filter(row=>ids.has(row.id));
       this.setData({selectedPoint:null,clusterRows:this._cluster.slice(0,20),clusterTotal:this._cluster.length});
       return;
     }
+    if(!this.data.directory)return this.openOutlet(point.outletId);
     this.setData({selectedPoint:{id:point.outletId,name:point.title},clusterRows:[],clusterTotal:0});
   },
   moreCluster(){

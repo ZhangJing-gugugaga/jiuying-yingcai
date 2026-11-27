@@ -34,7 +34,8 @@ function markers(outlets,directory,scale,longitude=0,grouped=false){
     const point=coordinate(row,directory);
     if(!point)continue;
     const lng=normalizeLongitude(point.longitude-longitude);
-    const key=grouped?Math.floor(point.latitude/step)+':'+Math.floor(lng/step):row.id;
+    const key=grouped?Math.floor(point.latitude/step)+':'+Math.floor(lng/step):
+      directory?row.id:point.latitude+':'+point.longitude;
     if(!cells.has(key))cells.set(key,[]);
     cells.get(key).push({row,point,lng});
   }

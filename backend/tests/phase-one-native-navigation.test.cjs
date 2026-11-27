@@ -93,7 +93,11 @@ test('a fresh contact view ignores the old tab context and a ticket keeps its ex
 
 test('my account keeps account actions without duplicating workbench destinations', () => {
   const profile = markup('profile');
-  assert.deepEqual([...profile.matchAll(/data-page="([a-z-]+)"/g)].map(match => match[1]), ['login', 'security', 'discover', 'discover', 'support']);
+  assert.deepEqual([...profile.matchAll(/data-page="([a-z-]+)"/g)].map(match => match[1]), ['login']);
+  assert.deepEqual([...profile.matchAll(/<navigator\b[^>]*\burl="([^"]+)"/g)].map(match => match[1]), [
+    '/pages/security/index', '/pages/discover/index?section=brand',
+    '/pages/discover/index?section=faq', '/pages/support/index?section=home',
+  ]);
   assert.match(profile, /bindtap="privacy"/);
   assert.match(profile, /bindtap="logout"/);
 });

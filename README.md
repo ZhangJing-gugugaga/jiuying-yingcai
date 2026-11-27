@@ -23,7 +23,22 @@ npm --prefix backend ci
 powershell -NoProfile -File .\backend\start.ps1
 ```
 
-打开[总部 Web](http://127.0.0.1:8787/)。微信开发者工具打开仓库内的 **`miniprogram/`**，在原窗口点「编译」。两个端默认连到同一个本地服务 `http://127.0.0.1:8787`。
+常规联调只需启动一次后端。Chrome 打开[总部 Web](http://127.0.0.1:8787/)，微信开发者工具在原 `miniprogram/` 项目点「编译」。两个前端默认使用同一服务 8787。
+
+### 本机集团隔离试用
+
+Chrome 打开[隔离总部 Web](http://127.0.0.1:18876/)。小程序先退出当前账号，在微信开发者工具调试器 Console 执行 `wx.setStorageSync('jyyc.simulator.environment', 'group-review')`，点「编译」后登录隔离账号。要恢复常规联调，退出隔离账号，执行 `wx.removeStorageSync('jyyc.simulator.environment')` 并再次编译。这个选择仅保存在当前模拟器。真机和发布包沿用独立构建配置。
+
+如需重启本机已有的隔离后端，从仓库根目录指定试用库：
+
+```powershell
+$env:DB_PATH = (Resolve-Path .\var\group-review\trial.db).Path
+$env:PORT = "18876"
+$env:HOST = "127.0.0.1"
+$env:ADAPTER_MODE = "mock"
+$env:SCHEDULER_ENABLED = "0"
+node .\backend\server\index.cjs
+```
 
 ## 常用文档
 
